@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LUI 连续对话场景案例</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #eef3fb;
+        color: #202634;
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          Arial,
+          sans-serif;
+      }
+
+      .page {
+        width: 1440px;
+        margin: 0 auto;
+        padding: 44px;
+        background:
+          radial-gradient(circle at 8% 0%, rgba(232, 243, 255, 0.9), transparent 34%),
+          linear-gradient(180deg, #f9fbff 0%, #eef4fb 100%);
+      }
+
+      .hero,
+      .scenario {
+        border: 1px solid #dce5f3;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 20px 50px rgba(87, 106, 145, 0.1);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 28px;
+        border-radius: 32px;
+        padding: 34px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 0 12px;
+        color: #4f6bff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        max-width: 840px;
+        font-size: 38px;
+        line-height: 1.16;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 860px;
+        color: #647083;
+        font-size: 16px;
+        line-height: 1.8;
+      }
+
+      .hero-note {
+        border-radius: 24px;
+        background: linear-gradient(180deg, #f7fbff 0%, #f2f7ff 100%);
+        padding: 22px;
+      }
+
+      .hero-note strong {
+        display: block;
+        margin-bottom: 12px;
+        font-size: 18px;
+      }
+
+      .hero-note div {
+        margin-top: 10px;
+        color: #4e596f;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .section-title {
+        margin: 34px 0 16px;
+        font-size: 26px;
+        font-weight: 900;
+      }
+
+      .scenario {
+        overflow: hidden;
+        border-radius: 30px;
+        margin-bottom: 24px;
+      }
+
+      .scenario-head {
+        display: grid;
+        grid-template-columns: 58px 1fr 220px;
+        gap: 16px;
+        align-items: center;
+        border-bottom: 1px solid #edf1f6;
+        padding: 20px 24px;
+      }
+
+      .number {
+        display: flex;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        background: #eef3ff;
+        color: #3a5bfd;
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .scenario-title {
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .scenario-sub {
+        margin-top: 5px;
+        color: #6f7888;
+        font-size: 13px;
+      }
+
+      .badge {
+        justify-self: end;
+        display: inline-flex;
+        height: 32px;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #dfe7f5;
+        background: #fff;
+        padding: 0 13px;
+        color: #687286;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .badge.good {
+        border-color: #d9f0e4;
+        background: #f6fcf8;
+        color: #10a663;
+      }
+
+      .badge.warn {
+        border-color: #ffe0b8;
+        background: #fffaf2;
+        color: #d97706;
+      }
+
+      .scenario-body {
+        display: grid;
+        grid-template-columns: 255px 1fr 295px;
+        gap: 18px;
+        padding: 22px 24px 24px;
+      }
+
+      .context,
+      .right,
+      .next {
+        border-radius: 24px;
+        background: #f8fafc;
+        padding: 16px;
+      }
+
+      .panel-title {
+        margin-bottom: 12px;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .context-card,
+      .right-card,
+      .next-card {
+        border-radius: 16px;
+        background: #fff;
+        padding: 13px;
+        color: #4e596f;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .context-card + .context-card,
+      .right-card + .right-card,
+      .next-card + .next-card {
+        margin-top: 10px;
+      }
+
+      .context-card strong,
+      .right-card strong,
+      .next-card strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #202634;
+      }
+
+      .right-card.good {
+        border: 1px solid #d9f0e4;
+        background: #f7fffb;
+      }
+
+      .right-card.blue {
+        border: 1px solid #dce8ff;
+        background: #f7fbff;
+      }
+
+      .right-card.warn {
+        border: 1px solid #ffe0b8;
+        background: #fffaf2;
+      }
+
+      .right-card.gray {
+        border: 1px solid #e1e7f0;
+        background: #f7f9fc;
+      }
+
+      .lui {
+        min-height: 360px;
+        border-radius: 26px;
+        background:
+          linear-gradient(90deg, rgba(245, 248, 253, 0.52) 1px, transparent 1px),
+          #fff;
+        background-size: 28px 28px;
+        padding: 22px;
+      }
+
+      .thread {
+        display: grid;
+        gap: 14px;
+      }
+
+      .lane-right {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .lane-left {
+        display: flex;
+        justify-content: flex-start;
+      }
+
+      .bubble {
+        max-width: 500px;
+        border-radius: 18px 8px 18px 18px;
+        background: #f6f7f9;
+        padding: 13px 17px;
+        color: #202634;
+        font-size: 15px;
+        line-height: 1.75;
+        box-shadow: 0 10px 24px rgba(100, 119, 156, 0.08);
+      }
+
+      .bubble.ai {
+        border: 1px solid #e8edf5;
+        border-radius: 18px 18px 18px 8px;
+        background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+      }
+
+      .thinking {
+        display: inline-flex;
+        max-width: 560px;
+        align-items: center;
+        gap: 9px;
+        border: 1px solid #dde2ea;
+        border-radius: 999px;
+        background: #f7f8fa;
+        padding: 9px 14px;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .thinking.expanded {
+        display: block;
+        width: 100%;
+        max-width: 620px;
+        border-radius: 20px;
+        background: #fff;
+        padding: 14px;
+      }
+
+      .thinking-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 900;
+      }
+
+      .thinking-detail {
+        margin-top: 10px;
+        border-top: 1px solid #e7ebf2;
+        padding-top: 10px;
+        color: #667083;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .check {
+        color: #10a663;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .loading {
+        width: fit-content;
+        border: 1px solid #e8edf5;
+        border-radius: 18px 18px 18px 8px;
+        background: #fff;
+        padding: 13px 16px;
+        color: #4c5567;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .loading-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 9px;
+        border-radius: 999px;
+        background: #faf7ff;
+        padding: 6px 10px;
+        color: #7b5cff;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #7b5cff;
+      }
+
+      .result {
+        display: flex;
+        max-width: 620px;
+        align-items: center;
+        gap: 14px;
+        border: 1px solid #bfeeff;
+        border-radius: 24px;
+        background: linear-gradient(180deg, #effdff 0%, #e9fbff 100%);
+        padding: 16px;
+        box-shadow: 0 12px 28px rgba(19, 148, 170, 0.08);
+      }
+
+      .result.gray {
+        border-color: #e1e7f0;
+        background: linear-gradient(180deg, #fbfcff 0%, #f6f8fb 100%);
+      }
+
+      .result-icon {
+        display: flex;
+        width: 46px;
+        height: 46px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        background: #fff;
+        color: #13a3bf;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .result-title,
+      .failure-title,
+      .record-title {
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .result-sub,
+      .failure-sub,
+      .record-sub {
+        margin-top: 4px;
+        color: #6f7888;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .plain {
+        max-width: 640px;
+        color: #3f485b;
+        font-size: 16px;
+        line-height: 1.9;
+      }
+
+      .plain strong {
+        color: #202634;
+      }
+
+      .plain-note {
+        max-width: 620px;
+        width: fit-content;
+        border-radius: 16px;
+        background: #f7f8fb;
+        padding: 12px 16px;
+        color: #6f7888;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .action {
+        display: inline-flex;
+        height: 40px;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #dce4f0;
+        background: #fff;
+        padding: 0 17px;
+        color: #46516a;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .action.primary {
+        border-color: #bfeeff;
+        background: #effdff;
+        color: #0f92aa;
+      }
+
+      .record {
+        display: flex;
+        max-width: 620px;
+        gap: 11px;
+        border: 1px solid #dce7ff;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(243, 247, 255, 0.94) 100%);
+        padding: 13px;
+      }
+
+      .record-icon {
+        display: flex;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 11px;
+        border: 1px solid #dfe8ff;
+        background: #fff;
+        color: #3a5bfd;
+        font-weight: 900;
+      }
+
+      .failure {
+        max-width: 620px;
+        border: 1px solid #ffe1bd;
+        border-radius: 20px;
+        background: linear-gradient(180deg, #fffaf4 0%, #fff 100%);
+        padding: 15px;
+      }
+
+      .hidden-row {
+        max-width: 620px;
+        border: 1px dashed #d7dfec;
+        border-radius: 16px;
+        background: #f8fafc;
+        padding: 12px 14px;
+        color: #8a93a6;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .micro-label {
+        display: inline-flex;
+        margin-bottom: 8px;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 5px 10px;
+        color: #5e6f96;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .divider {
+        display: flex;
+        justify-content: center;
+        color: #a1abbc;
+        font-size: 13px;
+        font-weight: 900;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">LUI 连续场景 · 不用表格版</div>
+          <h1>每个场景都按真实对话串起来：用户说什么，AI 回什么，用户还能继续说什么</h1>
+          <p>
+            下面每张都是一个完整上下文，不再把样式孤立列出来。重点看中间 LUI：同样是 AI 输出，有时是气泡，有时是思考条，有时是结果卡，有时只是结果卡下面的裸文字。
+          </p>
+        </div>
+        <aside class="hero-note">
+          <strong>阅读方法</strong>
+          <div>左栏看触发上下文：用户到底说了什么或做了什么。</div>
+          <div>中间看 LUI：这一轮左侧应该出现哪些内容。</div>
+          <div>右栏看下一句：用户接下来可以怎么继续。</div>
+        </aside>
+      </section>
+
+      <div class="section-title">正常推进：用户真的在推进创作</div>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">01</div>
+          <div>
+            <div class="scenario-title">从一句话开始创作</div>
+            <div class="scenario-sub">用户从首页输入明确创作需求，AI 生成右侧创意收集内容。</div>
+          </div>
+          <span class="badge good">完整链路</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户说</strong>我要创作一个雅思培训广告。</div>
+            <div class="context-card"><strong>系统判断</strong>这是有效创作需求，需要进入深度编排。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">我要创作一个雅思培训广告。</div></div>
+              <div class="lane-left"><div class="thinking"><span class="check">✓</span>Agent 思考完成 · 已识别创作意图</div></div>
+              <div class="lane-left"><div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧创意收集已生成</div><div class="result-sub">现在先看右侧业务信息</div></div></div></div>
+              <div class="lane-left"><div class="plain">我已经把你的需求整理成可确认的业务信息。先看右侧的业务点、目标受众和视频风格，确认后再继续生成方案。</div></div>
+              <div class="lane-left"><div class="actions"><span class="action primary">先看右侧信息</span><span class="action">补充素材</span><span class="action">改成横版</span></div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>继续补充</strong>目标受众改成大学生和职场新人。</div>
+            <div class="next-card"><strong>调整方向</strong>不要太硬广，像真实学员分享。</div>
+            <div class="next-card"><strong>确认推进</strong>这些信息没问题，继续生成方案。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">02</div>
+          <div>
+            <div class="scenario-title">用户确认业务信息，系统生成方案</div>
+            <div class="scenario-sub">用户不是输入新需求，而是点击右侧确认按钮。LUI 要表现“正在生成下一步”。</div>
+          </div>
+          <span class="badge good">按钮触发</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户操作</strong>点击「确认业务信息，生成方案规划」。</div>
+            <div class="context-card"><strong>系统判断</strong>当前步骤完成，可以生成创意主题、角色、剧本大纲。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">我已确认以上业务信息。</div></div>
+              <div class="lane-left"><div class="loading">正在生成方案规划<div class="loading-pill"><span class="pulse"></span>拆解主题、角色与剧本大纲</div></div></div>
+              <div class="lane-left"><div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧方案规划已生成</div><div class="result-sub">现在先看右侧方案规划</div></div></div></div>
+              <div class="lane-left"><div class="plain">我已经把创意方向整理成可编辑的方案。先看右侧的创意主题、角色设定和剧本大纲，再决定是否继续调整。</div></div>
+              <div class="lane-left"><div class="plain"><strong>优先确认：</strong>创意主题、角色设定、剧本大纲。</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>改主题</strong>主题更聚焦“口语提分焦虑”。</div>
+            <div class="next-card"><strong>换角色</strong>家长角色太强了，换成学习顾问。</div>
+            <div class="next-card"><strong>继续推进</strong>方案没问题，生成分镜。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">03</div>
+          <div>
+            <div class="scenario-title">用户对当前方案提出修改</div>
+            <div class="scenario-sub">这是典型对话改稿。思考可展开，结果说明用裸文字，不用再包成气泡。</div>
+          </div>
+          <span class="badge good">对话改稿</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户说</strong>第二段节奏再紧凑些，角色出场少一点。</div>
+            <div class="context-card"><strong>系统判断</strong>有效局部修改，会更新右侧第二段分镜。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">第二段节奏再紧凑些，角色出场少一点。</div></div>
+              <div class="lane-left">
+                <div class="thinking expanded">
+                  <div class="thinking-head"><span class="check">✓</span>Agent 思考完成 · 已分析修改范围</div>
+                  <div class="thinking-detail">意图：压缩第二段镜头节奏，减少角色出场。处理：同步调整画面描述、出场角色和口播重点。</div>
+                </div>
+              </div>
+              <div class="lane-left"><div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧第二段分镜已更新</div><div class="result-sub">现在先看第二段分镜</div></div></div></div>
+              <div class="lane-left"><div class="plain-note">我已重点处理：镜头节奏是否更顺、角色出场是否更少、口播表达是否还完整。</div></div>
+              <div class="lane-left"><div class="actions"><span class="action primary">先看第二段</span><span class="action">再短一点</span><span class="action">恢复上一版</span></div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>继续微调</strong>再短一点，保留老师一个人出镜。</div>
+            <div class="next-card"><strong>局部重写</strong>第二段口播换成更像学员反馈。</div>
+            <div class="next-card"><strong>确认</strong>第二段可以了，继续看第三段。</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-title">边界处理：用户说了，但不能进入完整链路</div>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">04</div>
+          <div>
+            <div class="scenario-title">偏题：用户问创作以外的问题</div>
+            <div class="scenario-sub">AI 是在“对话”，所以用 AI 回复气泡；没有思考条，没有结果卡。</div>
+          </div>
+          <span class="badge">只回气泡</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户说</strong>今天上海天气怎么样？</div>
+            <div class="context-card"><strong>系统判断</strong>偏题，右侧工作区不更新。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">今天上海天气怎么样？</div></div>
+              <div class="lane-left"><div class="bubble ai">可以和我聊当前视频创作相关的内容，比如主题、角色、分镜、口播或成片设置。</div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：Agent 思考 / 生成中 / 结果卡 / 裸文字说明</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>回到创作</strong>那帮我把主题改得更像真实学员案例。</div>
+            <div class="next-card"><strong>继续当前步骤</strong>右侧方案我想改角色。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">05</div>
+          <div>
+            <div class="scenario-title">越界：用户要求当前步骤做不到的事</div>
+            <div class="scenario-sub">AI 仍然只用气泡解释边界，右侧可以高亮当前应该做的动作。</div>
+          </div>
+          <span class="badge">能力提示</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>当前步骤</strong>方案规划。</div>
+            <div class="context-card"><strong>用户说</strong>直接帮我导出成片。</div>
+            <div class="context-card"><strong>系统判断</strong>导出需要先完成分镜和成片设置。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">直接帮我导出成片。</div></div>
+              <div class="lane-left"><div class="bubble ai">当前还在方案规划阶段，可以先确认主题、角色和剧本大纲；完成分镜与成片设置后再导出。</div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：节点结果卡，因为右侧没有生成新结果</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>顺着流程</strong>那先帮我生成分镜。</div>
+            <div class="next-card"><strong>先调整</strong>导出前我想把剧本大纲改短。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">06</div>
+          <div>
+            <div class="scenario-title">未解锁：用户想跳过前置步骤</div>
+            <div class="scenario-sub">缺字段、未确认、步骤未完成时，只给前置提示气泡，右侧高亮缺失项。</div>
+          </div>
+          <span class="badge">前置提示</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>当前状态</strong>业务信息缺少“目标受众”。</div>
+            <div class="context-card"><strong>用户说</strong>直接生成分镜吧。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">直接生成分镜吧。</div></div>
+              <div class="lane-left"><div class="bubble ai">请先补全当前步骤的目标受众，确认业务信息后我再继续生成方案和分镜。</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>补字段</strong>目标受众是准备考雅思的大学生。</div>
+            <div class="next-card"><strong>确认</strong>我补好了，继续下一步。</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-title">右侧操作：用户没有说话，不要硬塞进对话</div>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">07</div>
+          <div>
+            <div class="scenario-title">用户直接在右侧改字段</div>
+            <div class="scenario-sub">这不是自然语言输入，不应该生成用户气泡；重要变更才做弱操作记录。</div>
+          </div>
+          <span class="badge">弱记录</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户操作</strong>在右侧把主题从“雅思提分”改成“雅思口语训练”。</div>
+            <div class="context-card"><strong>系统判断</strong>手动 GUI 编辑，不是对话输入。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-left"><div class="record"><div class="record-icon">✎</div><div><div class="record-title">手动更新了创意主题</div><div class="record-sub">第 2 步 · 方案规划 · 创意主题</div></div></div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：用户气泡 / AI 回复气泡 / Agent 思考</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>继续说明</strong>这个主题下，角色也帮我换一下。</div>
+            <div class="next-card"><strong>同步后续</strong>按这个新主题重写大纲。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">08</div>
+          <div>
+            <div class="scenario-title">删除角色导致剧本待同步</div>
+            <div class="scenario-sub">这是截图里的情况：它是右侧局部状态，不是 AI 回复，不进左侧主流。</div>
+          </div>
+          <span class="badge warn">不进主流</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户操作</strong>删除角色「焦虑家长」。</div>
+            <div class="context-card"><strong>系统判断</strong>角色已变，但剧本大纲必须由用户点击同步后才更新。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-left"><div class="hidden-row">不出现：已删除角色卡</div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：AI 回复气泡</div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：Agent 思考 / 结果卡</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>点击右侧按钮</strong>同步剧本。</div>
+            <div class="next-card"><strong>继续改角色</strong>先不同步，再换掉成功学员。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">09</div>
+          <div>
+            <div class="scenario-title">用户点击“同步剧本”</div>
+            <div class="scenario-sub">点击同步后会真正更新右侧大纲，所以这时可以进入生成链路。</div>
+          </div>
+          <span class="badge good">同步生成</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户操作</strong>点击右侧「同步剧本」。</div>
+            <div class="context-card"><strong>系统判断</strong>根据最新角色重排出场和剧情关系。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">同步剧本。</div></div>
+              <div class="lane-left"><div class="loading">正在同步角色变化<div class="loading-pill"><span class="pulse"></span>重排角色出场与剧情关系</div></div></div>
+              <div class="lane-left"><div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧剧本大纲已同步</div><div class="result-sub">现在先看角色出场和剧情关系</div></div></div></div>
+              <div class="lane-left"><div class="plain">我已经根据最新角色变化，把剧本大纲整体同步好了。先确认每段出场角色和剧情承接是否顺。</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>检查后微调</strong>第三段成功学员出场太早了。</div>
+            <div class="next-card"><strong>继续推进</strong>大纲可以，继续生成分镜。</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-title">异常和历史：明确告诉用户能不能继续</div>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">10</div>
+          <div>
+            <div class="scenario-title">生成失败</div>
+            <div class="scenario-sub">失败不是结果交付，所以不给结果卡；保留旧结果，给恢复按钮。</div>
+          </div>
+          <span class="badge warn">失败恢复</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户说</strong>重新生成分镜设计。</div>
+            <div class="context-card"><strong>系统状态</strong>生成超时，右侧旧内容保留。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-right"><div class="bubble">重新生成分镜设计。</div></div>
+              <div class="lane-left"><div class="thinking"><span class="check">✓</span>Agent 思考完成 · 已规划生成步骤</div></div>
+              <div class="lane-left"><div class="failure"><div class="failure-title">分镜设计生成失败</div><div class="failure-sub">当前方案规划已保留，右侧内容没有变化。你可以重试，也可以先修改方案。</div><div class="actions" style="margin-top:12px"><span class="action primary">重试</span><span class="action">修改方案</span><span class="action">取消</span></div></div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>重试</strong>再试一次。</div>
+            <div class="next-card"><strong>修改后再试</strong>我先把大纲改短一点。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scenario">
+        <div class="scenario-head">
+          <div class="number">11</div>
+          <div>
+            <div class="scenario-title">查看历史版本</div>
+            <div class="scenario-sub">用户点击旧结果卡，不是新对话。左侧是历史卡，右侧只读。</div>
+          </div>
+          <span class="badge">只读查看</span>
+        </div>
+        <div class="scenario-body">
+          <div class="context">
+            <div class="panel-title">触发上下文</div>
+            <div class="context-card"><strong>用户操作</strong>点击旧的「方案规划已生成」卡。</div>
+            <div class="context-card"><strong>系统判断</strong>查看历史，不允许在该版本继续编辑。</div>
+          </div>
+          <div class="lui">
+            <div class="panel-title">LUI 应该这样出现</div>
+            <div class="thread">
+              <div class="lane-left"><div class="result gray"><div class="result-icon">□</div><div><div class="result-title">方案规划 · 历史版本</div><div class="result-sub">只读 · 可查看更改前数据</div></div></div></div>
+              <div class="lane-left"><div class="hidden-row">不出现：用户气泡 / Agent 思考 / 生成中</div></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="panel-title">用户可以再说</div>
+            <div class="next-card"><strong>回到当前版</strong>退出历史版本。</div>
+            <div class="next-card"><strong>复制内容</strong>复制这版大纲摘要。</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

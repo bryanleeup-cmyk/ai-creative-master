@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LUI 定稿：全场景案例图谱</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #edf3fb;
+        color: #202634;
+        font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      }
+      .page {
+        width: 1440px;
+        margin: 0 auto;
+        padding: 42px;
+        background:
+          radial-gradient(circle at 9% 0%, rgba(232,244,255,.95), transparent 34%),
+          linear-gradient(180deg,#fbfdff 0%,#eef4fb 100%);
+      }
+      .hero, .case, .coverage, .rule-panel {
+        border: 1px solid #dce5f3;
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 20px 52px rgba(87,106,145,.1);
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 410px;
+        gap: 28px;
+        border-radius: 32px;
+        padding: 34px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 0 12px;
+        color: #3a5bfd;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      h1 {
+        margin: 18px 0 12px;
+        max-width: 860px;
+        font-size: 38px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+      .lead {
+        max-width: 880px;
+        color: #647083;
+        font-size: 16px;
+        line-height: 1.82;
+      }
+      .hero-note {
+        border-radius: 24px;
+        background: linear-gradient(180deg,#f7fbff 0%,#f2f7ff 100%);
+        padding: 22px;
+      }
+      .hero-note strong {
+        display: block;
+        margin-bottom: 12px;
+        font-size: 18px;
+      }
+      .note-line {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        color: #4e596f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        margin-top: 7px;
+        border-radius: 999px;
+        background: #3a5bfd;
+        flex: 0 0 auto;
+      }
+      .section-title {
+        margin: 34px 0 16px;
+        font-size: 28px;
+        font-weight: 950;
+      }
+      .coverage {
+        border-radius: 28px;
+        padding: 22px;
+      }
+      .coverage-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .cover-card {
+        border-radius: 18px;
+        background: #f8fafc;
+        padding: 14px;
+        min-height: 108px;
+      }
+      .cover-card strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 15px;
+      }
+      .cover-card span {
+        color: #647083;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .cases {
+        display: grid;
+        gap: 22px;
+      }
+      .case {
+        overflow: hidden;
+        border-radius: 30px;
+      }
+      .case-head {
+        display: grid;
+        grid-template-columns: 64px 1fr 210px;
+        gap: 16px;
+        align-items: center;
+        border-bottom: 1px solid #edf1f6;
+        padding: 20px 24px;
+      }
+      .num {
+        display: flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        background: #eef3ff;
+        color: #3a5bfd;
+        font-size: 15px;
+        font-weight: 950;
+      }
+      .case-title {
+        font-size: 22px;
+        font-weight: 950;
+      }
+      .case-sub {
+        margin-top: 5px;
+        color: #6f7888;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .badge {
+        justify-self: end;
+        display: inline-flex;
+        height: 32px;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #dfe7f5;
+        background: #fff;
+        padding: 0 13px;
+        color: #687286;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .badge.good { border-color:#d9f0e4; background:#f6fcf8; color:#10a663; }
+      .badge.warn { border-color:#ffe0b8; background:#fffaf2; color:#d97706; }
+      .badge.stop { border-color:#e8edf5; background:#f7f9fc; color:#8a93a6; }
+      .case-body {
+        display: grid;
+        grid-template-columns: 300px 1fr 310px;
+        gap: 18px;
+        padding: 22px 24px 24px;
+      }
+      .col {
+        border-radius: 24px;
+        background: #f8fafc;
+        padding: 16px;
+      }
+      .col-title {
+        margin-bottom: 12px;
+        font-size: 14px;
+        font-weight: 950;
+      }
+      .context-card, .right-card, .next-card, .rule-card {
+        border-radius: 16px;
+        background: #fff;
+        padding: 13px;
+        color: #4e596f;
+        font-size: 13px;
+        line-height: 1.62;
+      }
+      .context-card + .context-card,
+      .right-card + .right-card,
+      .next-card + .next-card,
+      .rule-card + .rule-card { margin-top: 10px; }
+      .context-card strong,
+      .right-card strong,
+      .next-card strong,
+      .rule-card strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #202634;
+      }
+      .right-card.good, .rule-card.good { border:1px solid #d9f0e4; background:#f7fffb; }
+      .right-card.warn, .rule-card.warn { border:1px solid #ffe0b8; background:#fffaf2; }
+      .right-card.blue, .rule-card.blue { border:1px solid #dce8ff; background:#f7fbff; }
+      .lui {
+        min-height: 300px;
+        border-radius: 24px;
+        background: linear-gradient(180deg,rgba(255,255,255,.92),rgba(247,250,255,.92));
+        padding: 18px;
+      }
+      .chat {
+        display: grid;
+        gap: 12px;
+      }
+      .lane-left { display:flex; justify-content:flex-start; }
+      .lane-right { display:flex; justify-content:flex-end; }
+      .bubble {
+        max-width: 560px;
+        border-radius: 17px;
+        background: #f6f7f9;
+        padding: 12px 16px;
+        color: #202634;
+        font-size: 15px;
+        font-weight: 650;
+        line-height: 1.65;
+        box-shadow: 0 8px 22px rgba(100,119,156,.08);
+      }
+      .bubble.user { border-radius: 17px 8px 17px 17px; }
+      .bubble.ai {
+        border: 1px solid #e8edf5;
+        border-radius: 18px 18px 18px 8px;
+        background: linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+        color: #434a5c;
+      }
+      .thinking-live, .analysis {
+        width: fit-content;
+        max-width: 610px;
+        border: 1px solid #e8edf5;
+        border-radius: 22px;
+        background: linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+        padding: 14px 16px;
+        color: #434a5c;
+        font-size: 14px;
+        line-height: 1.62;
+      }
+      .thinking-live .top {
+        color: #7b5cff;
+        font-weight: 950;
+      }
+      .thinking-live .main {
+        margin-top: 8px;
+        color: #202634;
+        font-weight: 850;
+      }
+      .analysis {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border-color: #dde2ea;
+        border-radius: 999px;
+        background: #f3f4f6;
+        padding: 12px 16px;
+        color: #202634;
+        font-weight: 950;
+      }
+      .check { color:#10b464; font-size:18px; font-weight:950; }
+      .analysis-sub {
+        color:#7a8496;
+        font-size:13px;
+        font-weight:800;
+      }
+      .text-block {
+        max-width: 620px;
+        color: #3f485b;
+        font-size: 15px;
+        line-height: 1.8;
+      }
+      .text-block strong { color:#202634; }
+      .handoff {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        max-width: 610px;
+        border: 1px solid #bfeeff;
+        border-radius: 22px;
+        background: linear-gradient(180deg,#effdff 0%,#e9fbff 100%);
+        padding: 16px;
+        box-shadow: 0 12px 28px rgba(19,148,170,.08);
+      }
+      .handoff.history {
+        border-color:#e1e7f0;
+        background: linear-gradient(180deg,#fbfcff 0%,#f6f8fb 100%);
+        box-shadow:none;
+      }
+      .handoff-icon {
+        display:flex;
+        width:52px;
+        height:52px;
+        align-items:center;
+        justify-content:center;
+        border-radius:17px;
+        background:#fff;
+        color:#13a3bf;
+        font-size:20px;
+        font-weight:950;
+        flex: 0 0 auto;
+      }
+      .history .handoff-icon { color:#8a93a6; }
+      .handoff-title {
+        color:#202634;
+        font-size:17px;
+        font-weight:950;
+      }
+      .history .handoff-title { color:#687286; }
+      .handoff-sub {
+        margin-top:5px;
+        color:#647083;
+        font-size:13px;
+        font-weight:760;
+      }
+      .readonly {
+        display:inline-flex;
+        margin-right:7px;
+        border-radius:999px;
+        background:#eef1f6;
+        padding:1px 7px;
+        color:#7a8496;
+        font-size:11px;
+        font-weight:900;
+      }
+      .failure {
+        max-width: 610px;
+        border:1px solid #ffe1bd;
+        border-radius:22px;
+        background:linear-gradient(180deg,#fffaf4 0%,#fff 100%);
+        padding:18px;
+        box-shadow:0 16px 38px rgba(190,123,36,.1);
+      }
+      .failure-title {
+        color:#202634;
+        font-size:16px;
+        font-weight:950;
+      }
+      .failure-sub {
+        margin-top:6px;
+        color:#5f6778;
+        font-size:14px;
+        line-height:1.65;
+      }
+      .btn {
+        display:inline-flex;
+        height:34px;
+        align-items:center;
+        margin-top:12px;
+        border-radius:12px;
+        background:#202634;
+        padding:0 14px;
+        color:#fff;
+        font-size:13px;
+        font-weight:850;
+      }
+      .modal {
+        max-width: 610px;
+        overflow:hidden;
+        border-radius:18px;
+        background:#fff;
+        border:1px solid #dfe6f2;
+        box-shadow:0 18px 42px rgba(24,34,65,.16);
+      }
+      .modal-head {
+        padding:15px 18px;
+        color:#191b1e;
+        font-size:17px;
+        font-weight:950;
+      }
+      .modal-body {
+        background:#f6f7f9;
+        padding:14px 18px;
+        color:#4e596f;
+        font-size:14px;
+        line-height:1.65;
+      }
+      .modal-actions {
+        display:flex;
+        justify-content:flex-end;
+        gap:8px;
+        padding:13px 18px;
+      }
+      .modal-btn {
+        display:inline-flex;
+        height:34px;
+        align-items:center;
+        border-radius:8px;
+        background:#f6f7f9;
+        padding:0 13px;
+        color:#191b1e;
+        font-size:12px;
+        font-weight:850;
+      }
+      .modal-btn.primary {
+        background:linear-gradient(97deg,#0099e5,#3a5bfd 50%,#794dff);
+        color:#fff;
+      }
+      .hidden-row {
+        width: fit-content;
+        max-width: 610px;
+        border:1px dashed #d8e0ec;
+        border-radius:16px;
+        background:#f8fafc;
+        padding:12px 14px;
+        color:#8a93a6;
+        font-size:13px;
+        font-weight:850;
+      }
+      .tag {
+        display:inline-flex;
+        margin:2px 4px 2px 0;
+        border-radius:999px;
+        background:#eef3ff;
+        padding:4px 8px;
+        color:#3a5bfd;
+        font-size:12px;
+        font-weight:900;
+      }
+      .rule-panel {
+        border-radius:28px;
+        padding:22px;
+      }
+      .ban-grid {
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:10px;
+      }
+      .ban {
+        border:1px solid #ffe0b8;
+        border-radius:14px;
+        background:#fffaf2;
+        padding:11px;
+        color:#9a5a0a;
+        font-size:13px;
+        line-height:1.45;
+        font-weight:800;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">LUI 定稿 · 全场景案例图谱</span>
+          <h1>每个案例都回答：用户刚才做了什么，LUI 为什么这样出现</h1>
+          <p class="lead">
+            这份不是组件分类表，而是给内审看的完整上下文案例。每张案例都包含触发上下文、LUI 对话顺序、右侧工作区状态和用户下一步。最终规则：左侧 LUI 只记录 AI 创编对话链路，右侧局部操作不污染对话流。
+          </p>
+        </div>
+        <div class="hero-note">
+          <strong>统一顺序</strong>
+          <div class="note-line"><span class="dot"></span><span>AI 生成链路：用户指令 → Agent 思考中 → Agent 思考完成 → 结果说明文字 → 阶段引导卡。</span></div>
+          <div class="note-line"><span class="dot"></span><span>最新消息永远在底部，失败卡、重试卡、用户新消息都按发生时间排列。</span></div>
+          <div class="note-line"><span class="dot"></span><span>口播同步、拖拽、删除、表单校验等右侧操作不进入 LUI。</span></div>
+        </div>
+      </section>
+
+      <h2 class="section-title">类型覆盖</h2>
+      <section class="coverage">
+        <div class="coverage-grid">
+          <div class="cover-card"><strong>用户指令</strong><span>用户气泡。只记录给 AI 的创编要求，按钮确认可归一化成一句用户请求。</span></div>
+          <div class="cover-card"><strong>AI 文本回复</strong><span>初始引导、偏题、跳步骤、短答复。不加“AI 回复”标签。</span></div>
+          <div class="cover-card"><strong>Agent 思考中</strong><span>生成中临时态，标题必须放在卡片最上面。</span></div>
+          <div class="cover-card"><strong>Agent 思考完成</strong><span>可折叠解析卡，展开后纯文字，不做重可视化。</span></div>
+          <div class="cover-card"><strong>阶段引导卡</strong><span>AI 结果完成后最后出现，可点击聚焦右侧。</span></div>
+          <div class="cover-card"><strong>只读历史卡</strong><span>旧版本或前置回改后的后续结果，只读查看。</span></div>
+          <div class="cover-card"><strong>失败重试卡</strong><span>生成失败时出现；重试成功后旧失败卡隐藏。</span></div>
+          <div class="cover-card"><strong>不进入 LUI</strong><span>右侧手动操作、局部状态、系统同步日志、素材提醒。</span></div>
+        </div>
+      </section>
+
+      <h2 class="section-title">A. 正常推进类</h2>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="num">01</div>
+            <div><div class="case-title">进入深度创编后的首句引导</div><div class="case-sub">用户从首页输入明确需求，进入右侧创意收集。此时不要堆说明，只给一句自然语言引导。</div></div>
+            <span class="badge good">初始进入</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>我要创作一个雅思培训广告。</div><div class="context-card"><strong>系统判断</strong>有效创作需求，进入深度创编第一步。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我要创作一个雅思培训广告。</div></div><div class="lane-left"><div class="bubble ai">已进入深度创编流程，请先在右侧确认创意收集信息，也可以继续在这里补充任务要求。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>右侧</strong>展示创意收集表单，业务点、目标受众、视频风格可编辑。</div><div class="next-card"><strong>用户可以再说</strong>目标受众改成大学生。/ 不要太营销。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">02</div>
+            <div><div class="case-title">确认创意收集，生成方案规划</div><div class="case-sub">用户点击底部确认按钮，触发下一步 AI 生成。LUI 要表现真实生成链路。</div></div>
+            <span class="badge good">按钮触发</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>点击「确认，开始规划剧本」。</div><div class="context-card"><strong>右侧已有</strong>业务点：雅思培训；受众：备考学生和家长；风格：温馨。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我已确认创意收集，请生成方案规划。</div></div><div class="lane-left"><div class="thinking-live"><div class="top">● Agent 思考中...</div><div class="main">正在生成方案规划</div><div>读取业务目标、受众、转化方式和风格偏好。</div></div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在生成方案规划</span></div></div><div class="lane-left"><div class="text-block">我已经把创意方向整理成可编辑的方案。先看右侧的创意主题、角色设定和剧本大纲，再决定是否继续调整。<br><strong>优先确认：</strong>创意主题、角色设定、剧本大纲。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">方案规划已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>进入方案规划，显示主题、角色设定、剧本大纲。</div><div class="next-card"><strong>用户可以再说</strong>换一组角色。/ 主题更真实一点。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">03</div>
+            <div><div class="case-title">确认方案规划，生成分镜设计</div><div class="case-sub">同样遵循“解析 → 说明文字 → 引导卡”，卡片必须在所有说明文字之后。</div></div>
+            <span class="badge good">正常推进</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>点击「确认，开始生成分镜」。</div><div class="context-card"><strong>系统判断</strong>方案已确认，可以拆成镜头节奏、角色出场和口播脚本。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我已确认方案规划，请生成分镜设计。</div></div><div class="lane-left"><div class="thinking-live"><div class="top">● Agent 思考中...</div><div class="main">正在生成分镜设计</div><div>把主题、角色和剧本大纲拆成可执行镜头。</div></div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在生成分镜设计</span></div></div><div class="lane-left"><div class="text-block">我已经把方案拆成可执行的镜头结构。先看右侧的口播脚本、镜头节奏和角色出场，再决定哪里要改。<br><strong>优先确认：</strong>镜头节奏、口播脚本、角色出场。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">分镜设计已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>进入分镜设计，展示口播脚本、素材版本、出场角色、画面描述。</div><div class="rule-card good"><strong>顺序</strong>引导卡永远在说明文字后面。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">04</div>
+            <div><div class="case-title">确认分镜设计，生成成片设置</div><div class="case-sub">进入最后一步前，LUI 仍然只记录 AI 生成链路，右侧预览和设置项同步更新。</div></div>
+            <span class="badge good">正常推进</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>点击「确认，开始设置成片」。</div><div class="context-card"><strong>系统判断</strong>分镜已确认，可以汇总字幕、音乐、Logo、画中画和预览。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我已确认分镜设计，请生成成片设置。</div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在生成成片设置</span></div></div><div class="lane-left"><div class="text-block">我已经把成片预览、字幕、音乐、提示语、Logo 和画中画都准备好了。先看右侧预览，再决定是否继续调参。<br><strong>优先确认：</strong>预览效果、字幕、音乐、提示语、Logo 和画中画。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">成片设置已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>进入成片设置，展示预览、字幕、音乐、Logo、画中画。</div><div class="next-card"><strong>用户可以再说</strong>字幕大一点。/ 音乐再弱一点。</div></div>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="section-title">B. 对话改稿类</h2>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="num">05</div>
+            <div><div class="case-title">用户自然语言修改方案</div><div class="case-sub">用户在 LUI 说出修改诉求，AI 解析后同步右侧方案。这里是 AI 链路，应进入 LUI。</div></div>
+            <span class="badge good">对话触发</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>不要太硬，要像真实学员分享。</div><div class="context-card"><strong>当前步骤</strong>方案规划。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">不要太硬，要像真实学员分享。</div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在解析这次方案调整要求</span></div></div><div class="lane-left"><div class="text-block">我已经把这次调整同步到右侧方案里。先看创意主题、角色设定和剧本大纲是否更贴近真实分享的语气。<br><strong>优先确认：</strong>主题表达、角色气质、剧本承接。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">方案规划版本2已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>右侧</strong>主题和角色关系更新。</div><div class="next-card"><strong>用户可以再说</strong>再更年轻一点。/ 主讲角色换成老师。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">06</div>
+            <div><div class="case-title">角色变化后，剧本大纲待同步</div><div class="case-sub">角色变化可以由 AI 对话触发，但剧本大纲不能自动半更新。必须提示用户点击同步剧本。</div></div>
+            <span class="badge warn">待同步</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>把主讲角色换成更亲和的女性老师。</div><div class="context-card"><strong>产品规则</strong>角色变化不立即改剧本，避免角色和剧本局部不一致。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">把主讲角色换成更亲和的女性老师。</div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在解析角色修改要求</span></div></div><div class="lane-left"><div class="text-block">我已经根据最新角色变化，先更新右侧角色设定。剧本大纲仍保留上一次同步版本，需要你确认后再同步。<br><strong>优先确认：</strong>角色气质、角色关系、是否同步剧本。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card warn"><strong>右侧</strong>角色区更新，剧本大纲出现“待同步”状态。</div><div class="next-card"><strong>用户下一步</strong>点击「同步剧本」。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">07</div>
+            <div><div class="case-title">用户点击同步剧本</div><div class="case-sub">同步剧本会真实触发 AI 重新整理大纲，所以可以进入 LUI 生成链路。</div></div>
+            <span class="badge good">AI 同步</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>点击右侧「同步剧本」。</div><div class="context-card"><strong>系统判断</strong>需要按最新角色重排出场和剧情承接。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">请根据最新角色变化，同步更新剧本大纲。</div></div><div class="lane-left"><div class="thinking-live"><div class="top">● Agent 思考中...</div><div class="main">AI 正在一键更新剧本</div><div>根据最新角色变化，重新整理每段大纲的出场角色和剧情表达。</div></div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在同步剧本大纲</span></div></div><div class="lane-left"><div class="text-block">已根据最新角色变化完成剧本同步，右侧大纲已更新。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">方案规划版本3已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>剧本大纲和角色芯片一起更新。</div><div class="rule-card good"><strong>一致性</strong>不能只更新角色，不更新大纲内角色。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">08</div>
+            <div><div class="case-title">用户用自然语言修改分镜</div><div class="case-sub">用户是对 AI 提修改要求，所以进入 LUI；右侧同步口播、画面描述、角色出场。</div></div>
+            <span class="badge good">对话触发</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>第二段口播再短一点，重点突出提分。</div><div class="context-card"><strong>当前步骤</strong>分镜设计。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">第二段口播再短一点，重点突出提分。</div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在解析这次分镜调整要求</span></div></div><div class="lane-left"><div class="text-block">我已经把这次调整同步到右侧分镜里。先看当前镜头标题、画面描述、口播脚本和预览画面是否一致。<br><strong>优先确认：</strong>镜头标题、画面描述、口播脚本和角色出场。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">分镜设计版本2已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>右侧</strong>第二段口播和画面描述更新；AI 素材可自动重生。</div><div class="right-card warn"><strong>视频素材</strong>如果口播时长变化，需要确认节选范围，但这条提醒不进 LUI。</div></div>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="section-title">C. 右侧操作不进 LUI 类</h2>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="num">09</div>
+            <div><div class="case-title">用户直接在右侧输入口播脚本</div><div class="case-sub">这是用户在工作区编辑内容，不是给 AI 发起创编对话。不能出现“口播脚本已同步”卡。</div></div>
+            <span class="badge stop">不进 LUI</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>在右侧口播脚本框里输入新文本，并点击保存/同步。</div><div class="context-card"><strong>系统动作</strong>右侧预览和素材时长随脚本更新。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-left"><div class="hidden-row">不出现：用户气泡 / Agent 思考 / Agent 思考完成 / 阶段引导卡</div></div><div class="lane-left"><div class="hidden-row">不出现：「分镜一口播脚本已同步」「口播时长变为 00:07」</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>口播脚本保存，预览时长更新。</div><div class="right-card blue"><strong>反馈方式</strong>只用 toast 或右侧局部状态。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">10</div>
+            <div><div class="case-title">用户拖动 Logo / 画中画 / 提示语</div><div class="case-sub">直接操控画布是右侧编辑行为，不是对话。位置保存不进入 LUI。</div></div>
+            <span class="badge stop">不进 LUI</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>拖动品牌 Logo 到画面右上角。</div><div class="context-card"><strong>用户操作</strong>拖动角色画中画到画面左下角。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-left"><div class="hidden-row">不出现：手动调整了品牌 Logo 位置</div></div><div class="lane-left"><div class="hidden-row">不出现：手动调整了角色画中画位置</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>位置直接持久化在当前分镜。</div><div class="next-card"><strong>用户下一步</strong>继续拖动，或确认成片设置。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">11</div>
+            <div><div class="case-title">删除分镜 / 添加素材数量超限 / 视频节选提醒</div><div class="case-sub">这些都是工作区局部反馈，不能污染 LUI 对话流。</div></div>
+            <span class="badge stop">不进 LUI</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>删除一个分镜。</div><div class="context-card"><strong>系统校验</strong>素材版本已达上限 / 视频素材需要节选。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-left"><div class="hidden-row">不出现：已删除分镜 / 最多添加 3 个素材版本 / 请先处理视频节选</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card warn"><strong>右侧</strong>在按钮附近、素材区域或 toast 里提示。</div><div class="rule-card warn"><strong>边界</strong>只有用户把要求发给 AI，才进入 LUI。</div></div>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="section-title">D. 回改、覆盖、历史类</h2>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="num">12</div>
+            <div><div class="case-title">用户回改前置步骤后点击下一步</div><div class="case-sub">必须先弹二次确认，确认后才重新生成；后续旧结果自动变成历史只读。</div></div>
+            <span class="badge warn">二次确认</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>当前状态</strong>用户已到分镜设计/成片设置，回到创意收集或方案规划修改。</div><div class="context-card"><strong>用户操作</strong>点击「确认修改，重新规划剧本」。</div></div>
+            <div class="lui"><div class="col-title">LUI / 弹窗应该这样出现</div><div class="chat"><div class="lane-left"><div class="modal"><div class="modal-head">确认重新生成方案规划？</div><div class="modal-body">确认后会基于当前修改重新生成步骤2 · 方案规划，并把后续流程切到这次新结果上。<br><br>影响范围：步骤2 · 方案规划、步骤3 · 分镜设计、步骤4 · 成片设置。<br><br>当前已生成的后续内容会保留为历史只读，不再作为最新结果继续使用。</div><div class="modal-actions"><span class="modal-btn">继续编辑</span><span class="modal-btn primary">确认修改，重新规划剧本</span></div></div></div><div class="lane-left"><div class="hidden-row">未确认前：不追加用户气泡，不开始生成。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card warn"><strong>确认后</strong>重新生成目标步骤；后续旧结果变只读。</div><div class="right-card blue"><strong>取消</strong>留在当前编辑态，不产生 LUI 消息。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">13</div>
+            <div><div class="case-title">回改确认后生成新版本</div><div class="case-sub">确认弹窗之后，才按正常 AI 链路追加到底部。旧结果不是删除，而是历史只读。</div></div>
+            <span class="badge good">新版本</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户确认弹窗</strong>点击「确认修改，重新生成口播脚本」。</div><div class="context-card"><strong>系统判断</strong>开始生成分镜设计新版本。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我已确认当前方案，请重新生成口播脚本。</div></div><div class="lane-left"><div class="thinking-live"><div class="top">● Agent 思考中...</div><div class="main">正在重新生成分镜设计</div><div>让出场角色、画面描述和口播脚本逐段对应。</div></div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已重生成 · 正在重新生成分镜设计</span></div></div><div class="lane-left"><div class="text-block">我已经把方案拆成可执行的镜头结构。先看右侧的口播脚本、镜头节奏和角色出场，再决定哪里要改。<br><strong>优先确认：</strong>镜头节奏、口播脚本、角色出场。</div></div><div class="lane-left"><div class="handoff"><div class="handoff-icon">✓</div><div><div class="handoff-title">分镜设计版本2已生成</div><div class="handoff-sub">生成时间：2026 年 5 月 21 日 17:22</div></div></div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>右侧</strong>显示分镜设计新版本。</div><div class="right-card warn"><strong>后续</strong>旧成片设置不再可继续使用。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">14</div>
+            <div><div class="case-title">后续旧结果变成只读历史卡</div><div class="case-sub">前置步骤回改后，后面已经生成好的内容不能继续当当前结果使用。</div></div>
+            <span class="badge">只读历史</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>例子</strong>用户重新生成了分镜设计，之前的成片设置已经基于旧分镜。</div><div class="context-card"><strong>系统判断</strong>旧成片设置失效，进入历史只读。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-left"><div class="handoff history"><div class="handoff-icon">▤</div><div><div class="handoff-title">成片设置已生成 · 历史版本</div><div class="handoff-sub"><span class="readonly">只读</span>生成时间：2026 年 5 月 21 日 17:22</div></div></div></div><div class="lane-left"><div class="text-block" style="color:#7a8496;">可查看更改前数据，并复制或下载历史素材；不支持在此版本上继续编辑。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>点击历史卡</strong>右侧进入历史版本只读预览。</div><div class="right-card warn"><strong>不能</strong>不能继续用旧成片设置生成视频。</div></div>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="section-title">E. 异常与边界类</h2>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="num">15</div>
+            <div><div class="case-title">生成失败与重试</div><div class="case-sub">失败按发生时间落位；用户继续输入时，新消息在失败卡下面。重试成功后失败卡隐藏。</div></div>
+            <span class="badge warn">失败态</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>重新生成分镜设计。</div><div class="context-card"><strong>系统异常</strong>服务响应超时。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">我已确认方案规划，请生成分镜设计。</div></div><div class="lane-left"><div class="analysis"><span class="check">✓</span>Agent 思考完成 <span class="analysis-sub">本轮已完成 · 正在生成分镜设计</span></div></div><div class="lane-left"><div class="failure"><div class="failure-title">分镜设计生成失败</div><div class="failure-sub">当前方案规划已保留，右侧内容没有变化。你可以直接重试生成分镜设计。</div><span class="btn">重试</span></div></div><div class="lane-right"><div class="bubble user">那我先把第二段重点改一下。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card warn"><strong>失败时</strong>右侧保留旧结果。</div><div class="rule-card good"><strong>重试成功</strong>隐藏失败卡，新结果追加到底部。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">16</div>
+            <div><div class="case-title">用户跳步骤要求直接生成视频</div><div class="case-sub">用户说了话，所以记录用户气泡；但不能进入完整 Agent 生成链路，只给边界回复。</div></div>
+            <span class="badge warn">跳步骤</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>当前步骤</strong>分镜设计，还没进入成片设置。</div><div class="context-card"><strong>用户说</strong>直接生成 10 个视频。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">直接生成 10 个视频。</div></div><div class="lane-left"><div class="bubble ai">还没到生成视频。先确认当前分镜，进入成片设置后再生成视频。</div></div><div class="lane-left"><div class="hidden-row">不出现：Agent 思考 / 结果卡 / 生成中</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>右侧</strong>保持当前分镜设计。</div><div class="next-card"><strong>用户下一步</strong>确认当前分镜，进入成片设置。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">17</div>
+            <div><div class="case-title">用户问无关问题</div><div class="case-sub">这是自然语言输入，但与当前创编任务无关。只短回复，不生成卡片。</div></div>
+            <span class="badge stop">偏题</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户说</strong>今天天气怎么样？</div><div class="context-card"><strong>系统判断</strong>和当前视频创编任务无关。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-right"><div class="bubble user">今天天气怎么样？</div></div><div class="lane-left"><div class="bubble ai">「今天天气怎么样」和当前任务无关。直接告诉我要改哪一块就行。</div></div><div class="lane-left"><div class="hidden-row">不出现：Agent 思考 / 阶段引导卡 / 右侧更新</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card blue"><strong>右侧</strong>不变化。</div><div class="next-card"><strong>用户可以再说</strong>把第一段再短一点。</div></div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="num">18</div>
+            <div><div class="case-title">查看历史素材与下载全部素材</div><div class="case-sub">历史版本是只读查看，不是新对话。素材区域按钮文案为“下载全部素材”。</div></div>
+            <span class="badge">历史素材</span>
+          </div>
+          <div class="case-body">
+            <div class="col"><div class="col-title">触发上下文</div><div class="context-card"><strong>用户操作</strong>点击旧版本结果卡。</div><div class="context-card"><strong>右侧区域</strong>历史素材列表有 3 个素材。</div></div>
+            <div class="lui"><div class="col-title">LUI 应该这样出现</div><div class="chat"><div class="lane-left"><div class="handoff history"><div class="handoff-icon">▤</div><div><div class="handoff-title">分镜设计已生成 · 历史版本</div><div class="handoff-sub"><span class="readonly">只读</span>生成时间：2026 年 5 月 21 日 17:22</div></div></div></div><div class="lane-left"><div class="hidden-row">不新增用户气泡，不出现 Agent 思考。</div></div></div></div>
+            <div class="col"><div class="col-title">右侧状态 / 下一步</div><div class="right-card good"><strong>按钮</strong>历史素材右上角显示「下载全部素材」。</div><div class="right-card warn"><strong>只读</strong>不支持追加素材、不支持发送修改。</div></div>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="section-title">明确不进入 LUI 的文案</h2>
+      <section class="rule-panel">
+        <div class="ban-grid">
+          <div class="ban">分镜一口播脚本已同步</div>
+          <div class="ban">口播时长变为 00:07</div>
+          <div class="ban">分镜修改已同步到预览</div>
+          <div class="ban">手动调整了品牌 Logo 位置</div>
+          <div class="ban">手动调整了角色画中画位置</div>
+          <div class="ban">已删除分镜 / 已取消空槽位</div>
+          <div class="ban">最多添加 3 个素材版本</div>
+          <div class="ban">请先处理视频节选</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

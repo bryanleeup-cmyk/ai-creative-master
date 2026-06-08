@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LUI 定稿：卡片与对话类型</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #edf3fb;
+        color: #202634;
+        font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      }
+      .page {
+        width: 1440px;
+        margin: 0 auto;
+        padding: 40px;
+        background: linear-gradient(180deg, #fbfdff 0%, #eef4fb 100%);
+      }
+      .hero, .panel, .flow, .matrix, .scenario {
+        border: 1px solid #dce5f3;
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 18px 48px rgba(87,106,145,.1);
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 28px;
+        border-radius: 30px;
+        padding: 30px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        height: 28px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: #eef3ff;
+        color: #3a5bfd;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      h1 {
+        margin: 16px 0 10px;
+        font-size: 38px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+      .lead {
+        max-width: 840px;
+        color: #647083;
+        font-size: 16px;
+        line-height: 1.8;
+      }
+      .rulebox {
+        border-radius: 24px;
+        background: #f7fbff;
+        padding: 20px;
+      }
+      .rulebox h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+      .rule {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        color: #4e596f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        margin-top: 7px;
+        border-radius: 999px;
+        background: #3a5bfd;
+        flex: 0 0 auto;
+      }
+      .section-title {
+        margin: 34px 0 16px;
+        font-size: 28px;
+        font-weight: 950;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        border-radius: 26px;
+        padding: 18px;
+      }
+      .step {
+        min-height: 116px;
+        border-radius: 18px;
+        background: #f8fafc;
+        padding: 16px;
+        position: relative;
+      }
+      .step:after {
+        content: "→";
+        position: absolute;
+        right: -13px;
+        top: 42px;
+        color: #9aa4b5;
+        font-weight: 900;
+      }
+      .step:last-child:after { content: ""; }
+      .step-num {
+        color: #3a5bfd;
+        font-size: 13px;
+        font-weight: 950;
+      }
+      .step-title {
+        margin-top: 10px;
+        font-size: 17px;
+        font-weight: 950;
+      }
+      .step-desc {
+        margin-top: 8px;
+        color: #6f7888;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .panel {
+        border-radius: 26px;
+        padding: 22px;
+      }
+      .panel h3 {
+        margin: 0 0 14px;
+        font-size: 22px;
+      }
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 10px;
+      }
+      th {
+        padding: 0 10px 4px;
+        color: #7a8496;
+        font-size: 12px;
+        text-align: left;
+      }
+      td {
+        padding: 12px 10px;
+        background: #f8fafc;
+        color: #4e596f;
+        font-size: 13px;
+        line-height: 1.5;
+        vertical-align: top;
+      }
+      td:first-child {
+        border-radius: 12px 0 0 12px;
+        color: #202634;
+        font-weight: 850;
+      }
+      td:last-child { border-radius: 0 12px 12px 0; }
+      .yes { color: #10a663; font-weight: 900; }
+      .no { color: #d97706; font-weight: 900; }
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .sample {
+        min-height: 188px;
+        border: 1px solid #e2e8f2;
+        border-radius: 22px;
+        background: #fff;
+        padding: 18px;
+      }
+      .sample h4 {
+        margin: 0 0 12px;
+        font-size: 17px;
+      }
+      .bubble {
+        width: fit-content;
+        max-width: 100%;
+        border-radius: 18px;
+        background: #f6f7f9;
+        padding: 12px 15px;
+        color: #202634;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      .bubble.user {
+        margin-left: auto;
+        border-radius: 18px 8px 18px 18px;
+      }
+      .thinking {
+        border: 1px solid #e8edf5;
+        border-radius: 20px;
+        background: linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+        padding: 14px;
+      }
+      .purple {
+        color: #7b5cff;
+        font-weight: 900;
+      }
+      .analysis-card {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #dde2ea;
+        border-radius: 999px;
+        background: #f3f4f6;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 900;
+      }
+      .check {
+        color: #10b464;
+        font-size: 18px;
+      }
+      .handoff-text {
+        color: #3f485b;
+        font-size: 15px;
+        line-height: 1.75;
+      }
+      .handoff-card {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 12px;
+        border: 1px solid #bfeeff;
+        border-radius: 22px;
+        background: linear-gradient(180deg,#effdff 0%,#e9fbff 100%);
+        padding: 16px;
+      }
+      .icon {
+        display: flex;
+        width: 48px;
+        height: 48px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        background: #fff;
+        color: #13a3bf;
+        font-weight: 950;
+      }
+      .handoff-title {
+        font-size: 16px;
+        font-weight: 950;
+      }
+      .time {
+        margin-top: 5px;
+        color: #647083;
+        font-size: 13px;
+      }
+      .fail-card {
+        border: 1px solid #ffe1bd;
+        border-radius: 20px;
+        background: linear-gradient(180deg,#fffaf4 0%,#fff 100%);
+        padding: 16px;
+      }
+      .fail-title {
+        font-weight: 950;
+      }
+      .btn {
+        display: inline-flex;
+        height: 34px;
+        align-items: center;
+        margin-top: 12px;
+        border-radius: 12px;
+        background: #202634;
+        padding: 0 14px;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 850;
+      }
+      .scenario {
+        border-radius: 28px;
+        padding: 22px;
+      }
+      .timeline {
+        display: grid;
+        gap: 12px;
+      }
+      .line {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 16px;
+        align-items: start;
+        border-radius: 16px;
+        background: #f8fafc;
+        padding: 13px 14px;
+      }
+      .line strong { color: #202634; }
+      .line div:last-child {
+        color: #4e596f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .ban-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .ban {
+        border: 1px solid #ffe0b8;
+        border-radius: 14px;
+        background: #fffaf2;
+        padding: 11px 12px;
+        color: #9a5a0a;
+        font-size: 13px;
+        line-height: 1.45;
+        font-weight: 750;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">LUI 定稿 · 卡片与对话类型</span>
+          <h1>左侧只放 AI 创编对话链路</h1>
+          <p class="lead">
+            LUI 是用户和 Agent 共同推进创作的叙事区，不是右侧工作台的操作日志。所有右侧手动编辑、同步、拖拽、删除、校验等局部状态都不进入 LUI。
+          </p>
+        </div>
+        <div class="rulebox">
+          <h3>三条硬规则</h3>
+          <div class="rule"><span class="dot"></span><span>最新对话永远追加在最底部，不插队。</span></div>
+          <div class="rule"><span class="dot"></span><span>AI 结果顺序固定：解析 → 文字说明 → 引导卡。</span></div>
+          <div class="rule"><span class="dot"></span><span>跟 AI 无关的右侧操作只做 toast 或右侧状态，不写入 LUI。</span></div>
+        </div>
+      </section>
+
+      <h2 class="section-title">一、标准出现顺序</h2>
+      <section class="flow">
+        <div class="step"><div class="step-num">01</div><div class="step-title">用户指令</div><div class="step-desc">用户明确让 AI 做什么，或系统代用户补齐确认请求。</div></div>
+        <div class="step"><div class="step-num">02</div><div class="step-title">Agent 思考中</div><div class="step-desc">生成中临时态，标题固定在卡片最上方。</div></div>
+        <div class="step"><div class="step-num">03</div><div class="step-title">Agent 思考完成</div><div class="step-desc">可折叠解析卡，展开后纯文字展示。</div></div>
+        <div class="step"><div class="step-num">04</div><div class="step-title">结果说明文字</div><div class="step-desc">说明本次 AI 已经同步了什么，优先确认什么。</div></div>
+        <div class="step"><div class="step-num">05</div><div class="step-title">阶段引导卡</div><div class="step-desc">最后出现，引导用户去右侧看最新结果。</div></div>
+      </section>
+
+      <h2 class="section-title">二、对话类型</h2>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr><th>类型</th><th>是否进入 LUI</th><th>场景</th><th>展示规则</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>用户指令 user</td><td class="yes">是</td><td>用户向 AI 提要求</td><td>右侧灰色气泡，只记录创编要求。</td></tr>
+            <tr><td>AI 文本回复 reply</td><td class="yes">是</td><td>初始引导、跑偏、跳步骤、简短答复</td><td>左侧文本气泡，不加“AI 回复”标签。</td></tr>
+            <tr><td>Agent 解析 analysis</td><td class="yes">是</td><td>AI 理解任务或生成完成</td><td>“Agent 思考完成”折叠卡，展开为纯文字。</td></tr>
+            <tr><td>阶段结果 handoff</td><td class="yes">是</td><td>AI 结果同步到右侧</td><td>先文字说明，最后引导卡。</td></tr>
+            <tr><td>失败重试 failure</td><td class="yes">是</td><td>生成失败/超时</td><td>失败卡加重试按钮；重试成功后隐藏旧失败卡。</td></tr>
+            <tr><td>主动引导 guidance</td><td class="yes">少量</td><td>必须引导用户先确认右侧</td><td>一句话提示，不解释功能。</td></tr>
+            <tr><td>空状态 intro</td><td class="yes">是，但非历史</td><td>没有任何对话时</td><td>首屏引导，有消息后消失。</td></tr>
+            <tr><td>操作记录 event/record</td><td class="no">否</td><td>右侧手动同步、拖拽、删除、校验</td><td>不显示在 LUI，只做 toast/右侧反馈。</td></tr>
+            <tr><td>局部状态 localStatus</td><td class="no">否</td><td>按钮禁用、表单错误、控件状态</td><td>属于右侧工作区，不进入对话流。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <h2 class="section-title">三、卡片类型</h2>
+      <section class="card-grid">
+        <div class="sample">
+          <h4>用户指令气泡</h4>
+          <div class="bubble user">请根据最新角色变化，同步更新剧本大纲。</div>
+        </div>
+        <div class="sample">
+          <h4>Agent 思考中</h4>
+          <div class="thinking">
+            <div class="purple">● Agent 思考中...</div>
+            <div style="margin-top:10px;font-weight:850;">正在重新生成分镜设计</div>
+            <div style="margin-top:6px;color:#647083;font-size:13px;line-height:1.6;">我在解析当前修改，并同步右侧分镜内容。</div>
+          </div>
+        </div>
+        <div class="sample">
+          <h4>Agent 思考完成</h4>
+          <div class="analysis-card"><span class="check">✓</span><span>Agent 思考完成</span><span style="color:#7a8496;">本轮已重生成</span></div>
+        </div>
+        <div class="sample">
+          <h4>AI 文本回复</h4>
+          <div class="bubble">「今天天气怎么样」和当前任务无关。直接告诉我要改哪一块就行。</div>
+        </div>
+        <div class="sample">
+          <h4>阶段引导卡</h4>
+          <div class="handoff-text">我已经把方案拆成可执行的镜头结构。先看右侧口播脚本、镜头节奏和角色出场。</div>
+          <div class="handoff-card">
+            <div class="icon">✓</div>
+            <div><div class="handoff-title">分镜设计版本2已生成</div><div class="time">生成时间：2026 年 5 月 21 日 17:22</div></div>
+          </div>
+        </div>
+        <div class="sample">
+          <h4>只读历史卡</h4>
+          <div class="handoff-card" style="border-color:#e1e7f0;background:linear-gradient(180deg,#fbfcff 0%,#f6f8fb 100%);">
+            <div class="icon" style="color:#8a93a6;">▤</div>
+            <div><div class="handoff-title" style="color:#687286;">成片设置已生成 · 历史版本</div><div class="time">只读　生成时间：2026 年 5 月 21 日 17:22</div></div>
+          </div>
+        </div>
+        <div class="sample">
+          <h4>失败重试卡</h4>
+          <div class="fail-card">
+            <div class="fail-title">分镜设计生成失败</div>
+            <div style="margin-top:6px;color:#647083;font-size:13px;line-height:1.6;">当前方案规划已保留，右侧内容没有变化。</div>
+            <div class="btn">重试</div>
+          </div>
+        </div>
+        <div class="sample">
+          <h4>主动引导卡</h4>
+          <div class="thinking">
+            <div style="font-weight:900;">已进入深度创编流程</div>
+            <div style="margin-top:6px;color:#647083;font-size:13px;line-height:1.6;">请先在右侧确认创意收集信息，也可以继续在这里补充任务要求。</div>
+          </div>
+        </div>
+        <div class="sample">
+          <h4>空状态</h4>
+          <div class="thinking">
+            <div style="font-weight:900;">先把方向聊清楚</div>
+            <div style="margin-top:6px;color:#647083;font-size:13px;line-height:1.6;">当前阶段：创意收集。没有历史消息时才出现。</div>
+          </div>
+        </div>
+      </section>
+
+      <h2 class="section-title">四、典型链路</h2>
+      <section class="scenario">
+        <div class="timeline">
+          <div class="line"><strong>正常推进</strong><div>用户确认右侧方案 → Agent 思考中 → Agent 思考完成 → 说明文字 → `分镜设计已生成` 引导卡。</div></div>
+          <div class="line"><strong>回改后继续</strong><div>用户在前置步骤改完 → 点击下一步 → 先弹二次确认 → 确认后重新生成 → 旧后续结果变成历史只读。</div></div>
+          <div class="line"><strong>跳步骤</strong><div>用户说“直接生成 10 个视频” → LUI 只给文本提醒：还没到生成视频，先完成当前步骤。</div></div>
+          <div class="line"><strong>跑偏问题</strong><div>用户问天气/闲聊 → LUI 只给简短边界回复，不产生解析卡和阶段卡。</div></div>
+          <div class="line"><strong>失败重试</strong><div>失败卡出现 → 用户点重试 → 重试成功后失败卡隐藏，新结果追加到底部。</div></div>
+        </div>
+      </section>
+
+      <h2 class="section-title">五、明确不进入 LUI</h2>
+      <section class="panel">
+        <div class="ban-list">
+          <div class="ban">分镜一口播脚本已同步</div>
+          <div class="ban">口播时长变为 00:07</div>
+          <div class="ban">分镜修改已同步到预览</div>
+          <div class="ban">手动调整了品牌 Logo 位置</div>
+          <div class="ban">手动调整了角色画中画位置</div>
+          <div class="ban">已删除分镜 / 已取消空槽位</div>
+          <div class="ban">最多添加 3 个素材版本</div>
+          <div class="ban">请先处理视频节选</div>
+          <div class="ban">任何右侧局部控件反馈</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

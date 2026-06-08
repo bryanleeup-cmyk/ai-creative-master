@@ -1,0 +1,22886 @@
+import { Fragment, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
+import logoImage from "../assets/logo.png";
+import featureHeroImage from "../assets/feat-1.png";
+import featureClipImage from "../assets/feat-2.png";
+import featureVoiceImage from "../assets/feat-3.png";
+import featureCutoutImage from "../assets/feat-4.png";
+import featureExpandImage from "../assets/feat-5.png";
+import figmaFeatureOneClickImage from "../assets/figma-feature-one-click.png";
+import figmaFeatureClipImage from "../assets/figma-feature-clip.png";
+import figmaFeatureAvatarImage from "../assets/figma-feature-avatar.png";
+import figmaFeatureVoiceImage from "../assets/figma-feature-voice.png";
+import figmaFeatureEditorImage from "../assets/figma-feature-editor.png";
+import galleryFinishedImage from "../assets/gallery-finished.jpg";
+import {
+  AlertCircle,
+  ArrowLeft,
+  AtSign,
+  ArrowUp,
+  Bell,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  CirclePlus,
+  Copy,
+  ChevronLeft,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Clapperboard,
+  Compass,
+  Download,
+  FileText,
+  Film,
+  FolderOpen,
+  Grid2x2,
+  Heart,
+  Home,
+  IdCard,
+  Image as ImageIcon,
+  Link2,
+  LogOut,
+  Mail,
+  Maximize2,
+  MoreHorizontal,
+  MonitorSmartphone,
+  Music2,
+  PencilLine,
+  Pause,
+  Play,
+  Plus,
+  RefreshCcw,
+  Save,
+  Search,
+  Scissors,
+  SlidersHorizontal,
+  Sparkles,
+  Store,
+  Trash2,
+  Undo2,
+  Volume2,
+  Wand2,
+  X,
+} from "lucide-react";
+
+const ToolWorkbenchPage = lazy(() => import("./components/ToolWorkbenchPage"));
+
+const featureCards = [
+  { title: "一键成片", kind: "hero", showArrow: true },
+  { title: "片段生成", kind: "clip" },
+  { title: "形象定制", kind: "avatar" },
+  { title: "语音复刻", kind: "voice" },
+  { title: "图片编辑器", kind: "editor" },
+];
+
+const featureCardLocalArtwork = {
+  hero: figmaFeatureOneClickImage,
+  clip: figmaFeatureClipImage,
+  avatar: figmaFeatureAvatarImage,
+  voice: figmaFeatureVoiceImage,
+  editor: figmaFeatureEditorImage,
+  cutout: featureCutoutImage,
+  expand: featureExpandImage,
+};
+
+const workflowRelevantPromptPattern =
+  /视频|创意|方案|角色|音色|数字人|分镜|镜头|脚本|字幕|音乐|logo|提示语|画中画|出场|成片|预览|台词|口播|文案|画面|场景|节奏|主题|风格|老师|家长|学员|课程|标题/iu;
+
+const offTopicPromptPatterns = [
+  /今天天气|天气怎么样|会不会下雨|温度多少|外面冷不冷/u,
+  /现在几点|几点了|今天几号|几月几号|星期几/u,
+  /最新新闻|今日新闻|热搜|头条|股票|股价|汇率|彩票|比赛比分/u,
+  /讲个笑话|说个笑话|脑筋急转弯|唱首歌/u,
+  /帮我算|算一道题|数学题|解方程/u,
+  /推荐午饭|吃什么|菜谱|点外卖/u,
+];
+
+const LUI_GENERATION_DELAY_MS = 10000;
+const STEP_GENERATION_TRACE_INTERVAL_MS = 2350;
+const STEP_GENERATION_SETTLE_DELAY_MS = 600;
+const DEEP_MODE_ENTRY_GUIDANCE =
+  "已进入深度创编流程，请先在右侧确认创意收集信息，也可以继续在这里补充任务要求。";
+
+function splitHandoffDetail(value) {
+  const detail = String(value || "").trim();
+  if (!detail) return { label: "", content: "" };
+
+  const priorityMatch = detail.match(/^(优先确认|优先处理|重点确认)[：:]\s*(.+)$/u);
+  if (!priorityMatch) return { label: "", content: detail };
+
+  return {
+    label: `${priorityMatch[1]}：`,
+    content: priorityMatch[2],
+  };
+}
+
+const VOICE_SCRIPT_MIN_LENGTH = 100;
+const VOICE_SCRIPT_MAX_LENGTH = 1500;
+
+const isPendingGenerationJob = (job) =>
+  job?.status === "generating" || job?.status === "generating_video";
+
+const featureCardArtwork = {
+  heroBg1: featureHeroImage,
+  heroBg2: featureHeroImage,
+  heroBg3: featureHeroImage,
+  heroBg4: featureHeroImage,
+  heroCharacter: featureHeroImage,
+  heroThumb1: featureHeroImage,
+  heroThumb2: featureHeroImage,
+  heroThumb3: featureHeroImage,
+  heroThumb4: featureHeroImage,
+  heroDivider: featureHeroImage,
+  clipBg: featureClipImage,
+  clipPoster: featureClipImage,
+  clipBadge: featureClipImage,
+  clipPlay: featureClipImage,
+  voicePortrait: featureVoiceImage,
+  cutoutLeft: featureCutoutImage,
+  cutoutRight: featureCutoutImage,
+  cutoutCenter: featureCutoutImage,
+  expandBg: featureExpandImage,
+  expandArrow: featureExpandImage,
+};
+
+const showcaseImages = [
+  "https://images.unsplash.com/photo-1513279922550-250c2129b13a?w=1200&h=900&fit=crop",
+  "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=1200&h=900&fit=crop",
+];
+
+const resultSets = [
+  [
+    "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&h=900&fit=crop",
+  ],
+  [
+    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&h=900&fit=crop&sat=-20",
+  ],
+  [
+    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1516542076529-1ea3854896f2?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=900&h=900&fit=crop",
+    "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&h=900&fit=crop&hue=40",
+  ],
+];
+
+const storyboardPreviewPool = [...resultSets.flat(), ...showcaseImages];
+const demoVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+const storyboardVideoLibraryItems = storyboardPreviewPool.slice(0, 9).map((preview, index) => ({
+  id: `storyboard-video-${index + 1}`,
+  name: "会员狂欢季2024",
+  duration: "02:36",
+  size: index % 3 === 0 ? "竖版" : "横版",
+  type: index % 2 === 0 ? "公共原料库" : "原料库",
+  origin: index % 3 === 2 ? "我的视频" : "公共原料库",
+  preview,
+}));
+
+const STORYBOARD_MEDIA_MAX = 3;
+const STORYBOARD_MEDIA_LABELS = ["A", "B", "C"];
+const STORYBOARD_VOICE_SCRIPT_MIN_SECONDS = 6;
+const STORYBOARD_VOICE_SCRIPT_MAX_SECONDS = 60;
+const STORYBOARD_VOICE_SCRIPT_CHARS_PER_SECOND = 4.2;
+const DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH = 1364;
+const DEEP_CHAT_RAIL_DEFAULT_WIDTH = 538;
+const DEEP_CHAT_RAIL_MIN_WIDTH = 236;
+const DEEP_CHAT_RAIL_COMFORT_MIN_WIDTH = 360;
+const DEEP_CHAT_RAIL_MAX_WIDTH = 538;
+const DEEP_SPLIT_HANDLE_WIDTH = 1;
+const STORYBOARD_SETTINGS_PANEL_DEFAULT_WIDTH = 320;
+const STORYBOARD_SETTINGS_PANEL_MIN_WIDTH = 260;
+const STORYBOARD_SETTINGS_PANEL_MAX_WIDTH = 520;
+const STORYBOARD_SPLIT_HANDLE_WIDTH = 16;
+const mentionTokenPattern = /@\[(.+?)\]/gu;
+
+const digitalHumanLibrary = [
+  {
+    id: "human-1",
+    name: "魏华-棕色茶室-藏蓝长衫",
+    industry: "教育",
+    type: "讲述",
+    gender: "男",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-2",
+    name: "红羽-客厅温柔讲述",
+    industry: "生活",
+    type: "讲述",
+    gender: "女",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-3",
+    name: "松涛-中医科普2",
+    industry: "医疗",
+    type: "专家",
+    gender: "男",
+    avatar:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-4",
+    name: "文翰-室外中式讲述",
+    industry: "知识",
+    type: "主持",
+    gender: "男",
+    avatar:
+      "https://images.unsplash.com/photo-1504593811423-6dd665756598?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-5",
+    name: "朱医生1",
+    industry: "医疗",
+    type: "专家",
+    gender: "男",
+    avatar:
+      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-6",
+    name: "成功学员-阳光版",
+    industry: "教育",
+    type: "学生",
+    gender: "女",
+    avatar:
+      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-7",
+    name: "职场导师-灰西装",
+    industry: "职场",
+    type: "主持",
+    gender: "男",
+    avatar:
+      "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=600&h=800&fit=crop",
+  },
+  {
+    id: "human-8",
+    name: "女性教师-亲和款",
+    industry: "教育",
+    type: "老师",
+    gender: "女",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=800&fit=crop",
+  },
+];
+
+const MAX_SCENE_CHARACTER_COUNT = 10;
+const CHARACTER_SOURCE_AI = "ai";
+const CHARACTER_SOURCE_LIBRARY = "library";
+const LEGACY_LIBRARY_TRAIT_PATTERN = /数字人库角色|系统角色/u;
+const DEFAULT_LIBRARY_CHARACTER_ID = "human-8";
+
+const toolsSections = [
+  {
+    title: "视频",
+    compact: false,
+    items: [
+      {
+        id: "tool-ai-master",
+        title: "AI创编大师",
+        desc: "输入创意想法，智能生成爆款成片",
+        targetPage: "generate",
+        composerMode: "agent",
+        thumb: { type: "image", src: featureCardArtwork.heroThumb2 },
+      },
+      {
+        id: "tool-one-click-video",
+        title: "一键成片",
+        desc: "快速生成营销视频，智能剪辑配乐",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.clipPoster },
+      },
+      {
+        id: "tool-pro-editor",
+        title: "专业编辑器",
+        desc: "支持视频在线编辑，可自定义视频效果",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.clipPoster },
+      },
+      {
+        id: "tool-clip-generate",
+        title: "片段生成",
+        desc: "基于文本、图片生成视频，可用于片头、混剪等场景",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.clipBg },
+      },
+      {
+        id: "tool-template-video",
+        title: "模版视频",
+        desc: "丰富模板库，快速套用生成",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.voicePortrait },
+      },
+      {
+        id: "tool-short-drama",
+        title: "短剧高光",
+        desc: "短剧高光片段提取与生成",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.clipPoster },
+      },
+    ],
+  },
+  {
+    title: "图片",
+    compact: false,
+    items: [
+      {
+        id: "tool-image-one-click",
+        title: "一键出图",
+        desc: "快速生成底图，支持叠加营销海报效果",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.heroThumb1 },
+      },
+      {
+        id: "tool-image-template",
+        title: "模板制图",
+        desc: "海量优质模板，支持营销图批量生产",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.heroThumb3 },
+      },
+      {
+        id: "tool-image-cutout",
+        title: "智能抠图",
+        desc: "保留图片主体内容，灵活应用于多种场景",
+        targetPage: "generate",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.cutoutCenter },
+      },
+      {
+        id: "tool-image-expand",
+        title: "智能扩图",
+        desc: "智能扩展图片边界，无缝衔接",
+        targetPage: "generate",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.expandBg },
+      },
+      {
+        id: "tool-image-batch-crop",
+        title: "批量裁剪",
+        desc: "批量裁剪图片，多尺寸输出",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.heroBg4 },
+      },
+      {
+        id: "tool-image-interaction",
+        title: "互动工具",
+        desc: "图片互动效果生成",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.expandBg },
+      },
+      {
+        id: "tool-image-editor",
+        title: "图片编辑器",
+        desc: "专业图片编辑工具",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.cutoutLeft },
+      },
+      {
+        id: "tool-image-cover",
+        title: "IP封面生成",
+        desc: "为视频生成IP封面，高品质高保真",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.heroThumb4 },
+      },
+      {
+        id: "tool-image-collage",
+        title: "多图拼接",
+        desc: "批量图片无缝衔接",
+        targetPage: "home",
+        composerMode: "image",
+        thumb: { type: "image", src: featureCardArtwork.cutoutCenter },
+      },
+    ],
+  },
+  {
+    title: "文本",
+    compact: true,
+    items: [
+      {
+        id: "tool-copy-one-click",
+        title: "一键成文",
+        desc: "智能生成营销文案",
+        targetPage: "home",
+        composerMode: "agent",
+        thumb: { type: "icon", icon: FileText, tone: "blue" },
+      },
+      {
+        id: "tool-copy-voice",
+        title: "口播文案生成",
+        desc: "生成口播文案脚本",
+        targetPage: "home",
+        composerMode: "agent",
+        thumb: { type: "icon", icon: FileText, tone: "cyan" },
+      },
+      {
+        id: "tool-copy-script",
+        title: "剧情脚本生成",
+        desc: "智能生成剧情脚本",
+        targetPage: "home",
+        composerMode: "agent",
+        thumb: { type: "icon", icon: BookOpen, tone: "purple" },
+      },
+    ],
+  },
+  {
+    title: "数字人",
+    compact: true,
+    items: [
+      {
+        id: "tool-human-avatar",
+        title: "形象定制",
+        desc: "定制专属数字人形象",
+        targetPage: "home",
+        composerMode: "agent",
+        thumb: { type: "image", src: featureCardArtwork.voicePortrait },
+      },
+      {
+        id: "tool-human-voice",
+        title: "语音复刻",
+        desc: "复刻真人语音",
+        targetPage: "home",
+        composerMode: "agent",
+        thumb: { type: "image", src: featureCardArtwork.voicePortrait },
+      },
+      {
+        id: "tool-human-image",
+        title: "图片数字人",
+        desc: "图片转数字人视频",
+        targetPage: "generate",
+        composerMode: "agent",
+        thumb: { type: "image", src: featureCardArtwork.voicePortrait },
+      },
+    ],
+  },
+  {
+    title: "视频诊断",
+    compact: true,
+    items: [
+      {
+        id: "tool-video-diagnose",
+        title: "诊断工具",
+        desc: "精准诊断视频，提升内容表现力",
+        targetPage: "generate",
+        composerMode: "video",
+        thumb: { type: "image", src: featureCardArtwork.clipPoster },
+      },
+    ],
+  },
+];
+
+const initialJobs = [
+  {
+    id: "seed-finished",
+    prompt:
+      "图片1 主体为“观夏”品牌方形透明香水瓶，黑色椭圆瓶盖，置于浅草绿绸布铺底的桌面上；背景是草绿到米白的渐变色调，主体居中，艾草与石景侧置形成呼应；色彩以草绿色为主，苔藓厚雪做桌面造景，光影柔和且有质感。",
+    imageRatio: "1:1",
+    imageResolution: "高清2K",
+    imageCount: 4,
+    resultImages: resultSets[0],
+    status: "done",
+    createdAt: 1,
+    createdDay: getDateKey(new Date()),
+    mode: "image",
+  },
+];
+
+const ratioMap = {
+  "1:1": { w: 1024, h: 1024 },
+  "3:4": { w: 1200, h: 1600 },
+  "4:3": { w: 1600, h: 1200 },
+  "9:6": { w: 1440, h: 960 },
+  "9:16": { w: 900, h: 1600 },
+  "16:9": { w: 1600, h: 900 },
+};
+
+function parseAspectRatio(value) {
+  if (!value) return 1;
+  const [w, h] = String(value)
+    .split(":")
+    .map((item) => Number(item));
+  if (!w || !h || Number.isNaN(w) || Number.isNaN(h)) return 1;
+  return w / h;
+}
+
+function getImageGridLayout(imageRatio, count) {
+  const safeCount = Math.max(1, count || 1);
+  const aspectRatio = parseAspectRatio(imageRatio);
+
+  if (safeCount === 1) {
+    return { columns: 1, tileAspectRatio: aspectRatio };
+  }
+
+  if (safeCount === 2) {
+    return { columns: 2, tileAspectRatio: aspectRatio };
+  }
+
+  if (safeCount === 4 && aspectRatio > 0.9 && aspectRatio < 1.1) {
+    return { columns: 4, tileAspectRatio: 1 };
+  }
+
+  if (aspectRatio > 0.9 && aspectRatio < 1.1) {
+    return { columns: 2, tileAspectRatio: 1 };
+  }
+
+  if (aspectRatio <= 0.9) {
+    return { columns: Math.min(4, safeCount), tileAspectRatio: aspectRatio };
+  }
+
+  return { columns: Math.min(4, safeCount), tileAspectRatio: aspectRatio };
+}
+
+const deepModeSteps = [
+  { no: 1, title: "创意收集" },
+  { no: 2, title: "方案规划" },
+  { no: 3, title: "分镜设计" },
+  { no: 4, title: "成片设置" },
+];
+
+const FINAL_DEEP_STEP = 4;
+const MAX_STORYBOARD_SLOTS = 3;
+const agentConversionGuidanceOptions = ["留线索/表单提交", "点击咨询", "引导下载", "引导购买", "点击链接"];
+const agentVideoStyleOptions = ["写实风", "动漫风", "像素风", "3D动画"];
+const agentVideoTypeOptions = ["智能推荐", "自定义"];
+const agentNarratorTypeOptions = ["数字人", "AI生成", "无口播人"];
+const agentMaterialTypeOptions = ["素材库检索", "AI生成", "无素材"];
+const normalizeAgentMaterialTypes = (value) => {
+  const rawItems = Array.isArray(value)
+    ? value
+    : value === "二者混合"
+      ? ["素材库检索", "AI生成"]
+      : value
+        ? [value]
+        : [];
+  const normalized = agentMaterialTypeOptions.filter((item) => rawItems.includes(item));
+
+  if (normalized.includes("无素材")) return ["无素材"];
+  return normalized.length ? normalized : ["素材库检索"];
+};
+const getAgentMaterialTypeLabel = (value) => {
+  const normalized = normalizeAgentMaterialTypes(value);
+  const hasLibrary = normalized.includes("素材库检索");
+  const hasAi = normalized.includes("AI生成");
+
+  if (normalized.includes("无素材")) return "无素材";
+  if (hasLibrary && hasAi) return "二者混合";
+  return normalized[0] || "素材库检索";
+};
+const agentVideoRatioOptions = ["16:9 横版", "9:16 竖版", "1:1 方版"];
+const agentBusinessRequiredFields = [
+  "businessPoint",
+  "audience",
+  "conversionGuidance",
+  "style",
+  "videoType",
+  "scriptStyle",
+];
+const agentBusinessFieldGuides = {
+  businessPoint:
+    "请输入您的推广业务，是您提供的最细粒度的产品或服务，例如语言培训业务，业务可能有“雅思培训”“托福培训”“少儿英语”等",
+  audience: "请输入当前视频期望面向的用户群体，如大学生、白领",
+  scriptStyle: "请选择脚本风格",
+  additionalInfo: "请输入补充信息",
+};
+const agentBusinessFieldMaxLengths = {
+  businessPoint: 150,
+  audience: 150,
+  scriptStyle: 40,
+  additionalInfo: 150,
+};
+const defaultAgentBusinessInfo = {
+  triggerPrompt: "",
+  businessPoint: "",
+  audience: "有雅思备考、提分需求的学生及家长",
+  conversionGuidance: agentConversionGuidanceOptions[0],
+  style: agentVideoStyleOptions[0],
+  videoType: agentVideoTypeOptions[0],
+  narratorType: agentNarratorTypeOptions[0],
+  materialTypes: [agentMaterialTypeOptions[0]],
+  materialType: agentMaterialTypeOptions[0],
+  videoScene: "信息流",
+  videoRatio: agentVideoRatioOptions[0],
+  scriptStyle: "温馨",
+  additionalInfo: "",
+};
+
+const defaultAgentCharacters = [
+  {
+    name: "资深女性教师",
+    trait: "专业、亲和",
+    voiceId: "voice-1",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
+    sourceType: CHARACTER_SOURCE_LIBRARY,
+    libraryCharacterId: "human-8",
+    isVoiceover: true,
+  },
+  {
+    name: "焦虑家长",
+    trait: "真实、共情",
+    voiceId: null,
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
+    sourceType: CHARACTER_SOURCE_AI,
+    libraryCharacterId: null,
+    isVoiceover: false,
+  },
+  {
+    name: "成功学员",
+    trait: "自信、阳光",
+    voiceId: null,
+    avatar:
+      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=400&fit=crop",
+    sourceType: CHARACTER_SOURCE_AI,
+    libraryCharacterId: null,
+    isVoiceover: false,
+  },
+];
+
+const defaultPromptTextSettings = {
+  font: "方正兰亭中黑简体",
+  size: 60,
+  colorName: "白色",
+  textColor: "#ffffff",
+  bold: true,
+  italic: false,
+  preset: "clear-light",
+  stroke: true,
+  strokeColor: "#202634",
+  strokeWidth: 2,
+};
+
+const defaultPromptTextPosition = {
+  x: 0.5,
+  y: 0.22,
+};
+
+const PROMPT_TEXT_ITEM_MAX_LENGTH = 100;
+const PROMPT_TEXT_MAX_ITEMS = 3;
+
+const defaultPictureInPicturePosition = {
+  x: 0,
+  y: 0,
+};
+
+const defaultBrandLogoPosition = {
+  x: 0.12,
+  y: 0,
+};
+
+const pictureInPictureBounds = {
+  minXPercent: 4,
+  maxXPercent: 71,
+  minYPercent: 10,
+  maxYPercent: 72,
+};
+
+const brandLogoBounds = {
+  minXPercent: 4,
+  maxXPercent: 88,
+  minYPercent: 10,
+  maxYPercent: 78,
+};
+
+const promptTextBounds = {
+  minXPercent: 10,
+  maxXPercent: 90,
+  minYPercent: 10,
+  maxYPercent: 82,
+};
+
+const defaultAgentOutlines = [
+  {
+    title: "开场：痛点共鸣",
+    desc: "展示家长面对孩子雅思成绩单的焦虑神情，资深教师准备承接问题拆解。",
+    avatars: [0, 1],
+    pictureInPictureEnabled: false,
+    pictureInPicturePosition: { ...defaultPictureInPicturePosition },
+    promptText: "",
+    promptSettings: { ...defaultPromptTextSettings },
+    promptTextPosition: { ...defaultPromptTextPosition },
+    brandLogo: null,
+    brandLogoPosition: { ...defaultBrandLogoPosition },
+    subtitle: "@[角色：焦虑家长]担心孩子成绩迟迟提不上去，@[角色：资深女性教师]开始指出问题所在。",
+    shotType: "中景",
+    cameraAngle: "平视",
+    motion: "静态",
+    duration: "0:00-0:06",
+  },
+  {
+    title: "引入：专业方案",
+    desc: "资深女性教师登场，通过简洁的白板演示，指出备考核心误区。",
+    avatars: [0],
+    pictureInPictureEnabled: false,
+    pictureInPicturePosition: { ...defaultPictureInPicturePosition },
+    promptText: "",
+    promptSettings: { ...defaultPromptTextSettings },
+    promptTextPosition: { ...defaultPromptTextPosition },
+    brandLogo: null,
+    brandLogoPosition: { ...defaultBrandLogoPosition },
+    subtitle: "@[角色：资深女性教师]先找对问题，再谈提分方案。",
+    shotType: "近景",
+    cameraAngle: "正面",
+    motion: "推进",
+    duration: "0:06-0:14",
+  },
+  {
+    title: "高潮：方法展示",
+    desc: "快速剪辑成功学员使用新方法练习的画面，配以节奏感强的音乐。",
+    avatars: [2],
+    pictureInPictureEnabled: false,
+    pictureInPicturePosition: { ...defaultPictureInPicturePosition },
+    promptText: "",
+    promptSettings: { ...defaultPromptTextSettings },
+    promptTextPosition: { ...defaultPromptTextPosition },
+    brandLogo: null,
+    brandLogoPosition: { ...defaultBrandLogoPosition },
+    subtitle: "@[角色：成功学员]用练习状态说明，方法对了，提分会明显快很多。",
+    shotType: "远景",
+    cameraAngle: "侧拍",
+    motion: "跟拍",
+    duration: "0:14-0:22",
+  },
+];
+
+const INITIAL_COMPOSER_CONFIG = {
+  mode: "image",
+  videoScene: "信息流",
+  agentScene: "信息流",
+  videoRatio: "9:16",
+  agentRatio: "16:9",
+  agentImageCount: 2,
+  agentLandingReference: false,
+  agentVoiceScript: false,
+  agentMaterialReference: false,
+  imageThinking: false,
+  imageRatio: "16:9",
+  imageResolution: "高清2K",
+  imageCount: 2,
+};
+
+const COMPOSER_SCENE_OPTIONS = ["信息流", "搜索"];
+const normalizeComposerScene = (value) =>
+  COMPOSER_SCENE_OPTIONS.includes(value) ? value : COMPOSER_SCENE_OPTIONS[0];
+
+const INITIAL_COMPOSER_ATTACHMENTS = {
+  uploads: [],
+  landingPage: null,
+  voiceScript: null,
+};
+
+const COMPOSER_UPLOAD_MAX = 12;
+const DEEP_COMPOSER_UPLOAD_MAX = 10;
+
+const isSupportedMediaFile = (file) =>
+  Boolean(file?.type?.startsWith("image/") || file?.type?.startsWith("video/"));
+
+const getUnsupportedFileCount = (files) =>
+  Array.from(files || []).filter((file) => !isSupportedMediaFile(file)).length;
+
+const outlineVariantPool = [
+  {
+    title: "开场：痛点共鸣",
+    desc: "展示家长面对孩子雅思成绩单的焦虑神情，背景是杂乱的辅导书。",
+    subtitle: "孩子成绩迟迟提不上去，家长也开始焦虑。",
+    shotType: "中景",
+    cameraAngle: "平视",
+    motion: "静态",
+  },
+  {
+    title: "引入：专业方案",
+    desc: "资深教师登场，通过简洁的白板演示，指出备考核心误区。",
+    subtitle: "先找对问题，再谈提分方案。",
+    shotType: "近景",
+    cameraAngle: "正面",
+    motion: "推进",
+  },
+  {
+    title: "方法：高效练习",
+    desc: "切换到学员练习画面，演示从盲目刷题到分模块训练的变化过程。",
+    subtitle: "换一种方法，提分节奏会明显不一样。",
+    shotType: "远景",
+    cameraAngle: "侧拍",
+    motion: "跟拍",
+  },
+  {
+    title: "证明：学员反馈",
+    desc: "真实学员展示成绩提升的对比结果，并用一句话说明变化来源。",
+    subtitle: "提分不是碰运气，而是路径更科学。",
+    shotType: "中景",
+    cameraAngle: "平视",
+    motion: "推进",
+  },
+  {
+    title: "结尾：立即行动",
+    desc: "老师与学员共同面向镜头，叠加课程权益和限时咨询信息，完成转化收口。",
+    subtitle: "现在就预约试听，尽快进入高效提分节奏。",
+    shotType: "近景",
+    cameraAngle: "正面",
+    motion: "静态",
+  },
+];
+
+const musicTracks = [
+  {
+    id: "none",
+    title: "不选择音乐",
+    duration: "",
+    category: "全部类型",
+    pickerType: "全部类型",
+    industry: "全部行业",
+    favorite: false,
+  },
+  {
+    id: "track-1",
+    title: "在你的灵魂",
+    duration: "2:12",
+    category: "抒情",
+    pickerType: "舒缓歌曲",
+    industry: "教育",
+    favorite: true,
+  },
+  {
+    id: "track-2",
+    title: "你看到我的外套了",
+    duration: "1:51",
+    category: "轻快",
+    pickerType: "轻快歌曲",
+    industry: "通用",
+    favorite: false,
+  },
+  {
+    id: "track-3",
+    title: "椰子",
+    duration: "2:12",
+    category: "轻快",
+    pickerType: "轻快纯乐",
+    industry: "通用",
+    favorite: false,
+  },
+  {
+    id: "track-4",
+    title: "新娘",
+    duration: "2:16",
+    category: "温暖",
+    pickerType: "舒缓歌曲",
+    industry: "生活",
+    favorite: true,
+  },
+  {
+    id: "track-5",
+    title: "浪费我的时间",
+    duration: "1:56",
+    category: "节奏",
+    pickerType: "动感歌曲",
+    industry: "通用",
+    favorite: false,
+  },
+  {
+    id: "track-6",
+    title: "夏天漫步",
+    duration: "2:02",
+    category: "清新",
+    pickerType: "轻快纯乐",
+    industry: "教育",
+    favorite: false,
+  },
+  {
+    id: "track-7",
+    title: "小眼泪",
+    duration: "2:02",
+    category: "抒情",
+    pickerType: "舒缓纯乐",
+    industry: "教育",
+    favorite: false,
+  },
+  {
+    id: "track-8",
+    title: "一个非常美好的梦",
+    duration: "2:11",
+    category: "温暖",
+    pickerType: "舒缓纯乐",
+    industry: "教育",
+    favorite: false,
+  },
+  {
+    id: "track-9",
+    title: "踩在裂缝上",
+    duration: "1:35",
+    category: "节奏",
+    pickerType: "动感纯乐",
+    industry: "通用",
+    favorite: false,
+  },
+];
+
+const musicPickerTypeOptions = [
+  "全部类型",
+  "动感纯乐",
+  "轻快纯乐",
+  "舒缓纯乐",
+  "动感歌曲",
+  "轻快歌曲",
+  "舒缓歌曲",
+];
+
+const voiceIndustryOptions = [
+  "全部行业",
+  "口腔美容",
+  "教育培训",
+  "眼科美容",
+  "心理援助",
+  "国学",
+  "保险业",
+  "证券业",
+  "职业培训",
+];
+
+const dubbingVoiceOptions = [
+  {
+    id: "voice-1",
+    title: "思雨 · 沉稳女声",
+    desc: "温和、专业、适合教育讲述",
+    industry: "教育培训",
+    avatar: featureCardArtwork.voicePortrait,
+  },
+  {
+    id: "voice-2",
+    title: "知远 · 青年男声",
+    desc: "清晰、可信、适合知识科普",
+    industry: "证券业",
+    avatar: digitalHumanLibrary[3].avatar,
+  },
+  {
+    id: "voice-3",
+    title: "若曦 · 轻柔女声",
+    desc: "亲和、温暖、适合品牌故事",
+    industry: "心理援助",
+    avatar: digitalHumanLibrary[1].avatar,
+  },
+  {
+    id: "voice-4",
+    title: "爱尔眼科-张护士",
+    desc: "专业、亲切",
+    industry: "眼科美容",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-5",
+    title: "度小贤",
+    desc: "低沉、稳重",
+    industry: "保险业",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-6",
+    title: "度灵儿",
+    desc: "助手、智能",
+    industry: "职业培训",
+    avatar: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-7",
+    title: "度姗姗",
+    desc: "可爱、阳光",
+    industry: "教育培训",
+    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-8",
+    title: "度迦南",
+    desc: "活泼、温暖",
+    industry: "心理援助",
+    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-9",
+    title: "度小彦",
+    desc: "兴奋、流利",
+    industry: "证券业",
+    avatar: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-10",
+    title: "度清风",
+    desc: "短视频风格",
+    industry: "职业培训",
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-11",
+    title: "度小夏",
+    desc: "知性、温柔",
+    industry: "口腔美容",
+    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop",
+  },
+  {
+    id: "voice-12",
+    title: "度博文",
+    desc: "磁性、魅力",
+    industry: "国学",
+    avatar: "https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=400&fit=crop",
+  },
+];
+
+function findDigitalHumanById(id) {
+  return digitalHumanLibrary.find((item) => item.id === id) || null;
+}
+
+function getDefaultLibraryCharacter() {
+  return findDigitalHumanById(DEFAULT_LIBRARY_CHARACTER_ID) || digitalHumanLibrary[0] || null;
+}
+
+function findMatchingDigitalHuman(character) {
+  if (!character) return null;
+  const byId = character.libraryCharacterId ? findDigitalHumanById(character.libraryCharacterId) : null;
+  if (byId) return byId;
+
+  const normalizedName = String(character.name || "").trim();
+  const normalizedAvatar = String(character.avatar || "").trim();
+
+  return (
+    digitalHumanLibrary.find((item) => normalizedName && item.name === normalizedName) ||
+    digitalHumanLibrary.find((item) => normalizedAvatar && item.avatar === normalizedAvatar) ||
+    null
+  );
+}
+
+function inferCharacterSourceType(character, matchedLibrary, index = 0) {
+  if (character?.sourceType === CHARACTER_SOURCE_LIBRARY) return CHARACTER_SOURCE_LIBRARY;
+  if (character?.sourceType === CHARACTER_SOURCE_AI) return CHARACTER_SOURCE_AI;
+  if (character?.libraryCharacterId) return CHARACTER_SOURCE_LIBRARY;
+  if (LEGACY_LIBRARY_TRAIT_PATTERN.test(String(character?.trait || ""))) return CHARACTER_SOURCE_LIBRARY;
+  if (matchedLibrary) return CHARACTER_SOURCE_LIBRARY;
+  if (index === 0 && character?.voiceId) return CHARACTER_SOURCE_LIBRARY;
+  return CHARACTER_SOURCE_AI;
+}
+
+function isLibraryCharacter(character) {
+  return character?.sourceType === CHARACTER_SOURCE_LIBRARY;
+}
+
+function isVoiceoverCharacter(character) {
+  return Boolean(character?.isVoiceover) && isLibraryCharacter(character);
+}
+
+function canCharacterBeVoiceover(character) {
+  return isLibraryCharacter(character);
+}
+
+function getSceneVoiceoverCharacterIndex(characters = []) {
+  return characters.findIndex((item) => isVoiceoverCharacter(item));
+}
+
+function getSceneVoiceoverCharacter(characters = []) {
+  const index = getSceneVoiceoverCharacterIndex(characters);
+  return index === -1 ? null : characters[index] || null;
+}
+
+function getCharacterVoiceRuleError(characters = []) {
+  if (!characters.length) return "请至少保留 1 个出场角色";
+  if (characters.length > MAX_SCENE_CHARACTER_COUNT) {
+    return `最多支持 ${MAX_SCENE_CHARACTER_COUNT} 个出场角色`;
+  }
+
+  const voiceoverCharacters = characters.filter((item) => isVoiceoverCharacter(item));
+  if (voiceoverCharacters.length !== 1) {
+    return "请确保出场角色中有且仅有 1 个角色库口播角色";
+  }
+
+  if (!voiceoverCharacters[0]?.voiceId) {
+    return "请为口播角色配置音色";
+  }
+
+  return "";
+}
+
+function buildLibraryCharacterTrait(character) {
+  const segments = [character?.type, character?.industry].filter(Boolean);
+  return segments.length ? segments.join(" · ") : "角色库角色";
+}
+
+function buildLibraryCharacterFromSelection(selected, index = 0, options = {}) {
+  const { isVoiceover = false, preferredVoiceId = null } = options;
+  return {
+    name: selected?.name || "角色库角色",
+    trait: buildLibraryCharacterTrait(selected),
+    avatar: selected?.avatar || getDefaultLibraryCharacter()?.avatar || featureVoiceImage,
+    sourceType: CHARACTER_SOURCE_LIBRARY,
+    libraryCharacterId: selected?.id || getDefaultLibraryCharacter()?.id || null,
+    isVoiceover,
+    voiceId: isVoiceover
+      ? suggestCharacterVoiceId(selected, index, preferredVoiceId)
+      : null,
+  };
+}
+
+function normalizeSceneCharacters(characters = []) {
+  const incoming = Array.isArray(characters) ? characters.filter(Boolean) : [];
+  const limited = incoming.slice(0, MAX_SCENE_CHARACTER_COUNT).map((item, index) => {
+    const matchedLibrary = findMatchingDigitalHuman(item);
+    const sourceType = inferCharacterSourceType(item, matchedLibrary, index);
+
+    return {
+      ...item,
+      sourceType,
+      libraryCharacterId:
+        sourceType === CHARACTER_SOURCE_LIBRARY
+          ? item?.libraryCharacterId || matchedLibrary?.id || null
+          : null,
+      trait:
+        item?.trait ||
+        (sourceType === CHARACTER_SOURCE_LIBRARY ? buildLibraryCharacterTrait(matchedLibrary) : "AI生成角色"),
+      isVoiceover: Boolean(item?.isVoiceover),
+      voiceId: item?.voiceId || null,
+    };
+  });
+
+  if (!limited.length) {
+    return [buildLibraryCharacterFromSelection(getDefaultLibraryCharacter(), 0, { isVoiceover: true })];
+  }
+
+  let working = limited;
+  const eligibleIndexes = working.reduce((acc, item, index) => {
+    if (canCharacterBeVoiceover(item)) acc.push(index);
+    return acc;
+  }, []);
+
+  let voiceoverIndex = working.findIndex(
+    (item, index) => Boolean(item?.isVoiceover) && eligibleIndexes.includes(index),
+  );
+  if (voiceoverIndex === -1) voiceoverIndex = eligibleIndexes[0] ?? -1;
+
+  if (voiceoverIndex === -1) {
+    const fallbackLibraryCharacter = getDefaultLibraryCharacter();
+    working = working.map((item, index) =>
+      index === 0
+        ? {
+            ...item,
+            name: fallbackLibraryCharacter?.name || item.name || "角色库口播角色",
+            trait: buildLibraryCharacterTrait(fallbackLibraryCharacter),
+            avatar: fallbackLibraryCharacter?.avatar || item.avatar || featureVoiceImage,
+            sourceType: CHARACTER_SOURCE_LIBRARY,
+            libraryCharacterId: fallbackLibraryCharacter?.id || null,
+          }
+        : item,
+    );
+    voiceoverIndex = 0;
+  }
+
+  return working.map((item, index) => {
+    const matchedLibrary = findMatchingDigitalHuman(item);
+    const isVoiceover = index === voiceoverIndex;
+    const sourceType = isVoiceover ? CHARACTER_SOURCE_LIBRARY : item.sourceType;
+
+    return {
+      ...item,
+      sourceType,
+      libraryCharacterId:
+        sourceType === CHARACTER_SOURCE_LIBRARY
+          ? item?.libraryCharacterId || matchedLibrary?.id || getDefaultLibraryCharacter()?.id || null
+          : null,
+      isVoiceover,
+      voiceId: isVoiceover
+        ? getDubbingVoiceOption(item?.voiceId)?.id || suggestCharacterVoiceId(matchedLibrary || item, index)
+        : null,
+    };
+  });
+}
+
+function getDubbingVoiceOption(voiceId) {
+  if (!voiceId) return null;
+  return dubbingVoiceOptions.find((item) => item.id === voiceId) || null;
+}
+
+function suggestCharacterVoiceId(character, index = 0, preferredVoiceId = null) {
+  if (preferredVoiceId && getDubbingVoiceOption(preferredVoiceId)) return preferredVoiceId;
+
+  const normalized = `${character?.name || ""} ${character?.trait || ""}`;
+  if (/教师|老师|专业|亲和|温和|知性|女/u.test(normalized)) return "voice-1";
+  if (/家长|青年|男|知识|科普|权威|冷静/u.test(normalized)) return "voice-2";
+  if (/学员|学生|阳光|自信|温暖|活泼|品牌|柔和/u.test(normalized)) return "voice-3";
+
+  return dubbingVoiceOptions[index % dubbingVoiceOptions.length]?.id || dubbingVoiceOptions[0]?.id || null;
+}
+
+function withCharacterVoice(character, index = 0, preferredVoiceId = null) {
+  return normalizeSceneCharacters([
+    {
+      ...character,
+      voiceId: character?.voiceId || suggestCharacterVoiceId(character, index, preferredVoiceId),
+      isVoiceover: Boolean(character?.isVoiceover),
+      sourceType: character?.sourceType || CHARACTER_SOURCE_AI,
+    },
+  ])[0];
+}
+
+function withCharacterVoiceList(characters = [], preferredFirstVoiceId = null) {
+  return normalizeSceneCharacters(
+    characters.map((item, index) => ({
+      ...item,
+      voiceId: item?.voiceId || suggestCharacterVoiceId(item, index, index === 0 ? preferredFirstVoiceId : null),
+      isVoiceover: item?.isVoiceover ?? index === 0,
+    })),
+  );
+}
+
+function buildOutlineAvatarAllocation(outlineIndex, outlineCount, characterCount) {
+  if (characterCount <= 0) return [0];
+  if (characterCount === 1) return [0];
+
+  const blockSize = Math.max(1, Math.ceil(characterCount / Math.max(outlineCount, 1)));
+  const start = outlineIndex * blockSize;
+  const end = Math.min(characterCount, start + blockSize);
+  const chunk = [];
+
+  for (let cursor = start; cursor < end; cursor += 1) {
+    chunk.push(cursor);
+  }
+
+  if (chunk.length) return chunk;
+  return [outlineIndex % characterCount];
+}
+
+function personalizeOutlineVariant(variant, characters = [], avatars = []) {
+  const validAvatars = avatars.filter((avatarIndex) => characters[avatarIndex]);
+  const leadCharacter = characters[validAvatars[0]] || null;
+  const supportCharacter = characters[validAvatars[1]] || null;
+
+  if (!leadCharacter) return variant;
+
+  const descTail = supportCharacter
+    ? `由${leadCharacter.name}与${supportCharacter.name}共同出镜，形成更清晰的角色关系。`
+    : `由${leadCharacter.name}承担这一段的主要表达。`;
+  const leadMention = `@[角色：${leadCharacter.name}]`;
+  const supportMention = supportCharacter ? `@[角色：${supportCharacter.name}]` : "";
+  const subtitle = supportCharacter
+    ? `${leadMention}与${supportMention}一起把这一段重点讲清楚。`
+    : `${leadMention}把这一段的关键信息讲明白。`;
+
+  return {
+    ...variant,
+    desc: `${variant.desc}${descTail}`,
+    subtitle,
+  };
+}
+
+const subtitlePresetStyles = [
+  { id: "plain", label: "默认", color: "#202634", stroke: false, strokeColor: "#000000", strokeWidth: 0 },
+  { id: "black-outline", label: "黑色描边", color: "#202634", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "black-clean", label: "黑色", color: "#202634", stroke: false, strokeColor: "#000000", strokeWidth: 0 },
+  { id: "yellow", label: "金黄", color: "#f2c400", stroke: true, strokeColor: "#202634", strokeWidth: 4 },
+  { id: "orange", label: "橙色", color: "#ff8a1f", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "dark", label: "暗色", color: "#202634", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "blue", label: "蓝色", color: "#4f9dff", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "cream", label: "米白", color: "#efe2a7", stroke: true, strokeColor: "#4d4635", strokeWidth: 3 },
+  { id: "red", label: "红色", color: "#ff4a3d", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "steel-blue", label: "蓝灰", color: "#4a86b8", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "brown", label: "棕色", color: "#b45d45", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "gold-strong", label: "金橙", color: "#ff9a1f", stroke: true, strokeColor: "#202634", strokeWidth: 4 },
+  { id: "pink", label: "粉色", color: "#ff5f92", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "sky", label: "天蓝", color: "#4f9dff", stroke: true, strokeColor: "#ffffff", strokeWidth: 3 },
+  { id: "ink", label: "雅黑", color: "#202634", stroke: true, strokeColor: "#ffffff", strokeWidth: 2 },
+  { id: "hot-pink", label: "玫粉", color: "#ff4f92", stroke: true, strokeColor: "#ffffff", strokeWidth: 2 },
+  { id: "rust", label: "红棕", color: "#a94c38", stroke: true, strokeColor: "#ffffff", strokeWidth: 2 },
+  { id: "tangerine", label: "橘黄", color: "#ff8a00", stroke: true, strokeColor: "#202634", strokeWidth: 3 },
+];
+
+const promptFontOptions = ["方正兰亭中黑简体", "思源黑体", "阿里巴巴普惠体 2.0", "HarmonyOS Sans SC"];
+const promptSizeOptions = [36, 48, 60, 72, 84];
+const promptColorOptions = [
+  { id: "white", label: "白色", value: "#ffffff" },
+  { id: "yellow", label: "金黄", value: "#f2c400" },
+  { id: "orange", label: "橙色", value: "#ff8a1f" },
+  { id: "blue", label: "蓝色", value: "#5aa2ff" },
+  { id: "green", label: "青绿", value: "#7ecb38" },
+  { id: "pink", label: "粉色", value: "#ff5f92" },
+  { id: "dark", label: "深色", value: "#202634" },
+];
+
+const promptPresetStyles = [
+  {
+    id: "clear-light",
+    label: "白色描边",
+    colorName: "白色",
+    textColor: "#ffffff",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#202634",
+    strokeWidth: 2,
+  },
+  {
+    id: "gold-highlight",
+    label: "金黄强调",
+    colorName: "金黄",
+    textColor: "#f2c400",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#202634",
+    strokeWidth: 2,
+  },
+  {
+    id: "warm-orange",
+    label: "暖橙强调",
+    colorName: "橙色",
+    textColor: "#ff8a1f",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#202634",
+    strokeWidth: 2,
+  },
+  {
+    id: "clean-blue",
+    label: "清透蓝字",
+    colorName: "蓝色",
+    textColor: "#5aa2ff",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#ffffff",
+    strokeWidth: 2,
+  },
+  {
+    id: "fresh-green",
+    label: "青绿描边",
+    colorName: "青绿",
+    textColor: "#7ecb38",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#202634",
+    strokeWidth: 2,
+  },
+  {
+    id: "dark-editorial",
+    label: "深色质感",
+    colorName: "深色",
+    textColor: "#202634",
+    bold: true,
+    italic: false,
+    stroke: true,
+    strokeColor: "#ffffff",
+    strokeWidth: 2,
+  },
+];
+
+const defaultSubtitleSettings = {
+  enabled: true,
+  font: "方正兰亭中黑简体",
+  size: 80,
+  colorName: "白色",
+  textColor: "#ffffff",
+  bold: false,
+  italic: false,
+  scale: 100,
+  preset: "plain",
+  stroke: true,
+  strokeColor: "#000000",
+  strokeWidth: 4,
+  shadow: false,
+};
+
+function normalizePromptTextSettings(settings = {}) {
+  return {
+    ...defaultPromptTextSettings,
+    ...(settings || {}),
+  };
+}
+
+function applyPromptPresetStyle(presetId, baseSettings = {}) {
+  const preset = promptPresetStyles.find((item) => item.id === presetId);
+  if (!preset) return normalizePromptTextSettings(baseSettings);
+
+  return {
+    ...normalizePromptTextSettings(baseSettings),
+    preset: preset.id,
+    colorName: preset.colorName,
+    textColor: preset.textColor,
+    bold: preset.bold,
+    italic: preset.italic,
+    stroke: preset.stroke,
+    strokeColor: preset.strokeColor,
+    strokeWidth: preset.strokeWidth,
+  };
+}
+
+function arePromptTextSettingsEqual(left = {}, right = {}) {
+  const leftSettings = normalizePromptTextSettings(left);
+  const rightSettings = normalizePromptTextSettings(right);
+
+  return (
+    leftSettings.font === rightSettings.font &&
+    leftSettings.size === rightSettings.size &&
+    leftSettings.colorName === rightSettings.colorName &&
+    leftSettings.textColor === rightSettings.textColor &&
+    leftSettings.bold === rightSettings.bold &&
+    leftSettings.italic === rightSettings.italic &&
+    leftSettings.preset === rightSettings.preset &&
+    leftSettings.stroke === rightSettings.stroke &&
+    leftSettings.strokeColor === rightSettings.strokeColor &&
+    leftSettings.strokeWidth === rightSettings.strokeWidth
+  );
+}
+
+function getPromptTextRenderStyle(settings, scale = 1) {
+  const normalized = normalizePromptTextSettings(settings);
+
+  return {
+    color: normalized.textColor,
+    fontSize: `${Math.max(16, Math.round(normalized.size * scale))}px`,
+    fontFamily: `${normalized.font}, "PingFang SC", "Microsoft YaHei", sans-serif`,
+    fontWeight: normalized.bold ? 700 : 500,
+    fontStyle: normalized.italic ? "italic" : "normal",
+    lineHeight: 1.35,
+    letterSpacing: "0.01em",
+    WebkitTextStroke: normalized.stroke
+      ? `${Math.max(1, Math.round(normalized.strokeWidth * Math.max(scale, 0.7)))}px ${normalized.strokeColor}`
+      : "0 transparent",
+    textShadow: normalized.stroke ? "none" : "0 8px 24px rgba(10,16,28,0.28)",
+  };
+}
+
+const defaultFinalVideoSettings = {
+  selectedMusicId: "track-6",
+  favoriteMusicOnly: false,
+  musicVolume: 15,
+  combinationSettings: {},
+  videoSettings: {
+    smartPostEnabled: true,
+    promptText: "",
+    brandLogo: null,
+  },
+};
+
+function buildAgentState(form = {}, state = {}) {
+  const persistedFinalSettings = state.finalSettings || {};
+  const persistedDeepComposerAttachments = state.deepComposerAttachments || INITIAL_COMPOSER_ATTACHMENTS;
+  const persistedBusinessInfo = state.businessInfo || {};
+  const getBusinessInfoValue = (field, fallback) => {
+    if (
+      Object.prototype.hasOwnProperty.call(persistedBusinessInfo, field) &&
+      persistedBusinessInfo[field] !== undefined
+    ) {
+      return persistedBusinessInfo[field];
+    }
+    return form[field] ?? fallback;
+  };
+  const normalizedMaterialTypes = normalizeAgentMaterialTypes(
+    persistedBusinessInfo.materialTypes ||
+      form.materialTypes ||
+      persistedBusinessInfo.materialType ||
+      form.materialType ||
+      defaultAgentBusinessInfo.materialTypes,
+  );
+  const characters = normalizeSceneCharacters(
+    state.characters || defaultAgentCharacters,
+  );
+  const outlines = (state.outlines || defaultAgentOutlines).map((item, index) => {
+    if (isEmptyStoryboardOutline(item)) return createEmptyStoryboardSlot(index);
+
+    const normalizedItem = {
+      ...item,
+      isEmptySlot: false,
+      slotIndex: index,
+      avatars:
+        (item.avatars || []).filter((avatarIndex) => avatarIndex >= 0 && avatarIndex < characters.length).length
+          ? (item.avatars || []).filter((avatarIndex) => avatarIndex >= 0 && avatarIndex < characters.length)
+          : [Math.max(getSceneVoiceoverCharacterIndex(characters), 0)],
+      pictureInPictureEnabled:
+        item.pictureInPictureEnabled ??
+        persistedFinalSettings.videoSettings?.pictureInPictureEnabled ??
+        false,
+      pictureInPicturePosition: normalizePictureInPicturePosition(item.pictureInPicturePosition),
+      promptTextPosition: normalizePromptTextPosition(item.promptTextPosition),
+      promptSettings: normalizePromptTextSettings(item.promptSettings),
+      brandLogoPosition: normalizeBrandLogoPosition(item.brandLogoPosition),
+    };
+    const mediaState = normalizeStoryboardMediaState(normalizedItem, index);
+
+    return {
+      ...normalizedItem,
+      ...mediaState,
+    };
+  });
+  return {
+    businessInfo: {
+      triggerPrompt: getBusinessInfoValue("triggerPrompt", defaultAgentBusinessInfo.triggerPrompt),
+      businessPoint: getBusinessInfoValue("businessPoint", defaultAgentBusinessInfo.businessPoint),
+      audience: getBusinessInfoValue("audience", defaultAgentBusinessInfo.audience),
+      conversionGuidance: getBusinessInfoValue("conversionGuidance", defaultAgentBusinessInfo.conversionGuidance),
+      style: getBusinessInfoValue("style", defaultAgentBusinessInfo.style),
+      videoType: getBusinessInfoValue("videoType", defaultAgentBusinessInfo.videoType),
+      narratorType: getBusinessInfoValue("narratorType", defaultAgentBusinessInfo.narratorType),
+      materialType:
+        getAgentMaterialTypeLabel(normalizedMaterialTypes),
+      materialTypes: normalizedMaterialTypes,
+      videoScene: normalizeComposerScene(
+        getBusinessInfoValue("videoScene", defaultAgentBusinessInfo.videoScene),
+      ),
+      videoRatio: getBusinessInfoValue("videoRatio", defaultAgentBusinessInfo.videoRatio),
+      scriptStyle: getBusinessInfoValue("scriptStyle", defaultAgentBusinessInfo.scriptStyle),
+      additionalInfo: getBusinessInfoValue("additionalInfo", defaultAgentBusinessInfo.additionalInfo),
+    },
+    theme: state.theme || "雅思视频的宣传视频",
+    characters,
+    outlines,
+    finalSettings: {
+      selectedMusicId:
+        persistedFinalSettings.selectedMusicId || defaultFinalVideoSettings.selectedMusicId,
+      favoriteMusicOnly:
+        persistedFinalSettings.favoriteMusicOnly ?? defaultFinalVideoSettings.favoriteMusicOnly,
+      musicVolume: persistedFinalSettings.musicVolume ?? defaultFinalVideoSettings.musicVolume,
+      combinationSettings: persistedFinalSettings.combinationSettings || {},
+      subtitleSettings: {
+        ...defaultSubtitleSettings,
+        ...(persistedFinalSettings.subtitleSettings || {}),
+      },
+      videoSettings: {
+        ...defaultFinalVideoSettings.videoSettings,
+        ...(persistedFinalSettings.videoSettings || {}),
+      },
+    },
+    deepComposerAttachments: {
+      uploads: [...(persistedDeepComposerAttachments.uploads || [])],
+      landingPage: persistedDeepComposerAttachments.landingPage || null,
+      voiceScript: persistedDeepComposerAttachments.voiceScript || null,
+    },
+  };
+}
+
+function normalizeAgentRatioLabel(value) {
+  if (value === "16:9") return "16:9 横版";
+  if (value === "9:16") return "9:16 竖版";
+  if (value === "1:1") return "1:1 方版";
+  return value || defaultAgentBusinessInfo.videoRatio;
+}
+
+function inferAgentAudienceFromPrompt(prompt) {
+  const normalized = String(prompt || "");
+  if (/雅思|托福|留学|英语|语言/u.test(normalized)) return "有语言考试备考、提分需求的学生及家长";
+  if (/少儿|儿童|美术|绘画|艺术/u.test(normalized)) return "关注孩子兴趣培养和素质教育的家长";
+  if (/职场|白领|办公|效率|管理/u.test(normalized)) return "有职场提升和效率管理需求的白领人群";
+  if (/医美|护肤|美容|养生/u.test(normalized)) return "关注形象管理和生活品质的消费人群";
+  return defaultAgentBusinessInfo.audience;
+}
+
+function getStoryboardDisplayName(index) {
+  const numerals = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+  return `分镜${numerals[index] || index + 1}`;
+}
+
+function getStoryboardMediaLabel(index) {
+  return STORYBOARD_MEDIA_LABELS[index] || String(index + 1);
+}
+
+function getStoryboardLibrarySourceLabel(sourceType) {
+  return sourceType === "image" ? "图片库" : "视频库";
+}
+
+function isStoryboardLibraryScriptTarget(target) {
+  return target?.mode === "library-script" || target?.mode === "insert-library-script";
+}
+
+function stripStoryboardLibraryScriptPrefix(value) {
+  return normalizeVoiceScriptText(value)
+    .replace(/^在(?:当前)?分镜[一二三四五六七八九十\d]+和分镜[一二三四五六七八九十\d]+之间新增分镜，?(?:口播脚本|分镜脚本|脚本)[:：]?\s*/u, "")
+    .replace(/^新增分镜[一二三四五六七八九十\d]+，?(?:口播脚本|分镜脚本|脚本)[:：]?\s*/u, "")
+    .replace(/^新增(?:第\s*\d+\s*段)?分镜，?(?:口播脚本|分镜脚本|脚本)[:：]?\s*/u, "")
+    .trim();
+}
+
+function isEditableStoryboardMediaAsset(asset) {
+  return Boolean(asset?.assetType === "image" || asset?.assetType === "video");
+}
+
+function isAiGeneratedStoryboardMediaAsset(asset) {
+  return Boolean(asset?.sourceType === "ai");
+}
+
+function regenerateAiStoryboardMediaForVoiceScript(asset, storyboardIndex = 0, mediaIndex = 0, subtitle = "") {
+  if (!isAiGeneratedStoryboardMediaAsset(asset)) return asset;
+  const normalizedSubtitle = normalizeVoiceScriptText(subtitle);
+  const currentPreviewIndex = storyboardPreviewPool.indexOf(asset.preview);
+  const seed = Math.max(currentPreviewIndex, 0) + storyboardIndex + mediaIndex + normalizedSubtitle.length + 1;
+  const nextPreview = storyboardPreviewPool[seed % storyboardPreviewPool.length] || asset.preview;
+
+  return {
+    ...asset,
+    preview: nextPreview,
+    prompt: `根据最新口播脚本重新生成画面：${normalizedSubtitle.slice(0, 36)}`,
+    visualSyncStatus: "",
+    visualSyncLabel: "",
+  };
+}
+
+function clearAiStoryboardMediaVisualSync(asset) {
+  if (!isAiGeneratedStoryboardMediaAsset(asset)) return asset;
+  return {
+    ...asset,
+    visualSyncStatus: "",
+    visualSyncLabel: "",
+  };
+}
+
+function normalizeVoiceScriptText(value) {
+  return String(value || "")
+    .replace(mentionTokenPattern, "")
+    .replace(/@[^\s，。！？、；：,.!?;:]*/gu, "")
+    .replace(/[ \t]{2,}/gu, " ")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trimStart();
+}
+
+function countVoiceScriptCharacters(value) {
+  const compact = normalizeVoiceScriptText(value).replace(
+    /[\s，。！？、；：,.!?;:"'“”‘’（）()《》【】\[\]{}<>、\-—_/\\|]/gu,
+    "",
+  );
+  return compact.length;
+}
+
+function estimateStoryboardVoiceScriptDurationSeconds(value, fallback = null) {
+  const characterCount = countVoiceScriptCharacters(value);
+  if (!characterCount) return fallback;
+
+  return clampNumber(
+    Math.ceil(characterCount / STORYBOARD_VOICE_SCRIPT_CHARS_PER_SECOND),
+    STORYBOARD_VOICE_SCRIPT_MIN_SECONDS,
+    STORYBOARD_VOICE_SCRIPT_MAX_SECONDS,
+  );
+}
+
+function normalizeStoryboardMediaAsset(asset, storyboardIndex = 0, mediaIndex = 0) {
+  if (!asset) return null;
+  const assetType = asset.assetType === "image" ? "image" : "video";
+  const fallbackPreview =
+    storyboardPreviewPool[(storyboardIndex + mediaIndex) % storyboardPreviewPool.length] ||
+    storyboardPreviewPool[0];
+
+  return {
+    id: asset.id || `storyboard-media-${storyboardIndex}-${mediaIndex}`,
+    name: asset.name || `${getStoryboardDisplayName(storyboardIndex)}素材${getStoryboardMediaLabel(mediaIndex)}`,
+    preview: asset.preview || fallbackPreview,
+    duration: asset.duration || (assetType === "image" ? "00:03" : "00:06"),
+    origin: asset.origin || (assetType === "image" ? "图片库" : "视频库"),
+    rawName: asset.rawName || "",
+    assetType,
+    sourceType: asset.sourceType || (String(asset.origin || "").includes("AI") ? "ai" : assetType),
+    sourceDuration: asset.sourceDuration || asset.rawDuration || "",
+    clipStartSeconds: Number.isFinite(Number(asset.clipStartSeconds)) ? Number(asset.clipStartSeconds) : 0,
+    clipDurationSeconds: Number.isFinite(Number(asset.clipDurationSeconds)) ? Number(asset.clipDurationSeconds) : null,
+    clipEndSeconds: Number.isFinite(Number(asset.clipEndSeconds)) ? Number(asset.clipEndSeconds) : null,
+    clipReviewStatus: asset.clipReviewStatus || "",
+    clipReviewLabel: asset.clipReviewLabel || "",
+    visualSyncStatus: asset.visualSyncStatus || "",
+    visualSyncLabel: asset.visualSyncLabel || "",
+    previousClipDurationSeconds: Number.isFinite(Number(asset.previousClipDurationSeconds))
+      ? Number(asset.previousClipDurationSeconds)
+      : null,
+    prompt: asset.prompt || "",
+    avatars: Array.isArray(asset.avatars) ? [...asset.avatars] : null,
+    desc: asset.desc ?? null,
+    subtitle: asset.subtitle === null || asset.subtitle === undefined ? null : normalizeVoiceScriptText(asset.subtitle),
+  };
+}
+
+function createDefaultStoryboardMediaAsset(storyboardIndex = 0, mediaIndex = 0) {
+  return normalizeStoryboardMediaAsset(
+    {
+      id: `storyboard-ai-default-${storyboardIndex}-${mediaIndex}`,
+      name: `AI素材${getStoryboardMediaLabel(mediaIndex)}`,
+      preview:
+        storyboardPreviewPool[(storyboardIndex + mediaIndex) % storyboardPreviewPool.length] ||
+        storyboardPreviewPool[0],
+      duration: "00:06",
+      origin: "AI生成",
+      assetType: "video",
+      sourceType: "ai",
+    },
+    storyboardIndex,
+    mediaIndex,
+  );
+}
+
+function getStoryboardMediaAssets(outline, storyboardIndex = 0) {
+  if (isEmptyStoryboardOutline(outline)) return [];
+  const sourceAssets =
+    Array.isArray(outline?.mediaAssets) && outline.mediaAssets.length
+      ? outline.mediaAssets
+      : outline?.sourceVideo
+        ? [outline.sourceVideo]
+        : [createDefaultStoryboardMediaAsset(storyboardIndex, 0)];
+
+  return sourceAssets
+    .map((asset, mediaIndex) => normalizeStoryboardMediaAsset(asset, storyboardIndex, mediaIndex))
+    .filter(Boolean)
+    .slice(0, STORYBOARD_MEDIA_MAX);
+}
+
+function getActiveStoryboardMediaIndex(outline, storyboardIndex = 0) {
+  const mediaAssets = getStoryboardMediaAssets(outline, storyboardIndex);
+  if (!mediaAssets.length) return 0;
+  const activeIndex = Number(outline?.activeMediaIndex);
+  return Number.isInteger(activeIndex)
+    ? Math.max(0, Math.min(activeIndex, mediaAssets.length - 1))
+    : 0;
+}
+
+function getActiveStoryboardMediaAsset(outline, storyboardIndex = 0) {
+  const mediaAssets = getStoryboardMediaAssets(outline, storyboardIndex);
+  return mediaAssets[getActiveStoryboardMediaIndex(outline, storyboardIndex)] || mediaAssets[0] || null;
+}
+
+function getStoryboardMediaContent(outline, storyboardIndex = 0, mediaIndex = getActiveStoryboardMediaIndex(outline, storyboardIndex)) {
+  const mediaAssets = getStoryboardMediaAssets(outline, storyboardIndex);
+  const media = mediaAssets[mediaIndex] || mediaAssets[0] || {};
+
+  return {
+    avatars: Array.isArray(media.avatars) && media.avatars.length ? [...media.avatars] : [...(outline?.avatars || [])],
+    desc: media.desc ?? outline?.desc ?? "",
+    subtitle: normalizeVoiceScriptText(outline?.subtitle ?? ""),
+  };
+}
+
+function getStoryboardVoiceScriptDurationSeconds(
+  outline,
+  fallback = 6,
+  storyboardIndex = outline?.slotIndex || 0,
+  mediaIndex = getActiveStoryboardMediaIndex(outline, storyboardIndex),
+) {
+  if (!outline || outline.isEmptySlot) return 0;
+  const mediaContent = getStoryboardMediaContent(outline, storyboardIndex, mediaIndex);
+  return estimateStoryboardVoiceScriptDurationSeconds(mediaContent.subtitle, fallback);
+}
+
+function getStoryboardPictureInPictureCharacterIndex(outline, mediaContent = null) {
+  const explicitIndex = Number(outline?.pictureInPictureCharacterIndex);
+  if (Number.isInteger(explicitIndex) && explicitIndex >= 0) return explicitIndex;
+
+  const outlineAvatars = Array.isArray(outline?.avatars) ? outline.avatars : [];
+  if (Number.isInteger(outlineAvatars[0])) return outlineAvatars[0];
+
+  const mediaAvatars = Array.isArray(mediaContent?.avatars) ? mediaContent.avatars : [];
+  return Number.isInteger(mediaAvatars[0]) ? mediaAvatars[0] : 0;
+}
+
+function parseDurationLabelToSeconds(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  if (!normalized || /自有|读取|未知|待定/u.test(normalized)) return null;
+
+  if (normalized.includes("-")) {
+    const [startValue, endValue] = normalized.split("-");
+    const startSeconds = parseTimecodeToSeconds(startValue);
+    const endSeconds = parseTimecodeToSeconds(endValue);
+    if (Number.isFinite(startSeconds) && Number.isFinite(endSeconds) && endSeconds > startSeconds) {
+      return endSeconds - startSeconds;
+    }
+    return null;
+  }
+
+  const parsedTimecode = parseTimecodeToSeconds(normalized);
+  if (Number.isFinite(parsedTimecode)) return parsedTimecode;
+
+  const parsedNumber = Number(normalized.replace(/秒/u, ""));
+  return Number.isFinite(parsedNumber) && parsedNumber > 0 ? parsedNumber : null;
+}
+
+function getStoryboardMediaDurationSeconds(asset, fallback = 6) {
+  const safeFallback = Number(fallback) || 0;
+  if (!asset) return Math.max(0, safeFallback);
+  if (asset.assetType === "image") return 3;
+  const parsedDuration = parseDurationLabelToSeconds(asset.duration);
+  return Number.isFinite(parsedDuration) && parsedDuration > 0
+    ? Math.max(1, parsedDuration)
+    : Math.max(0, safeFallback);
+}
+
+function syncStoryboardMediaAssetToVoiceDuration(asset, previousDurationSeconds, nextDurationSeconds) {
+  const previousDuration = Math.max(1, Math.round(Number(previousDurationSeconds) || 6));
+  const nextDuration = Math.max(1, Math.round(Number(nextDurationSeconds) || previousDuration));
+  const baseAsset = {
+    ...asset,
+    clipReviewStatus: "",
+    clipReviewLabel: "",
+    previousClipDurationSeconds: previousDuration,
+  };
+
+  if (!asset || asset.assetType !== "video") {
+    return baseAsset;
+  }
+
+  const clipStartSeconds = Math.max(0, Number(asset.clipStartSeconds) || 0);
+  const sourceDurationSeconds = parseDurationLabelToSeconds(asset.sourceDuration || asset.duration);
+  const nextDurationLabel = formatPreviewClock(nextDuration);
+
+  if (asset.sourceType === "ai") {
+    return {
+      ...baseAsset,
+      duration: nextDurationLabel,
+      clipDurationSeconds: nextDuration,
+      clipEndSeconds: null,
+      clipReviewStatus: "auto_synced",
+      clipReviewLabel: `口播时长变化，AI 素材展示时长已同步为 ${nextDurationLabel}。`,
+    };
+  }
+
+  if (!Number.isFinite(sourceDurationSeconds)) {
+    return {
+      ...baseAsset,
+      duration: nextDurationLabel,
+      clipDurationSeconds: nextDuration,
+      clipEndSeconds: clipStartSeconds + nextDuration,
+      clipReviewStatus: "needs_reclip",
+      clipReviewLabel: `口播时长变为 ${nextDurationLabel}，请重新确认视频节选。`,
+    };
+  }
+
+  if (sourceDurationSeconds < nextDuration - 0.5) {
+    return {
+      ...baseAsset,
+      duration: formatPreviewClock(sourceDurationSeconds),
+      clipStartSeconds: 0,
+      clipDurationSeconds: sourceDurationSeconds,
+      clipEndSeconds: sourceDurationSeconds,
+      clipReviewStatus: "needs_reclip",
+      clipReviewLabel: `源视频 ${formatPreviewClock(sourceDurationSeconds)} 短于口播 ${nextDurationLabel}，需重新选素材。`,
+    };
+  }
+
+  if (clipStartSeconds + nextDuration <= sourceDurationSeconds + 0.1) {
+    const reviewStatus = nextDuration < previousDuration ? "auto_trimmed" : "auto_extended";
+    return {
+      ...baseAsset,
+      duration: nextDurationLabel,
+      clipStartSeconds,
+      clipDurationSeconds: nextDuration,
+      clipEndSeconds: clipStartSeconds + nextDuration,
+      clipReviewStatus: reviewStatus,
+      clipReviewLabel: `口播时长由 ${formatPreviewClock(previousDuration)} 变为 ${nextDurationLabel}，已沿用原起点预填，请确认节选范围。`,
+    };
+  }
+
+  const fallbackStartSeconds = Math.max(0, sourceDurationSeconds - nextDuration);
+  return {
+    ...baseAsset,
+    duration: nextDurationLabel,
+    clipStartSeconds: fallbackStartSeconds,
+    clipDurationSeconds: nextDuration,
+    clipEndSeconds: fallbackStartSeconds + nextDuration,
+    clipReviewStatus: "needs_reclip",
+    clipReviewLabel: `原节选起点无法覆盖 ${nextDurationLabel}，请重新确认视频节选。`,
+  };
+}
+
+function syncStoryboardMediaAssetsToVoiceDuration(mediaAssets = [], previousDurationSeconds, nextDurationSeconds) {
+  const previousDuration = Math.max(1, Math.round(Number(previousDurationSeconds) || 6));
+  const nextDuration = Math.max(1, Math.round(Number(nextDurationSeconds) || previousDuration));
+  const changed = previousDuration !== nextDuration;
+
+  if (!changed) {
+    return {
+      mediaAssets,
+      changed: false,
+      needsReviewCount: mediaAssets.filter((asset) => isPendingStoryboardClipReviewMedia(asset)).length,
+      adjustedVideoCount: 0,
+    };
+  }
+
+  const nextMediaAssets = mediaAssets.map((asset) =>
+    syncStoryboardMediaAssetToVoiceDuration(asset, previousDuration, nextDuration),
+  );
+
+  return {
+    mediaAssets: nextMediaAssets,
+    changed: true,
+    needsReviewCount: nextMediaAssets.filter((asset) => isPendingStoryboardClipReviewMedia(asset)).length,
+    adjustedVideoCount: nextMediaAssets.filter((asset) => asset?.assetType === "video").length,
+  };
+}
+
+function isPendingStoryboardClipReviewMedia(media) {
+  return (
+    media?.assetType === "video" &&
+    media.sourceType !== "ai" &&
+    Boolean(media.clipReviewStatus)
+  );
+}
+
+function getStoryboardClipReviewStatusLabel(status) {
+  if (status === "needs_reclip") return "需重新节选";
+  if (status === "auto_trimmed" || status === "auto_extended") return "待确认节选";
+  if (status === "auto_synced") return "已同步时长";
+  return "";
+}
+
+function normalizeStoryboardMediaState(outline, storyboardIndex = 0) {
+  if (isEmptyStoryboardOutline(outline)) {
+    return {
+      mediaAssets: [],
+      activeMediaIndex: 0,
+      sourceVideo: null,
+    };
+  }
+
+  const mediaAssets = getStoryboardMediaAssets(outline, storyboardIndex);
+  const activeMediaIndex = getActiveStoryboardMediaIndex({ ...outline, mediaAssets }, storyboardIndex);
+
+  return {
+    mediaAssets,
+    activeMediaIndex,
+    sourceVideo: mediaAssets[activeMediaIndex] || mediaAssets[0] || null,
+  };
+}
+
+function getStoryboardCombinationSummary(outlineList = []) {
+  const parts = (outlineList || [])
+    .filter((outline) => !isEmptyStoryboardOutline(outline))
+    .map((outline, index) => Math.max(1, getStoryboardMediaAssets(outline, outline.slotIndex ?? index).length));
+  const count = parts.length ? parts.reduce((total, item) => total * item, 1) : 0;
+
+  return {
+    parts,
+    count,
+    expression: parts.join(" × "),
+  };
+}
+
+function getStoryboardCombinationMediaIndexMap(outlineList = [], combinationIndex = 0) {
+  const validOutlines = (outlineList || [])
+    .map((outline, index) => ({ outline, index: outline?.slotIndex ?? index }))
+    .filter(({ outline }) => !isEmptyStoryboardOutline(outline));
+  const counts = validOutlines.map(({ outline, index }) =>
+    Math.max(1, getStoryboardMediaAssets(outline, index).length),
+  );
+  const total = counts.length ? counts.reduce((sum, count) => sum * count, 1) : 1;
+  let cursor = Math.max(0, Math.min(Number(combinationIndex) || 0, total - 1));
+  const result = {};
+
+  for (let index = validOutlines.length - 1; index >= 0; index -= 1) {
+    const count = counts[index] || 1;
+    result[validOutlines[index].index] = cursor % count;
+    cursor = Math.floor(cursor / count);
+  }
+
+  return result;
+}
+
+function getFinalCombinationSettingsKey(index) {
+  return `combo-${Math.max(0, Number(index) || 0)}`;
+}
+
+function createEmptyStoryboardSlot(index = 0) {
+  return {
+    isEmptySlot: true,
+    title: "",
+    desc: "",
+    avatars: [],
+    pictureInPictureEnabled: false,
+    pictureInPicturePosition: { ...defaultPictureInPicturePosition },
+    promptText: "",
+    promptSettings: { ...defaultPromptTextSettings },
+    promptTextPosition: { ...defaultPromptTextPosition },
+    brandLogo: null,
+    brandLogoPosition: { ...defaultBrandLogoPosition },
+    subtitle: "",
+    shotType: "",
+    cameraAngle: "",
+    motion: "",
+    duration: "",
+    slotIndex: index,
+    mediaAssets: [],
+    activeMediaIndex: 0,
+    sourceVideo: null,
+  };
+}
+
+function isEmptyStoryboardOutline(outline) {
+  return !outline || Boolean(outline.isEmptySlot);
+}
+
+function getStoryboardDurationSeconds(
+  outline,
+  fallback = 6,
+  storyboardIndex = outline?.slotIndex || 0,
+  mediaIndex = getActiveStoryboardMediaIndex(outline, storyboardIndex),
+) {
+  if (!outline || outline.isEmptySlot) return 0;
+  const voiceScriptDuration = getStoryboardVoiceScriptDurationSeconds(outline, null, storyboardIndex, mediaIndex);
+  if (voiceScriptDuration > 0) return voiceScriptDuration;
+
+  const [startValue, endValue] = String(outline.duration || "").split("-");
+  const startSeconds = parseTimecodeToSeconds(startValue);
+  const endSeconds = parseTimecodeToSeconds(endValue);
+
+  if (Number.isFinite(startSeconds) && Number.isFinite(endSeconds) && endSeconds > startSeconds) {
+    return Math.max(1, endSeconds - startSeconds);
+  }
+
+  return fallback;
+}
+
+function formatStoryboardDurationRange(startSeconds, durationSeconds) {
+  const start = Math.max(0, Number(startSeconds) || 0);
+  const duration = Math.max(1, Number(durationSeconds) || 6);
+  return `${formatPreviewClock(start)}-${formatPreviewClock(start + duration)}`;
+}
+
+function normalizeStoryboardDurations(outlineList) {
+  let cursor = 0;
+
+  return outlineList.map((outline, index) => {
+    if (isEmptyStoryboardOutline(outline)) {
+      return outline ? { ...outline, slotIndex: index } : createEmptyStoryboardSlot(index);
+    }
+
+    const durationSeconds = getStoryboardDurationSeconds(outline, 6, index);
+    const mediaState = normalizeStoryboardMediaState(outline, index);
+    const nextOutline = {
+      ...outline,
+      isEmptySlot: false,
+      slotIndex: index,
+      ...mediaState,
+      duration: formatStoryboardDurationRange(cursor, durationSeconds),
+    };
+    cursor += durationSeconds;
+    return nextOutline;
+  });
+}
+
+function buildAgentFormFromComposer(prompt, composerConfig, composerAttachments = INITIAL_COMPOSER_ATTACHMENTS) {
+  return {
+    ...defaultAgentBusinessInfo,
+    triggerPrompt: prompt,
+    businessPoint: prompt || defaultAgentBusinessInfo.businessPoint,
+    audience: inferAgentAudienceFromPrompt(prompt),
+    videoScene: normalizeComposerScene(composerConfig?.agentScene || composerConfig?.videoScene),
+    videoRatio: normalizeAgentRatioLabel(composerConfig?.agentRatio || composerConfig?.videoRatio),
+  };
+}
+
+function getVoiceScriptLength(value) {
+  return String(value || "").trim().length;
+}
+
+function getVoiceScriptValidationMessage(value, { allowEmpty = false } = {}) {
+  const normalized = String(value || "").trim();
+  const length = getVoiceScriptLength(normalized);
+
+  if (!normalized) {
+    return allowEmpty ? "" : "请输入口播脚本内容";
+  }
+
+  if (length < VOICE_SCRIPT_MIN_LENGTH || length > VOICE_SCRIPT_MAX_LENGTH) {
+    return `口播词需在 ${VOICE_SCRIPT_MIN_LENGTH}～${VOICE_SCRIPT_MAX_LENGTH} 个字内`;
+  }
+
+  return "";
+}
+
+function getCompactAgentTitle(job) {
+  const state = buildAgentState(job.agentForm, job.agentState);
+  const candidates = [state.theme, state.businessInfo?.businessPoint, job.prompt];
+
+  for (const rawValue of candidates) {
+    const source = String(rawValue || "").trim();
+    if (!source) continue;
+
+    const normalized = source
+      .replace(/请帮我|帮我|请|想要|需要|生成一个|生成一条|生成|制作一个|制作一条|制作|做一个|做一条|做/gu, "")
+      .replace(/用于.+$/gu, "")
+      .replace(/的?(营销|宣传|推广|口播)?视频(需求确认|方案|内容|脚本)?/gu, "")
+      .replace(/[，。、“”"'‘’：:；;,.!?！？]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim();
+
+    if (!normalized) continue;
+    if (normalized.length <= 12) return normalized;
+    return `${normalized.slice(0, 12).trim()}...`;
+  }
+
+  return "当前任务";
+}
+
+function summarizeCreativeTheme(source) {
+  const normalized = String(source || "")
+    .replace(/请帮我|帮我|请|想要|需要|生成一个|生成一条|生成|制作一个|制作一条|制作|做一个|做一条|做/gu, "")
+    .replace(/用于.+$/gu, "")
+    .replace(/[，。、“”"'‘’：:；;,.!?！？]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  if (/雅思/u.test(normalized)) return "雅思培训广告";
+  if (/托福/u.test(normalized)) return "托福培训广告";
+  if (/少儿.*美术|美术.*少儿|儿童.*美术|绘画/u.test(normalized)) return "少儿美术招生";
+  if (/英语|语言/u.test(normalized)) return "语言培训广告";
+  if (/医美|护肤|美容/u.test(normalized)) return "美业获客广告";
+  if (/职场|办公|效率/u.test(normalized)) return "职场效率推广";
+
+  const compact = normalized
+    .replace(/的?(营销|宣传|推广|口播)?视频(需求确认|方案|内容|脚本)?/gu, "")
+    .trim();
+
+  if (!compact) return "视频创意概述";
+  return compact.length <= 10 ? compact : compact.slice(0, 10);
+}
+
+function summarizeBusinessPoint(source) {
+  const normalized = String(source || "")
+    .replace(/请帮我|帮我|请|想要|需要|生成一个|生成一条|生成|制作一个|制作一条|制作|做一个|做一条|做/gu, "")
+    .replace(/[，。、“”"'‘’：:；;,.!?！？]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  if (/雅思/u.test(normalized)) return "雅思培训";
+  if (/托福/u.test(normalized)) return "托福培训";
+  if (/少儿.*美术|美术.*少儿|儿童.*美术|绘画/u.test(normalized)) return "少儿美术培训";
+  if (/英语|语言/u.test(normalized)) return "语言培训";
+  if (/医美|护肤|美容/u.test(normalized)) return "美业服务";
+  if (/职场|办公|效率/u.test(normalized)) return "职场效率工具";
+
+  const compact = normalized
+    .replace(/的?(营销|宣传|推广|口播)?视频(需求确认|方案|内容|脚本)?/gu, "")
+    .trim();
+
+  if (!compact) return "待确认业务点";
+  return compact.length <= 12 ? compact : compact.slice(0, 12);
+}
+
+function summarizeAgentInfoValue(value, fallback, maxLength = 16) {
+  const normalized = String(value || "")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  if (!normalized) return fallback;
+  return normalized.length <= maxLength ? normalized : normalized.slice(0, maxLength);
+}
+
+function cn(...inputs) {
+  return inputs.filter(Boolean).join(" ");
+}
+
+function FloatingLayer({
+  anchorRef,
+  open,
+  preferredDirection = "down",
+  align = "start",
+  offset = 12,
+  className,
+  children,
+}) {
+  const layerRef = useRef(null);
+  const [position, setPosition] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      const layer = layerRef.current;
+      if (!anchor || !layer) return;
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const layerRect = layer.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportPadding = 12;
+      const spaceAbove = anchorRect.top;
+      const spaceBelow = viewportHeight - anchorRect.bottom;
+      const fitsAbove = spaceAbove >= layerRect.height + offset;
+      const fitsBelow = spaceBelow >= layerRect.height + offset;
+
+      const openUpward =
+        preferredDirection === "up"
+          ? fitsAbove || (!fitsBelow && spaceAbove >= spaceBelow)
+          : !fitsBelow && (fitsAbove || spaceAbove > spaceBelow);
+
+      let top = openUpward
+        ? anchorRect.top - layerRect.height - offset
+        : anchorRect.bottom + offset;
+      let left = align === "end" ? anchorRect.right - layerRect.width : anchorRect.left;
+
+      top = Math.max(
+        viewportPadding,
+        Math.min(top, viewportHeight - layerRect.height - viewportPadding),
+      );
+      left = Math.max(
+        viewportPadding,
+        Math.min(left, viewportWidth - layerRect.width - viewportPadding),
+      );
+
+      setPosition({
+        top,
+        left,
+      });
+    };
+
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    scheduleUpdate();
+
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, true);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      if (anchorRef.current) resizeObserver.observe(anchorRef.current);
+      if (layerRef.current) resizeObserver.observe(layerRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      resizeObserver?.disconnect();
+    };
+  }, [align, anchorRef, offset, open, preferredDirection]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={layerRef}
+      style={{
+        position: "fixed",
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        visibility: position ? "visible" : "hidden",
+      }}
+      className={cn("pointer-events-auto z-[160]", className)}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+function PortalTooltip({
+  anchorRef,
+  open,
+  side = "top",
+  align = "center",
+  offset = 12,
+  className,
+  children,
+}) {
+  const layerRef = useRef(null);
+  const [position, setPosition] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      const layer = layerRef.current;
+      if (!anchor || !layer) return;
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const layerRect = layer.getBoundingClientRect();
+      const viewportPadding = 12;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const spaceAbove = anchorRect.top - viewportPadding;
+      const spaceBelow = viewportHeight - anchorRect.bottom - viewportPadding;
+      const canOpenTop = spaceAbove >= layerRect.height + offset;
+      const canOpenBottom = spaceBelow >= layerRect.height + offset;
+      const prefersTop = side === "top";
+
+      const placement = prefersTop
+        ? canOpenTop || (!canOpenBottom && spaceAbove >= spaceBelow)
+          ? "top"
+          : "bottom"
+        : canOpenBottom || (!canOpenTop && spaceBelow >= spaceAbove)
+          ? "bottom"
+          : "top";
+
+      let top = placement === "top"
+        ? anchorRect.top - layerRect.height - offset
+        : anchorRect.bottom + offset;
+      let left =
+        align === "end"
+          ? anchorRect.right - layerRect.width
+          : align === "center"
+            ? anchorRect.left + (anchorRect.width - layerRect.width) / 2
+            : anchorRect.left;
+
+      top = Math.max(
+        viewportPadding,
+        Math.min(top, viewportHeight - layerRect.height - viewportPadding),
+      );
+      left = Math.max(
+        viewportPadding,
+        Math.min(left, viewportWidth - layerRect.width - viewportPadding),
+      );
+
+      const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+      const arrowLeft = Math.max(14, Math.min(anchorCenterX - left, layerRect.width - 14));
+
+      setPosition({ top, left, placement, arrowLeft });
+    };
+
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, true);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      if (anchorRef.current) resizeObserver.observe(anchorRef.current);
+      if (layerRef.current) resizeObserver.observe(layerRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      resizeObserver?.disconnect();
+    };
+  }, [align, anchorRef, offset, open, side]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={layerRef}
+      style={{
+        position: "fixed",
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        visibility: position ? "visible" : "hidden",
+        zIndex: 2147483000,
+      }}
+      className="pointer-events-none"
+    >
+      <div
+        className={cn(
+          "relative w-max max-w-[min(360px,calc(100vw-24px))] rounded-[12px] bg-[#202634] px-3 py-2 text-[12px] font-medium text-white shadow-[0_12px_24px_rgba(32,38,52,0.18)] [overflow-wrap:anywhere]",
+          className,
+        )}
+      >
+        {children}
+        <span
+          className="absolute h-2.5 w-2.5 rotate-45 bg-[#202634]"
+          style={
+            position?.placement === "top"
+              ? {
+                  left: position?.arrowLeft ?? 16,
+                  top: "100%",
+                  transform: "translate(-50%,-50%) rotate(45deg)",
+                }
+              : {
+                  left: position?.arrowLeft ?? 16,
+                  bottom: "100%",
+                  transform: "translate(-50%,50%) rotate(45deg)",
+                }
+          }
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function HoverTooltip({
+  content,
+  children,
+  side = "top",
+  align = "center",
+  offset = 12,
+  wrapperClassName,
+  bubbleClassName,
+  disabled = false,
+}) {
+  const anchorRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const hasTooltip = Boolean(content) && !disabled;
+
+  return (
+    <div
+      ref={anchorRef}
+      className={cn("relative inline-flex", wrapperClassName)}
+      onMouseEnter={() => {
+        if (!hasTooltip) return;
+        setOpen(true);
+      }}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => {
+        if (!hasTooltip) return;
+        setOpen(true);
+      }}
+      onBlurCapture={(event) => {
+        if (anchorRef.current?.contains(event.relatedTarget)) return;
+        setOpen(false);
+      }}
+    >
+      {children}
+      <PortalTooltip
+        anchorRef={anchorRef}
+        open={open && hasTooltip}
+        side={side}
+        align={align}
+        offset={offset}
+        className={bubbleClassName}
+      >
+        {content}
+      </PortalTooltip>
+    </div>
+  );
+}
+
+function DisabledTooltip({
+  disabled,
+  reason,
+  children,
+  side = "top",
+  align = "center",
+  wrapperClassName,
+  bubbleClassName,
+}) {
+  if (!disabled || !reason) return children;
+
+  return (
+    <HoverTooltip
+      content={reason}
+      side={side}
+      align={align}
+      wrapperClassName={wrapperClassName}
+      bubbleClassName={bubbleClassName}
+    >
+      {children}
+    </HoverTooltip>
+  );
+}
+
+function TooltipText({
+  text,
+  children,
+  className,
+  wrapperClassName,
+  bubbleClassName,
+  side = "top",
+  align = "start",
+  truncate = true,
+}) {
+  const content = text || children;
+
+  return (
+    <HoverTooltip
+      content={content}
+      side={side}
+      align={align}
+      wrapperClassName={cn("min-w-0 max-w-full", wrapperClassName)}
+      bubbleClassName={cn("w-max max-w-[min(360px,calc(100vw-24px))] whitespace-normal text-left leading-5", bubbleClassName)}
+      disabled={!content}
+    >
+      <span className={cn("block min-w-0 max-w-full", truncate && "truncate", className)}>{children || text}</span>
+    </HoverTooltip>
+  );
+}
+
+function getAgentMessageKind(message) {
+  if (message?.kind) return message.kind;
+  return message?.role === "user" ? "user" : "event";
+}
+
+const agentMessageHierarchy = {
+  user: { level: 1, label: "用户指令", surface: "conversation" },
+  analysis: { level: 2, label: "语义理解", surface: "conversation" },
+  handoff: { level: 3, label: "阶段结果", surface: "conversation" },
+  reply: { level: 3, label: "Agent 回复", surface: "conversation" },
+  failure: { level: 3, label: "生成失败", surface: "conversation" },
+  guidance: { level: 3, label: "Agent 提醒", surface: "conversation" },
+  event: { level: 4, label: "操作记录", surface: "conversation" },
+  localStatus: { level: 5, label: "局部状态", surface: "workspace" },
+  intro: { level: 0, label: "空状态引导", surface: "empty" },
+};
+
+function createAgentMessage(content, options = {}) {
+  const { role: rawRole, kind: rawKind, ...rest } = options;
+  const role = rawRole || "assistant";
+  return {
+    ...rest,
+    role,
+    kind: rawKind || (role === "user" ? "user" : "event"),
+    content,
+  };
+}
+
+function getCreationRecordSourceMeta(source) {
+  const normalizedSource = source || "agent";
+  if (normalizedSource === "manual") {
+    return {
+      label: "手动修改",
+      Icon: PencilLine,
+      cardClass:
+        "border-[#dce7ff] bg-[linear-gradient(180deg,rgba(248,251,255,0.98)_0%,rgba(243,247,255,0.94)_100%)]",
+      badgeClass: "border-[#dbe5ff] bg-white/82 text-[#3a5bfd]",
+      dotClass: "bg-[#3a5bfd]",
+      iconClass: "border-[#dfe8ff] bg-[linear-gradient(180deg,#ffffff_0%,#f5f8ff_100%)] text-[#3a5bfd]",
+    };
+  }
+  if (normalizedSource === "dialogue") {
+    return {
+      label: "对话指令",
+      Icon: Sparkles,
+      cardClass:
+        "border-[#dceff5] bg-[linear-gradient(180deg,rgba(247,254,255,0.98)_0%,rgba(242,251,255,0.94)_100%)]",
+      badgeClass: "border-[#cbeaf2] bg-white/82 text-[#1394aa]",
+      dotClass: "bg-[#1394aa]",
+      iconClass: "border-[#cbeaf2] bg-[linear-gradient(180deg,#ffffff_0%,#effdff_100%)] text-[#1394aa]",
+    };
+  }
+  if (normalizedSource === "system") {
+    return {
+      label: "系统同步",
+      Icon: SlidersHorizontal,
+      cardClass:
+        "border-[#e2e7ef] bg-[linear-gradient(180deg,rgba(252,253,255,0.98)_0%,rgba(247,249,252,0.94)_100%)]",
+      badgeClass: "border-[#dfe6f2] bg-white/82 text-[#687286]",
+      dotClass: "bg-[#8a93a6]",
+      iconClass: "border-[#e3e9f3] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_100%)] text-[#687286]",
+    };
+  }
+  return {
+    label: "流程推进",
+    Icon: CheckCircle2,
+    cardClass:
+      "border-[#ebe3ff] bg-[linear-gradient(180deg,rgba(252,249,255,0.98)_0%,rgba(247,243,255,0.94)_100%)]",
+    badgeClass: "border-[#dfd2ff] bg-white/82 text-[#7b5cff]",
+    dotClass: "bg-[#7b5cff]",
+    iconClass: "border-[#e9defe] bg-[linear-gradient(180deg,#ffffff_0%,#f7f2ff_100%)] text-[#7b5cff]",
+  };
+}
+
+function summarizeRecordText(value, fallback = "空", maxLength = 28) {
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return fallback;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+}
+
+function isAgentIntroMessage(message) {
+  return getAgentMessageKind(message) === "intro";
+}
+
+function isVisibleAgentConversationMessage(message) {
+  if (!message || isAgentIntroMessage(message)) return false;
+  if (message.conversationVisibility === "hidden") return false;
+  if (message.recordTitle || message.recordSource || message.recordTarget) return false;
+  const kind = getAgentMessageKind(message);
+  return agentMessageHierarchy[kind]?.surface === "conversation";
+}
+
+function getVisibleAgentMessages(messages) {
+  return (messages || []).filter(isVisibleAgentConversationMessage);
+}
+
+function AgentIntroEmptyState({ mode = "collect" }) {
+  const isCollectIntro = mode === "collect";
+  const introTitle = isCollectIntro ? "先把方向聊清楚" : "看方案，继续改";
+  const introMode = isCollectIntro ? "创意收集" : "方案规划";
+  const introBlocks = isCollectIntro
+    ? [
+        {
+          icon: Compass,
+          label: "当前阶段",
+          title: "创意收集",
+          tone:
+            "border-[#dce8ff] bg-[linear-gradient(180deg,#f7fbff_0%,#f1f7ff_100%)] text-[#4f6bff]",
+        },
+        {
+          icon: AtSign,
+          label: "你可以",
+          title: "填右侧，补充要求",
+          tone:
+            "border-[#ece3ff] bg-[linear-gradient(180deg,#faf7ff_0%,#f6f1ff_100%)] text-[#7b5cff]",
+        },
+        {
+          icon: CheckCircle2,
+          label: "我会推进",
+          title: "生成方案规划",
+          tone:
+            "border-[#dff0e7] bg-[linear-gradient(180deg,#f6fcf8_0%,#f1f9f5_100%)] text-[#18a36f]",
+        },
+      ]
+    : [
+        {
+          icon: BookOpen,
+          label: "当前阶段",
+          title: "方案规划",
+          tone:
+            "border-[#dce8ff] bg-[linear-gradient(180deg,#f7fbff_0%,#f1f7ff_100%)] text-[#4f6bff]",
+        },
+        {
+          icon: AtSign,
+          label: "你可以",
+          title: "看右侧，直接改",
+          tone:
+            "border-[#ece3ff] bg-[linear-gradient(180deg,#faf7ff_0%,#f6f1ff_100%)] text-[#7b5cff]",
+        },
+        {
+          icon: Clapperboard,
+          label: "我会推进",
+          title: "生成分镜设计",
+          tone:
+            "border-[#dff0e7] bg-[linear-gradient(180deg,#f6fcf8_0%,#f1f9f5_100%)] text-[#18a36f]",
+        },
+      ];
+
+  return (
+    <div className="max-w-[96%] rounded-[32px] border border-[#e4e9f6] bg-white p-4 shadow-[0_18px_38px_rgba(97,111,144,0.08)]">
+      <div className="relative h-[248px] overflow-hidden rounded-[28px] border border-[#e9edf8] bg-[linear-gradient(180deg,#fbfdff_0%,#f6f8ff_100%)] p-4">
+        <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(#edf2fb_1px,transparent_1px),linear-gradient(90deg,#edf2fb_1px,transparent_1px)] [background-size:32px_32px]" />
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 420 248" fill="none">
+          <path d="M104 104 C152 66 202 66 250 104" stroke="#b7c7ff" strokeWidth="3" strokeLinecap="round" strokeDasharray="8 10" />
+          <path d="M250 104 C292 74 330 82 354 124" stroke="#d8c7ff" strokeWidth="3" strokeLinecap="round" strokeDasharray="8 10" />
+          <path d="M210 132 C212 160 226 176 258 188" stroke="#bce8d4" strokeWidth="3" strokeLinecap="round" strokeDasharray="8 10" />
+        </svg>
+
+        <div className="absolute left-6 top-8 w-[118px] rotate-[-4deg] rounded-[22px] border border-[#dce8ff] bg-white px-4 py-4 shadow-[0_14px_30px_rgba(79,107,255,0.12)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f2f6ff] text-[#4f6bff]">
+            <Compass className="h-5 w-5" />
+          </div>
+          <div className="mt-4 text-[12px] font-semibold text-[#8b94a5]">想法</div>
+          <div className="mt-1 text-[17px] font-bold text-[#202634]">聊清楚</div>
+        </div>
+
+        <div className="absolute left-1/2 top-[54px] w-[132px] -translate-x-1/2 rounded-[26px] border border-[#e4dcff] bg-white px-4 py-5 text-center shadow-[0_18px_34px_rgba(123,92,255,0.15)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] bg-[linear-gradient(135deg,#7b5cff_0%,#8ea2ff_100%)] text-white shadow-[0_12px_22px_rgba(123,92,255,0.2)]">
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <div className="mt-3 text-[18px] font-bold text-[#202634]">{introTitle}</div>
+          <div className="mx-auto mt-2 inline-flex rounded-full bg-[#f4f1ff] px-3 py-1 text-[12px] font-semibold text-[#6d5fe8]">
+            {introMode}
+          </div>
+        </div>
+
+        <div className="absolute right-6 top-12 w-[128px] rotate-[3deg] rounded-[22px] border border-[#eadfff] bg-white px-4 py-4 shadow-[0_14px_30px_rgba(123,92,255,0.11)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f8f4ff] text-[#7b5cff]">
+            <AtSign className="h-5 w-5" />
+          </div>
+          <div className="mt-4 text-[12px] font-semibold text-[#8b94a5]">表单</div>
+          <div className="mt-1 text-[17px] font-bold text-[#202634]">补要求</div>
+        </div>
+
+        <div className="absolute bottom-5 left-1/2 flex w-[164px] -translate-x-1/2 items-center gap-3 rounded-[22px] border border-[#dff0e7] bg-white px-4 py-3 shadow-[0_14px_28px_rgba(24,163,111,0.1)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#f1fbf6] text-[#18a36f]">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[12px] font-semibold text-[#8b94a5]">结果</div>
+            <div className="truncate text-[16px] font-bold text-[#202634]">{isCollectIntro ? "出方案" : "出分镜"}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {introBlocks.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.title} className={cn("min-w-0 rounded-[18px] border px-3 py-3", item.tone)}>
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0" />
+                <div className="truncate text-[11px] font-semibold text-[#8b94a5]">{item.label}</div>
+              </div>
+              <div className="mt-2 truncate text-[13px] font-bold text-[#202634]">{item.title}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function parseTimecodeToSeconds(value) {
+  if (!value) return null;
+  const parts = String(value).trim().split(":").map((item) => Number(item));
+  if (parts.some((item) => Number.isNaN(item))) return null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return null;
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getDeepModeWorkspaceTargetWidth(containerWidth = DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) {
+  const safeWidth = Number(containerWidth) || DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
+  if (safeWidth >= 1500) return 900;
+  if (safeWidth >= DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) return 825;
+  if (safeWidth >= 1180) return 700;
+  if (safeWidth >= 1000) return 620;
+  if (safeWidth >= 880) return 560;
+  if (safeWidth >= 760) return 500;
+  return 440;
+}
+
+function getDeepModeChatRailMinWidth(containerWidth = DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) {
+  const safeWidth = Number(containerWidth) || DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
+  if (safeWidth >= DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) return DEEP_CHAT_RAIL_COMFORT_MIN_WIDTH;
+  if (safeWidth >= 1000) return 320;
+  if (safeWidth >= 880) return 280;
+  return DEEP_CHAT_RAIL_MIN_WIDTH;
+}
+
+function getDeepModePreferredChatRailWidth(containerWidth = DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) {
+  const safeWidth = Number(containerWidth) || DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
+  if (safeWidth >= DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) return DEEP_CHAT_RAIL_DEFAULT_WIDTH;
+  return safeWidth * (DEEP_CHAT_RAIL_DEFAULT_WIDTH / DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH);
+}
+
+function getDeepModeInitialShellWidth() {
+  if (typeof window === "undefined") return DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
+  const viewportWidth = window.innerWidth || 1440;
+  const appRailWidth = viewportWidth <= 520 ? 56 : viewportWidth <= 760 ? 64 : 76;
+  return Math.max(0, viewportWidth - appRailWidth);
+}
+
+function getDeepModeSplitBounds(containerWidth = DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) {
+  const safeWidth = Number(containerWidth) || DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
+  const min = getDeepModeChatRailMinWidth(safeWidth);
+  const maxByWorkspace = safeWidth - getDeepModeWorkspaceTargetWidth(safeWidth) - DEEP_SPLIT_HANDLE_WIDTH;
+  const max = Math.max(min, Math.min(DEEP_CHAT_RAIL_MAX_WIDTH, maxByWorkspace));
+  const preferred = clampNumber(getDeepModePreferredChatRailWidth(safeWidth), min, max);
+  return { min, max, preferred };
+}
+
+function getStoryboardPreviewMinWidth(containerWidth = 900) {
+  const safeWidth = Number(containerWidth) || 900;
+  if (safeWidth >= 1280) return 620;
+  if (safeWidth >= 1180) return 560;
+  if (safeWidth >= 960) return 500;
+  if (safeWidth >= 760) return 420;
+  if (safeWidth >= 620) return 340;
+  return 280;
+}
+
+function getStoryboardSettingsMinWidth(containerWidth = 900) {
+  const safeWidth = Number(containerWidth) || 900;
+  if (safeWidth >= 960) return STORYBOARD_SETTINGS_PANEL_MIN_WIDTH;
+  if (safeWidth >= 760) return 232;
+  if (safeWidth >= 620) return 200;
+  return 144;
+}
+
+function getStoryboardSettingsPreferredWidth(containerWidth = 900) {
+  const safeWidth = Number(containerWidth) || 900;
+  if (safeWidth >= 1180) {
+    return clampNumber(
+      Math.round(safeWidth * 0.27),
+      STORYBOARD_SETTINGS_PANEL_DEFAULT_WIDTH,
+      360,
+    );
+  }
+  if (safeWidth >= 960) return STORYBOARD_SETTINGS_PANEL_DEFAULT_WIDTH;
+  if (safeWidth >= 760) return 268;
+  if (safeWidth >= 620) return 220;
+  return 144;
+}
+
+function getStoryboardSplitBounds(containerWidth = 900) {
+  const safeWidth = Number(containerWidth) || 900;
+  const min = getStoryboardSettingsMinWidth(safeWidth);
+  const previewMin = getStoryboardPreviewMinWidth(safeWidth);
+  const maxByPreview = safeWidth - STORYBOARD_SPLIT_HANDLE_WIDTH - previewMin;
+  const max = Math.max(min, Math.min(STORYBOARD_SETTINGS_PANEL_MAX_WIDTH, maxByPreview));
+  const preferred = clampNumber(getStoryboardSettingsPreferredWidth(safeWidth), min, max);
+  return { min, max, preferred, previewMin };
+}
+
+function formatPreviewClock(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getStoryboardIndexByTime(timeline, currentTime) {
+  if (!timeline.length) return 0;
+
+  const nextIndex = timeline.findIndex((item) => currentTime >= item.startSeconds && currentTime < item.endSeconds);
+  return nextIndex >= 0 ? nextIndex : timeline.length - 1;
+}
+
+function normalizePictureInPicturePosition(value) {
+  const x = Number(value?.x);
+  const y = Number(value?.y);
+
+  return {
+    x: Number.isFinite(x) ? clampNumber(x, 0, 1) : defaultPictureInPicturePosition.x,
+    y: Number.isFinite(y) ? clampNumber(y, 0, 1) : defaultPictureInPicturePosition.y,
+  };
+}
+
+function normalizeBrandLogoPosition(value) {
+  const x = Number(value?.x);
+  const y = Number(value?.y);
+
+  return {
+    x: Number.isFinite(x) ? clampNumber(x, 0, 1) : defaultBrandLogoPosition.x,
+    y: Number.isFinite(y) ? clampNumber(y, 0, 1) : defaultBrandLogoPosition.y,
+  };
+}
+
+function normalizePromptTextPosition(value) {
+  const x = Number(value?.x);
+  const y = Number(value?.y);
+
+  return {
+    x: Number.isFinite(x) ? clampNumber(x, 0, 1) : defaultPromptTextPosition.x,
+    y: Number.isFinite(y) ? clampNumber(y, 0, 1) : defaultPromptTextPosition.y,
+  };
+}
+
+function getPictureInPictureOverlayStyle(position) {
+  const normalized = normalizePictureInPicturePosition(position);
+  const leftPercent =
+    pictureInPictureBounds.minXPercent +
+    normalized.x * (pictureInPictureBounds.maxXPercent - pictureInPictureBounds.minXPercent);
+  const topPercent =
+    pictureInPictureBounds.minYPercent +
+    normalized.y * (pictureInPictureBounds.maxYPercent - pictureInPictureBounds.minYPercent);
+
+  return {
+    left: `${leftPercent}%`,
+    top: `${topPercent}%`,
+  };
+}
+
+function getBrandLogoOverlayStyle(position) {
+  const normalized = normalizeBrandLogoPosition(position);
+  const leftPercent =
+    brandLogoBounds.minXPercent +
+    normalized.x * (brandLogoBounds.maxXPercent - brandLogoBounds.minXPercent);
+  const topPercent =
+    brandLogoBounds.minYPercent +
+    normalized.y * (brandLogoBounds.maxYPercent - brandLogoBounds.minYPercent);
+
+  return {
+    left: `${leftPercent}%`,
+    top: `${topPercent}%`,
+  };
+}
+
+function getPromptTextOverlayStyle(position) {
+  const normalized = normalizePromptTextPosition(position);
+  const leftPercent =
+    promptTextBounds.minXPercent +
+    normalized.x * (promptTextBounds.maxXPercent - promptTextBounds.minXPercent);
+  const topPercent =
+    promptTextBounds.minYPercent +
+    normalized.y * (promptTextBounds.maxYPercent - promptTextBounds.minYPercent);
+
+  return {
+    left: `${leftPercent}%`,
+    top: `${topPercent}%`,
+    transform: "translate(-50%, -50%)",
+  };
+}
+
+function createStoryboardDraft(outline) {
+  const storyboardIndex = outline?.slotIndex || 0;
+  const mediaState = normalizeStoryboardMediaState(outline, storyboardIndex);
+  const mediaContent = getStoryboardMediaContent(outline, storyboardIndex, mediaState.activeMediaIndex);
+
+  return {
+    title: outline?.title || "",
+    desc: mediaContent.desc || "",
+    subtitle: normalizeVoiceScriptText(mediaContent.subtitle || ""),
+    avatars: [...(mediaContent.avatars || [])],
+    pictureInPictureEnabled: Boolean(outline?.pictureInPictureEnabled),
+    pictureInPictureCharacterIndex: getStoryboardPictureInPictureCharacterIndex(outline, mediaContent),
+    pictureInPicturePosition: normalizePictureInPicturePosition(outline?.pictureInPicturePosition),
+    promptText: outline?.promptText || "",
+    promptSettings: normalizePromptTextSettings(outline?.promptSettings),
+    promptTextPosition: normalizePromptTextPosition(outline?.promptTextPosition),
+    brandLogo: outline?.brandLogo || null,
+    brandLogoPosition: normalizeBrandLogoPosition(outline?.brandLogoPosition),
+    mediaAssets: mediaState.mediaAssets,
+    activeMediaIndex: mediaState.activeMediaIndex,
+    sourceVideo: mediaState.sourceVideo,
+  };
+}
+
+function normalizeMentionText(value, options = {}) {
+  const { keepAt = true } = options;
+  return String(value || "").replace(mentionTokenPattern, (_, label) => (keepAt ? `@${label}` : label));
+}
+
+function filterRoleMentionTokens(value, allowedAvatars = [], characters = []) {
+  const allowedRoleLabels = new Set(
+    (allowedAvatars || [])
+      .map((avatarIndex) => characters[avatarIndex]?.name)
+      .filter(Boolean)
+      .map((name) => `角色：${name}`),
+  );
+
+  return String(value || "")
+    .replace(mentionTokenPattern, (token, label) => {
+      if (!String(label || "").startsWith("角色：")) return "";
+      return allowedRoleLabels.has(label) ? token : "";
+    })
+    .replace(/[ \t]{2,}/gu, " ")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trimStart();
+}
+
+function splitPromptTextItems(value) {
+  const items = String(value || "")
+    .split(/\n+/u)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, PROMPT_TEXT_MAX_ITEMS);
+
+  return items.length ? items : [""];
+}
+
+function joinPromptTextItems(items) {
+  return items
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, PROMPT_TEXT_MAX_ITEMS)
+    .join("\n");
+}
+
+function getMentionTone(kind) {
+  if (kind === "role") return "border-[#bfdcff] bg-[#eef7ff] text-[#2f74d8]";
+  if (kind === "shot") return "border-[#d8ccff] bg-[#f4efff] text-[#6c4fe0]";
+  if (kind === "theme") return "border-[#ffe0b5] bg-[#fff6e7] text-[#c77b11]";
+  return "border-[#d7e1ef] bg-[#f4f7fb] text-[#5f6778]";
+}
+
+function renderAssetMentionChip(meta, label, key) {
+  const assetType = meta?.assetType || "asset";
+  const hasPreview = Boolean(meta?.preview);
+
+  if (hasPreview) {
+    return (
+      <span
+        key={key}
+        className="relative mx-[4px] inline-flex h-[24px] items-center overflow-hidden rounded-[4px] border border-[#e3e5e8] bg-white align-middle"
+        style={{ top: "-1px" }}
+      >
+        <span className="h-[24px] w-[24px] shrink-0 overflow-hidden bg-[#f6f7f9]">
+          {assetType === "video" ? (
+            <video src={meta.preview} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+          ) : (
+            <img src={meta.preview} alt={label} className="h-full w-full object-cover" />
+          )}
+        </span>
+        <span className="px-[6px] text-[14px] leading-[20px] text-[#000000]">{label}</span>
+      </span>
+    );
+  }
+
+  if (assetType === "landing" || assetType === "script") {
+    const Icon = assetType === "landing" ? Link2 : FileText;
+    return (
+      <span
+        key={key}
+        className="relative mx-[4px] inline-flex h-[22px] items-center overflow-hidden rounded-[4px] border border-[#e3e5e8] bg-white align-middle"
+        style={{ top: "-1px" }}
+      >
+        <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center bg-[#e3edff] text-[#4d79ff]">
+          <Icon className="h-[14px] w-[14px]" strokeWidth={2.2} />
+        </span>
+        <span className="px-[6px] text-[14px] leading-[20px] text-[#000000]">{label}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      key={key}
+      className="mx-[1px] inline-flex rounded-full border px-2 py-0.5 align-[1px] text-[0.95em] font-semibold shadow-[0_2px_10px_rgba(123,92,255,0.08)] border-[#d7e1ef] bg-[#f4f7fb] text-[#5f6778]"
+    >
+      {label}
+    </span>
+  );
+}
+
+function FilledAttachmentChip({
+  label,
+  tooltip,
+  disabledReason = "正在生成，稍等一下",
+  icon: Icon = null,
+  previewSrc = "",
+  compact = false,
+  disabled = false,
+  onClick,
+  onRemove,
+  ariaLabel,
+  removeAriaLabel,
+  title,
+}) {
+  const rootClass = cn(
+    "inline-flex items-center overflow-visible rounded-[10px] border border-[#cfe0ff] bg-[linear-gradient(180deg,#f7fbff_0%,#eef4ff_100%)] text-[#202634] shadow-[0_8px_20px_rgba(79,107,255,0.06)] transition-all",
+    compact ? "h-[36px]" : "h-[42px]",
+    disabled && "opacity-60",
+  );
+  const contentClass = cn(
+    "flex min-w-0 items-center gap-2 pl-3 pr-2 text-left",
+    compact ? "h-[36px]" : "h-[42px]",
+    onClick && !disabled && "cursor-pointer",
+    disabled && "cursor-not-allowed",
+  );
+  const actionWrapClass = cn(
+    "flex items-center self-stretch pl-1 pr-1.5",
+    compact ? "gap-1" : "gap-1.5",
+  );
+  const dividerClass = cn(
+    "w-px rounded-full bg-[#d8e3ff]",
+    compact ? "h-4" : "h-[18px]",
+  );
+  const removeClass = cn(
+    "flex items-center justify-center rounded-full text-[#94a0b5] transition-all",
+    disabled ? "cursor-not-allowed" : "hover:bg-white/78 hover:text-[#3a5bfd]",
+    compact ? "h-6 w-6" : "h-7 w-7",
+  );
+  const statusDotClass = cn(
+    "rounded-full bg-[linear-gradient(135deg,#5c84ff_0%,#5967ff_60%,#8f67ff_100%)] shadow-[0_4px_12px_rgba(79,107,255,0.18)]",
+    compact ? "h-2 w-2" : "h-2.5 w-2.5",
+  );
+
+  const content = (
+    <>
+      {previewSrc ? (
+        <img
+          src={previewSrc}
+          alt={label}
+          className={cn(
+            "shrink-0 rounded-[6px] object-contain shadow-[0_4px_10px_rgba(79,107,255,0.12)]",
+            compact ? "h-4 w-4" : "h-[18px] w-[18px]",
+          )}
+        />
+      ) : Icon ? (
+        <Icon className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "shrink-0 text-[#202634]")} />
+      ) : null}
+      <span className="truncate font-semibold text-[#202634]">{label}</span>
+      <span className="ml-1 flex h-full items-center">
+        <span className={statusDotClass} />
+      </span>
+    </>
+  );
+
+  return (
+    <HoverTooltip
+      content={disabled ? disabledReason || tooltip : tooltip}
+      side="top"
+      align="center"
+      wrapperClassName="shrink-0"
+      bubbleClassName="w-[280px] leading-5"
+    >
+      <div className={rootClass}>
+        {onClick ? (
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={ariaLabel}
+            title={title}
+            className={contentClass}
+          >
+            {content}
+          </button>
+        ) : (
+          <div className={contentClass}>{content}</div>
+        )}
+        {onRemove ? (
+          <div className={actionWrapClass}>
+            <span className={dividerClass} />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (disabled) return;
+                onRemove();
+              }}
+              disabled={disabled}
+              className={removeClass}
+              aria-label={removeAriaLabel}
+            >
+              <X className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </HoverTooltip>
+  );
+}
+
+function renderMentionDecoratedText(value, mentionRegistry) {
+  const source = String(value || "");
+  if (!source) return null;
+
+  const nodes = [];
+  let lastIndex = 0;
+  let matchIndex = 0;
+
+  for (const match of source.matchAll(mentionTokenPattern)) {
+    const token = match[0];
+    const label = match[1] || "";
+    const tokenIndex = match.index || 0;
+    const kindLabel = label.split("：")[0];
+    const kind =
+      kindLabel === "角色" ? "role" : kindLabel === "分镜" ? "shot" : kindLabel === "主题" ? "theme" : "asset";
+    const assetMeta = mentionRegistry?.[label];
+
+    if (tokenIndex > lastIndex) {
+      nodes.push(<span key={`text-${matchIndex}-${lastIndex}`}>{source.slice(lastIndex, tokenIndex)}</span>);
+    }
+
+    if (kind === "asset" && assetMeta) {
+      nodes.push(renderAssetMentionChip(assetMeta, label, `mention-${matchIndex}-${tokenIndex}`));
+    } else {
+      nodes.push(
+        <span
+          key={`mention-${matchIndex}-${tokenIndex}`}
+          className={cn(
+            "mx-[1px] inline-flex rounded-full border px-2 py-0.5 align-[1px] text-[0.95em] font-semibold shadow-[0_2px_10px_rgba(123,92,255,0.08)]",
+            getMentionTone(kind),
+          )}
+        >
+          {label}
+        </span>,
+      );
+    }
+
+    lastIndex = tokenIndex + token.length;
+    matchIndex += 1;
+  }
+
+  if (lastIndex < source.length) {
+    nodes.push(<span key={`tail-${lastIndex}`}>{source.slice(lastIndex)}</span>);
+  }
+
+  return nodes;
+}
+
+function getActiveMentionMatch(value, selectionStart) {
+  const source = String(value || "");
+  const cursor = Number.isFinite(selectionStart) ? selectionStart : source.length;
+  const beforeCursor = source.slice(0, cursor);
+  const mentionStart = beforeCursor.lastIndexOf("@");
+
+  if (mentionStart === -1) return null;
+
+  const query = beforeCursor.slice(mentionStart + 1);
+  if (!query && beforeCursor[mentionStart + 1] === "[") return null;
+  if (query.startsWith("[")) return null;
+  if (/[\s\]]/u.test(query)) return null;
+
+  return {
+    query,
+    start: mentionStart,
+    end: cursor,
+  };
+}
+
+function MentionEditor({
+  value,
+  onChange,
+  placeholder,
+  textareaRef,
+  rows = 3,
+  shellClassName,
+  editorClassName,
+  onClick,
+  onKeyUp,
+  onKeyDown,
+  onBlur,
+  onFocus,
+  mentionRegistry,
+  disabled = false,
+}) {
+  const overlayRef = useRef(null);
+
+  const syncScroll = (event) => {
+    if (!overlayRef.current) return;
+    overlayRef.current.scrollTop = event.target.scrollTop;
+    overlayRef.current.scrollLeft = event.target.scrollLeft;
+  };
+
+  return (
+    <div className={cn("relative overflow-hidden", shellClassName)}>
+      <div
+        ref={overlayRef}
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 overflow-auto whitespace-pre-wrap break-words scrollbar-hide",
+          editorClassName,
+        )}
+      >
+        {value ? renderMentionDecoratedText(value, mentionRegistry) : <span className="text-[#9aa2b2]">{placeholder}</span>}
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={onChange}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        onBlur={onBlur}
+        onFocus={onFocus}
+        rows={rows}
+        disabled={disabled}
+        spellCheck={false}
+        onScroll={syncScroll}
+        className={cn(
+          "relative z-10 w-full resize-none bg-transparent text-transparent caret-[#202634] outline-none placeholder:text-transparent",
+          disabled && "cursor-not-allowed caret-transparent",
+          editorClassName,
+        )}
+      />
+    </div>
+  );
+}
+
+function MentionSuggestionPanel({ suggestions, onSelect, title = "素材引用", emptyLabel = "没有匹配到素材" }) {
+  return (
+    <div className="overflow-hidden rounded-[16px] border border-[#e5dcff] bg-white shadow-[0_18px_36px_rgba(66,50,120,0.14)]">
+      <div className="border-b border-[#f1ebff] px-3 py-2 text-[11px] font-semibold text-[#8a93a6]">{title}</div>
+      <div className="max-h-[260px] overflow-y-auto p-2">
+        {suggestions.length ? (
+          suggestions.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onSelect(item)}
+              className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left transition-all hover:bg-[#f7f3ff]"
+            >
+              {item.preview ? (
+                <img src={item.preview} alt={item.name} className="h-10 w-10 rounded-[12px] object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#f4f6fb] text-[11px] font-bold text-[#8a93a6]">
+                  {item.typeLabel}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                      getMentionTone(item.kind),
+                    )}
+                  >
+                    {item.typeLabel}
+                  </span>
+                  <span className="truncate text-[13px] font-semibold text-[#202634]">{item.name}</span>
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-[#98a1b2]">{item.description}</div>
+              </div>
+            </button>
+          ))
+        ) : (
+          <div className="px-3 py-4 text-[12px] text-[#98a1b2]">{emptyLabel}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getStepFlowUserMessage(payload) {
+  if (payload.type === "confirm") {
+    if (payload.from === 1) return "我已确认以上业务信息。";
+    if (payload.from === 2) return "我已确认当前方案，继续生成口播脚本。";
+    if (payload.from === 3) return "我已确认当前分镜，继续设置整条视频。";
+    if (payload.from === 4) return "我已确认成片设置，开始合成视频。";
+  }
+
+  if (payload.type === "regenerate") {
+    if (payload.from === 1) return "我已修改业务信息，请重新生成方案。";
+    if (payload.from === 2) return "我已修改当前方案，请重新生成口播脚本。";
+    if (payload.from === 3) return "我已修改当前分镜，请重新生成成片设置。";
+    if (payload.from === 4) return "我已修改当前成片设置，请重新合成视频。";
+  }
+
+  return "";
+}
+
+function clampDeepStep(step) {
+  const value = Number(step) || 1;
+  return Math.max(1, Math.min(FINAL_DEEP_STEP, value));
+}
+
+function getDateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDateLabel(dateKey) {
+  const todayKey = getDateKey(new Date());
+  if (dateKey === todayKey) return "今天";
+
+  const date = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function UploadTile({ size = "default", onClick, disabled = false }) {
+  const isCompact = size === "compact";
+  const isHero = size === "hero";
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "group relative shrink-0 overflow-hidden border transition-all",
+        disabled
+          ? "cursor-not-allowed border-[#e9edf4] bg-[#f3f5f8] text-[#c0c7d3] shadow-none"
+          : "border-[#e7edf6] bg-[linear-gradient(180deg,#f8faff_0%,#f2f5fb_100%)] text-[#6b7280] shadow-[0_10px_24px_rgba(117,135,170,0.06)] hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(117,135,170,0.1)]",
+        isCompact
+          ? "h-[48px] w-[48px] rounded-[8px]"
+          : isHero
+            ? "h-[48px] w-[48px] rounded-[8px]"
+            : "h-[112px] w-[112px] rounded-[18px]",
+      )}
+    >
+      <div className="flex h-full w-full items-center justify-center">
+        <span
+          className={cn(
+            "leading-none",
+            disabled ? "text-[#bac2cf]" : "text-[#6d7687]",
+            isCompact || isHero ? "text-[18px]" : "text-[38px]",
+          )}
+        >
+          +
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function UploadSourceMenu({ onPickImageLibrary, onPickImageLocal, onPickVideoLibrary, onPickVideoLocal }) {
+  const items = [
+    { label: "图片-图片库选择", onClick: onPickImageLibrary },
+    { label: "图片-本地上传", onClick: onPickImageLocal },
+    { label: "视频-视频库选择", onClick: onPickVideoLibrary },
+    { label: "视频-本地上传", onClick: onPickVideoLocal },
+  ];
+
+  return (
+    <div
+      data-upload-source-menu="true"
+      className="w-[200px] rounded-[16px] bg-white p-2 shadow-[0_6px_28px_rgba(0,71,194,0.04),0_4px_26px_rgba(0,71,194,0.03),0_2px_24px_rgba(0,71,194,0.02)]"
+    >
+      <div className="space-y-2">
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.onClick}
+            className={cn(
+              "flex h-[36px] w-full items-center rounded-[8px] px-4 text-left text-[14px] font-normal leading-[20px] text-[#000000] transition-colors",
+              "bg-white hover:bg-[#f6f7f9]",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SurfaceButton({ active, className, onClick, children, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-[8px] border border-[#e3e5e8] bg-white text-[13px] font-medium text-[#202634] transition-all hover:bg-[#fafbfd]",
+        active &&
+          "border-[#dbe5ff] bg-white text-[#4161ff] shadow-[0_6px_18px_rgba(95,120,255,0.05)]",
+        disabled &&
+          "cursor-not-allowed border-[#dfe6f4] bg-[#fbfcff] text-[#b3bac8] hover:bg-[#fbfcff]",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ComposerAttachmentCard({ item, size = "default" }) {
+  const isVisual = item.assetType === "image" || item.assetType === "video";
+  const isCompact = size === "compact";
+  const isHero = size === "hero";
+  const sizeClass = isCompact
+    ? "h-[48px] w-[48px] rounded-[8px]"
+    : isHero
+      ? "h-[72px] w-[72px] rounded-[14px]"
+      : "h-[112px] w-[112px] rounded-[18px]";
+
+  return (
+    <div
+      className={cn(
+        "group relative shrink-0 overflow-hidden border border-[#e7edf6] bg-[linear-gradient(180deg,#f8faff_0%,#f2f5fb_100%)] shadow-[0_10px_24px_rgba(117,135,170,0.06)]",
+        sizeClass,
+      )}
+    >
+      {isVisual ? (
+        item.assetType === "video" ? (
+          <video
+            src={item.preview}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+          />
+        ) : (
+          <img src={item.preview} alt={item.name} className="h-full w-full object-cover" />
+        )
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center bg-[linear-gradient(180deg,#e9f0ff_0%,#f5f8ff_56%,#eef2fb_56%,#e1e6f2_100%)] text-[#5a71ff]">
+          {item.assetType === "landing" ? <Link2 className="h-8 w-8" /> : <FileText className="h-8 w-8" />}
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(34,40,58,0)_0%,rgba(34,40,58,0.82)_100%)] px-3 py-2">
+        <div
+          className={cn(
+            "truncate font-semibold text-white",
+            isCompact ? "text-[9px]" : isHero ? "text-[11px]" : "text-[12px]",
+          )}
+        >
+          {item.name}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function removeMentionTokenFromText(source, tokenLabel) {
+  const escaped = tokenLabel.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return String(source || "")
+    .replace(new RegExp(`@\\[${escaped}\\]\\s*`, "gu"), "")
+    .replace(/\s{2,}/gu, " ")
+    .trimStart();
+}
+
+function appendMentionTokenToText(source, tokenLabel) {
+  const base = String(source || "");
+  const spacer = base && !/\s$/u.test(base) ? " " : "";
+  return `${base}${spacer}@[${tokenLabel}] `;
+}
+
+function ToastViewport({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
+
+  const toneMap = {
+    warning: {
+      color: "#F27318",
+      label: "!",
+      role: "status",
+    },
+    info: {
+      color: "#0054E6",
+      label: "i",
+      role: "status",
+    },
+    success: {
+      color: "#009940",
+      icon: Check,
+      role: "status",
+    },
+    error: {
+      color: "#D9150B",
+      icon: X,
+      role: "alert",
+    },
+  };
+
+  return createPortal(
+    <div className="pointer-events-none fixed left-1/2 top-6 z-[360] flex w-[min(520px,calc(100vw-32px))] -translate-x-1/2 flex-col items-center gap-3">
+      <AnimatePresence initial={false}>
+        {toasts.map((toast) => {
+          const tone = toneMap[toast.type] || toneMap.info;
+          const Icon = tone.icon;
+          return (
+            <motion.div
+              key={toast.id}
+              layout
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pointer-events-auto flex min-h-[56px] min-w-[156px] max-w-full items-center gap-2.5 rounded-[16px] bg-white px-5 py-4 shadow-[0_8px_16px_4px_rgba(0,71,194,0.08),0_7px_14px_2px_rgba(0,71,194,0.07),0_1px_8px_rgba(0,71,194,0.05)]"
+              role={tone.role}
+              onClick={() => onDismiss(toast.id)}
+            >
+              <span
+                className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold leading-none text-white"
+                style={{ backgroundColor: tone.color }}
+                aria-hidden="true"
+              >
+                {Icon ? <Icon className="h-3 w-3 stroke-[3]" /> : tone.label}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[16px] font-medium leading-[22px] text-[#191b1e]">
+                  {toast.title}
+                </div>
+                {toast.description ? (
+                  <div className="mt-0.5 max-w-[440px] truncate text-[12px] leading-5 text-[#6f7888]">
+                    {toast.description}
+                  </div>
+                ) : null}
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>,
+    document.body,
+  );
+}
+
+function FullscreenReferenceModal({
+  open,
+  title,
+  label,
+  value,
+  onChange,
+  onClose,
+  onConfirm,
+  placeholder,
+  error,
+  helperText,
+  badgeText,
+  badgeError = false,
+  loading = false,
+  multiline = false,
+  confirmLabel = "确定",
+}) {
+  if (!open) return null;
+
+  const modalHeightClass = multiline ? "min-h-[370px]" : error ? "min-h-[226px]" : "min-h-[198px]";
+  const fieldHeightClass = multiline ? "h-[236px]" : "h-[36px]";
+  const showAssistLine = Boolean(error || helperText);
+
+  const body = (
+    <div className="fixed inset-0 z-[240] flex items-center justify-center bg-[rgba(13,15,18,0.26)] px-6">
+      <button className="absolute inset-0" onClick={onClose} aria-label="关闭弹窗" />
+      <div
+        className={cn(
+          "relative z-10 flex w-[min(480px,calc(100vw-48px))] flex-col rounded-[16px] bg-white px-6 pb-6 pt-4 shadow-[0_6px_16px_rgba(0,71,194,0.06),0_5px_15px_rgba(0,71,194,0.05),0_4px_14px_rgba(0,71,194,0.04)]",
+          modalHeightClass,
+        )}
+      >
+        <div className="flex h-[26px] items-center justify-between gap-6">
+          <div className="text-[18px] font-medium leading-[26px] text-[#0d0f12]">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+            aria-label="关闭弹窗"
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="mt-4 flex-1">
+          <div className="mb-2 text-[14px] leading-5 text-[#191b1e]">{label}</div>
+          <div
+            className={cn(
+              "relative rounded-[4px] border bg-[rgba(110,160,247,0.07)] transition-colors",
+              fieldHeightClass,
+              error ? "border-[#f53f3f] bg-white" : "border-transparent",
+            )}
+          >
+            <div className={cn("flex h-full items-start gap-2 px-3", multiline ? "py-3" : "items-center py-0")}>
+              {multiline ? (
+                <FileText className="mt-1 h-4 w-4 shrink-0 text-[#848b99]" />
+              ) : (
+                <Link2 className="h-4 w-4 shrink-0 text-[#848b99]" />
+              )}
+              {multiline ? (
+                <textarea
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  rows={5}
+                  spellCheck={false}
+                  className="h-full min-h-0 w-full resize-none border-none bg-transparent text-[14px] leading-5 text-[#191b1e] outline-none placeholder:text-[#848b99]"
+                />
+              ) : (
+                <input
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  className="h-full w-full border-none bg-transparent text-[14px] text-[#191b1e] outline-none placeholder:text-[#848b99]"
+                />
+              )}
+            </div>
+            {badgeText ? (
+              <div
+                className={cn(
+                  "absolute bottom-2 right-2 rounded-[4px] px-1 py-0.5 text-[12px] leading-4",
+                  badgeError || error
+                    ? "bg-[#fff5f5] text-[#f53f3f]"
+                    : "text-[#848b99]",
+                )}
+              >
+                {badgeText}
+              </div>
+            ) : null}
+          </div>
+          {showAssistLine ? (
+            <div className="mt-1 text-[14px] leading-5">
+              <div className={cn(error ? "text-[#f53f3f]" : "text-[#848b99]")}>
+                {error || helperText}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 min-w-[80px] rounded-[8px] bg-[#f6f7f9] px-4 text-[12px] leading-4 text-[#191b1e] transition-colors hover:bg-[#eef1f6]"
+          >
+            取消
+          </button>
+          <DisabledTooltip
+            disabled={loading}
+            reason="正在解析，稍等一下"
+            side="top"
+            align="end"
+            wrapperClassName="inline-flex"
+          >
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={loading}
+              className={cn(
+                "inline-flex h-9 min-w-[80px] items-center justify-center rounded-[8px] px-4 text-[12px] leading-4 text-white transition-all",
+                loading
+                  ? "cursor-wait bg-[#99beff] text-white/40"
+                  : "bg-[#3a5bfd] shadow-[0_10px_20px_rgba(58,91,253,0.18)] hover:bg-[#2949e8]",
+              )}
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-1">
+                  <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
+                  解析中
+                </span>
+              ) : (
+                confirmLabel
+              )}
+            </button>
+          </DisabledTooltip>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(body, document.body);
+}
+
+function DropdownCard({ className, children }) {
+  return (
+    <div
+      className={cn(
+        "rounded-[20px] border border-[#e5eaf3] bg-white p-2 shadow-[0_18px_36px_rgba(35,52,84,0.1)]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function IconHintButton({
+  onClick,
+  tooltip,
+  disabledReason = "正在生成，稍等一下",
+  disabled = false,
+  icon: Icon = ComposerActionIcon,
+  buttonClassName,
+  iconClassName,
+  tooltipClassName,
+  tooltipSide = "bottom",
+  tooltipAlign = "end",
+  children,
+}) {
+  const tooltipContent = disabled ? disabledReason || tooltip : tooltip;
+
+  return (
+    <HoverTooltip
+      content={tooltipContent}
+      disabled={!tooltipContent}
+      side={tooltipSide}
+      align={tooltipAlign}
+      wrapperClassName="shrink-0"
+      bubbleClassName={cn("w-max max-w-[min(280px,calc(100vw-24px))] whitespace-nowrap", tooltipClassName)}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-[10px] border border-[#e6dbff] bg-[#faf7ff] text-[#7b5cff] transition-all",
+          disabled
+            ? "cursor-not-allowed opacity-55"
+            : "hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(123,92,255,0.12)]",
+          buttonClassName,
+        )}
+        aria-label={tooltip}
+      >
+        {children || <Icon className={cn("h-[15px] w-[15px]", iconClassName)} />}
+      </button>
+    </HoverTooltip>
+  );
+}
+
+function ComposerActionIcon({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M5.25 4.75h13.5c1.2 0 2.25 1.02 2.25 2.28v8.18c0 1.26-1.05 2.28-2.25 2.28h-7.08L6.1 21.18v-3.69h-.85C4.05 17.49 3 16.47 3 15.21V7.03c0-1.26 1.05-2.28 2.25-2.28Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M12 8.45v5.5M9.25 11.2h5.5" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ComposerActionGlyph({ className }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 w-7 items-center justify-center rounded-[10px] border border-[#d6e5ff] bg-[#edf5ff] text-[#075eea]",
+        className,
+      )}
+    >
+      <ComposerActionIcon className="h-[18px] w-[18px]" />
+    </span>
+  );
+}
+
+function StopGenerationGlyph({ className }) {
+  return (
+    <span className={cn("relative flex items-center justify-center", className)}>
+      <span className="h-[8px] w-[8px] rounded-[2px] bg-white" />
+    </span>
+  );
+}
+
+function ComposerSubmitButton({
+  isGenerating = false,
+  canSubmit = true,
+  onClick,
+  size = "default",
+  tooltip = "停止生成",
+}) {
+  const isCompact = size === "compact";
+
+  return (
+    <HoverTooltip
+      content={isGenerating ? tooltip : !canSubmit ? "先输入内容或添加素材" : ""}
+      side="top"
+      align="end"
+      wrapperClassName="shrink-0"
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!isGenerating && !canSubmit}
+        aria-label={isGenerating ? tooltip : "开始生成"}
+        className="shrink-0"
+      >
+        <span
+          className={cn(
+            "relative flex items-center justify-center rounded-full text-white transition-all",
+            isCompact ? "h-[36px] w-[36px]" : "h-[38px] w-[38px]",
+            isGenerating
+              ? "bg-[linear-gradient(135deg,#43b6ff_0%,#4c8cff_34%,#5967ff_66%,#8f67ff_100%)] shadow-[0_10px_22px_rgba(89,103,255,0.32)] hover:-translate-y-0.5"
+              : canSubmit
+                ? "bg-[linear-gradient(135deg,#5c84ff_0%,#5967ff_60%,#8f67ff_100%)] shadow-[0_10px_22px_rgba(89,103,255,0.32)] hover:-translate-y-0.5"
+                : "cursor-not-allowed bg-[#dbe3f2] text-white/90",
+          )}
+        >
+          {isGenerating ? (
+            <span className="flex h-[28px] w-[28px] items-center justify-center rounded-full border border-white/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.24),rgba(255,255,255,0.08))] shadow-[inset_0_1px_1px_rgba(255,255,255,0.24)]">
+              <StopGenerationGlyph className={isCompact ? "h-[18px] w-[18px]" : "h-5 w-5"} />
+            </span>
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
+        </span>
+      </button>
+    </HoverTooltip>
+  );
+}
+
+function ModeDropdown({ selectedMode, onSelect }) {
+  const modes = [
+    { id: "video", label: "视频生成", icon: Clapperboard },
+    { id: "image", label: "图片生成", icon: ImageIcon },
+    { id: "agent", label: "视频Agent", icon: Wand2 },
+  ];
+
+  return (
+    <DropdownCard className="w-[260px]">
+      {modes.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onSelect(item.id)}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-[16px] px-4 py-4 text-left text-[16px] font-semibold transition-all",
+            selectedMode === item.id
+              ? "bg-gradient-to-r from-[#eef2ff] to-[#edf0ff] text-[#4161ff]"
+              : "text-[#202634] hover:bg-slate-50",
+          )}
+        >
+          <item.icon className="h-5 w-5" />
+          {item.label}
+        </button>
+      ))}
+    </DropdownCard>
+  );
+}
+
+function SimpleMenu({ items, selected, onSelect, widthClass = "w-[180px]" }) {
+  return (
+    <DropdownCard className={widthClass}>
+      {items.map((item) => (
+        <button
+          key={item}
+          onClick={() => onSelect(item)}
+          className="flex w-full items-center justify-between rounded-[16px] px-4 py-4 text-left text-[16px] font-semibold text-[#202634] transition-all hover:bg-slate-50"
+        >
+          <span>{item}</span>
+          {selected === item ? <Check className="h-5 w-5 text-[#4161ff]" /> : null}
+        </button>
+      ))}
+    </DropdownCard>
+  );
+}
+
+function RatioVisual({ ratio, active, onClick }) {
+  const visuals = {
+    "1:1": "h-6 w-6",
+    "3:4": "h-8 w-5",
+    "4:3": "h-5 w-8",
+    "9:16": "h-9 w-4",
+    "16:9": "h-4 w-9",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 rounded-[14px] border px-2 py-3 transition-all",
+        active
+          ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
+          : "border-slate-200 bg-white text-[#202634] hover:border-slate-300",
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-[5px] border-[3px]",
+          visuals[ratio],
+          active ? "border-[#4f6bff]" : "border-slate-300",
+        )}
+      />
+      <span className="text-[13px] font-semibold">{ratio}</span>
+    </button>
+  );
+}
+
+function ImageSettingsPanel({ config, setConfig }) {
+  return (
+    <DropdownCard className="w-[440px] rounded-[22px] p-5">
+      <section className="mb-5">
+        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择比例</h3>
+        <div className="grid grid-cols-5 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
+          {Object.keys(ratioMap).map((ratio) => (
+            <RatioVisual
+              key={ratio}
+              ratio={ratio}
+              active={config.imageRatio === ratio}
+              onClick={() => setConfig((prev) => ({ ...prev, imageRatio: ratio }))}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-5">
+        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择分辨率</h3>
+        <div className="grid grid-cols-2 gap-4">
+          {["高清2K", "超清4K"].map((item) => (
+            <button
+              key={item}
+              onClick={() => setConfig((prev) => ({ ...prev, imageResolution: item }))}
+              className={cn(
+                "h-[46px] rounded-[12px] border text-[14px] font-semibold transition-all",
+                config.imageResolution === item
+                  ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
+                  : "border-slate-200 bg-white text-[#202634] hover:border-slate-300",
+              )}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">图片张数</h3>
+        <div className="grid grid-cols-8 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+            <button
+              key={item}
+              onClick={() => setConfig((prev) => ({ ...prev, imageCount: item }))}
+              className={cn(
+                "h-[42px] rounded-[10px] border text-[14px] font-semibold transition-all",
+                config.imageCount === item
+                  ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
+                  : "border-transparent bg-white text-[#202634] hover:border-slate-300",
+              )}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </section>
+    </DropdownCard>
+  );
+}
+
+function AgentRatioMenu({ selected, onSelect }) {
+  const items = [
+    { value: "16:9", label: "16:9", helper: "横屏" },
+    { value: "9:16", label: "9:16", helper: "竖屏" },
+  ];
+
+  return (
+    <DropdownCard className="w-[292px] rounded-[22px] p-2">
+      {items.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          onClick={() => onSelect(item.value)}
+          className="flex h-[62px] w-full items-center justify-between rounded-[16px] px-4 text-left transition-colors hover:bg-[#f7f9fd]"
+        >
+          <div className="flex items-center gap-4">
+            <MonitorSmartphone className={cn("h-5 w-5", selected === item.value ? "text-[#6a5cff]" : "text-[#6e809d]")} />
+            <div className="text-[16px] font-semibold text-[#191b1e]">
+              {item.label}
+              {item.helper ? <span className="ml-1">（{item.helper}）</span> : null}
+            </div>
+          </div>
+          {selected === item.value ? <Check className="h-5 w-5 text-[#6a5cff]" /> : null}
+        </button>
+      ))}
+    </DropdownCard>
+  );
+}
+
+function PresetPromptPanel({
+  presets,
+  onSelect,
+  onCreate,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}) {
+  const [keyword, setKeyword] = useState("");
+  const filteredPresets = useMemo(() => {
+    const query = keyword.trim().toLowerCase();
+    if (!query) return presets;
+    return presets.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) || item.content.toLowerCase().includes(query),
+    );
+  }, [keyword, presets]);
+
+  return (
+    <DropdownCard className="w-[560px] rounded-[24px] p-0">
+      <div className="border-b border-[#eef2f6] px-6 py-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-5 w-5 text-[#202634]" />
+            <div className="text-[18px] font-semibold text-[#202634]">预设提示词</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex h-[50px] flex-1 items-center gap-3 rounded-[16px] border border-[#dde4ef] bg-white px-4">
+            <Search className="h-5 w-5 text-[#a0a8b6]" />
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="搜索预设..."
+              className="w-full border-none bg-transparent text-[15px] text-[#202634] outline-none placeholder:text-[#a7afbc]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex h-[48px] items-center gap-2 rounded-[14px] bg-black px-5 text-[15px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            新建
+          </button>
+        </div>
+      </div>
+
+      <div className="max-h-[360px] overflow-y-auto px-4 py-4">
+        {filteredPresets.length ? (
+          <div className="space-y-3">
+            {filteredPresets.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[16px] border border-[#ece6ff] bg-[linear-gradient(180deg,#fcfbff_0%,#fbfcff_100%)] px-4 py-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(item)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="mb-2 text-[16px] font-semibold text-[#202634]">{item.name}</div>
+                    <div className="line-clamp-2 text-[14px] leading-6 text-[#7a8394]">
+                      {item.content}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(item)}
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f3f5f9] text-[#202634] transition-colors hover:bg-[#eceff4]"
+                    >
+                      <PencilLine className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDuplicate(item)}
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f3f5f9] text-[#202634] transition-colors hover:bg-[#eceff4]"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(item.id)}
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f3f5f9] text-[#202634] transition-colors hover:bg-[#feeceb] hover:text-[#d9150b]"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-[240px] flex-col items-center justify-center px-6 text-center">
+            <BookOpen className="mb-5 h-14 w-14 text-[#d4ddeb]" />
+            <div className="text-[16px] leading-7 text-[#8d97a8]">暂无预设，点击新建创建第一个预设</div>
+          </div>
+        )}
+      </div>
+    </DropdownCard>
+  );
+}
+
+function PresetPromptModal({ open, initialValue, onClose, onConfirm }) {
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+  const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initialValue?.name || "");
+    setContent(initialValue?.content || "");
+    setTouched(false);
+  }, [initialValue, open]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  const nameError = touched && !name.trim();
+  const contentError = touched && !content.trim();
+
+  return createPortal(
+    <div className="fixed inset-0 z-[180] bg-[rgba(15,23,42,0.22)] backdrop-blur-[4px]" onClick={onClose}>
+      <div className="flex h-full items-center justify-center px-6 py-8">
+        <div
+          className="w-full max-w-[880px] rounded-[28px] bg-white px-12 py-12 shadow-[0_30px_80px_rgba(15,23,42,0.18)]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="mb-8 flex items-center justify-between">
+            <div className="text-[22px] font-semibold text-[#202634]">新建预设</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-[12px] text-[#202634] transition-colors hover:bg-[#f5f7fb]"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <div className="mb-3 text-[16px] font-semibold text-[#202634]">
+                预设名称 <span className="text-[#ff4d4f]">*</span>
+              </div>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="请输入预设名称"
+                className={cn(
+                  "h-[54px] w-full rounded-[16px] border px-4 text-[16px] text-[#202634] outline-none placeholder:text-[#b0b8c8]",
+                  nameError ? "border-[#ff4d4f]" : "border-[#d9e1ec] focus:border-[#7b5cff]",
+                )}
+              />
+              {nameError ? <div className="mt-2 text-[14px] text-[#ff4d4f]">预设名称不能为空</div> : null}
+            </div>
+
+            <div>
+              <div className="mb-3 text-[16px] font-semibold text-[#202634]">
+                预设内容 <span className="text-[#ff4d4f]">*</span>
+              </div>
+              <div
+                className={cn(
+                  "rounded-[18px] border bg-[#fafbfd] px-4 py-4",
+                  contentError ? "border-[#ff4d4f]" : "border-[#edf1f6]",
+                )}
+              >
+                <textarea
+                  value={content}
+                  onChange={(event) => setContent(event.target.value.slice(0, 2000))}
+                  placeholder="请输入预设内容..."
+                  className="min-h-[240px] w-full resize-none border-none bg-transparent text-[16px] leading-7 text-[#202634] outline-none placeholder:text-[#b0b8c8]"
+                />
+                <div className="mt-3 text-right text-[14px] text-[#9aa2b2]">{content.length}/2000</div>
+              </div>
+              {contentError ? <div className="mt-2 text-[14px] text-[#ff4d4f]">预设内容不能为空</div> : null}
+            </div>
+          </div>
+
+          <div className="mt-10 flex justify-end gap-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-[54px] rounded-[16px] bg-[#f3f5f9] px-8 text-[16px] font-semibold text-[#202634]"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTouched(true);
+                if (!name.trim() || !content.trim()) return;
+                onConfirm({
+                  name: name.trim(),
+                  content: content.trim(),
+                });
+              }}
+              className="h-[54px] rounded-[16px] bg-black px-8 text-[16px] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              创建
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ComposerControls({
+  composerConfig,
+  setComposerConfig,
+  composerAttachments,
+  onOpenLandingModal,
+  onOpenScriptModal,
+  onRemoveLanding,
+  onRemoveScript,
+  openMenu,
+  setOpenMenu,
+  promptPresets,
+  onApplyPreset,
+  onCreatePreset,
+  onEditPreset,
+  onDuplicatePreset,
+  onDeletePreset,
+  dropdownDirection = "down",
+  compact = false,
+}) {
+  const modeTriggerRef = useRef(null);
+  const sceneTriggerRef = useRef(null);
+  const videoRatioTriggerRef = useRef(null);
+  const agentRatioTriggerRef = useRef(null);
+  const imageSettingsTriggerRef = useRef(null);
+  const modeLabels = {
+    video: "视频生成",
+    image: "图片生成",
+    agent: "视频Agent",
+  };
+
+  const ModeIcon =
+    composerConfig.mode === "video"
+      ? Clapperboard
+      : composerConfig.mode === "image"
+        ? ImageIcon
+        : Wand2;
+  const landingDisabled = Boolean(composerAttachments?.landingPage);
+  const scriptDisabled = Boolean(composerAttachments?.voiceScript);
+  const sceneField = composerConfig.mode === "agent" ? "agentScene" : "videoScene";
+  const selectedScene = normalizeComposerScene(composerConfig[sceneField]);
+
+  return (
+    <div className="relative flex flex-wrap gap-3">
+      <div ref={modeTriggerRef} className="relative z-30">
+        <SurfaceButton
+          active={openMenu === "mode"}
+          onClick={() => setOpenMenu(openMenu === "mode" ? null : "mode")}
+          className={cn("px-3", compact ? "h-[36px]" : "h-[42px]")}
+        >
+          <ModeIcon className="h-4 w-4" />
+          <span>{modeLabels[composerConfig.mode]}</span>
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform", openMenu === "mode" && "rotate-180")}
+          />
+        </SurfaceButton>
+        <FloatingLayer
+          anchorRef={modeTriggerRef}
+          open={openMenu === "mode"}
+          preferredDirection={dropdownDirection}
+        >
+          <ModeDropdown
+            selectedMode={composerConfig.mode}
+            onSelect={(value) => {
+              setComposerConfig((prev) => ({ ...prev, mode: value }));
+              setOpenMenu(null);
+            }}
+          />
+        </FloatingLayer>
+      </div>
+
+      {composerConfig.mode === "video" || composerConfig.mode === "agent" ? (
+        <>
+          <div ref={sceneTriggerRef} className="relative z-30">
+            <SurfaceButton
+              active={openMenu === "scene"}
+              onClick={() => setOpenMenu(openMenu === "scene" ? null : "scene")}
+              className={cn("px-3", compact ? "h-[36px]" : "h-[42px]")}
+            >
+              <span>{selectedScene}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  openMenu === "scene" && "rotate-180",
+                )}
+              />
+            </SurfaceButton>
+            <FloatingLayer
+              anchorRef={sceneTriggerRef}
+              open={openMenu === "scene"}
+              preferredDirection={dropdownDirection}
+            >
+              <SimpleMenu
+                items={COMPOSER_SCENE_OPTIONS}
+                selected={selectedScene}
+                onSelect={(value) => {
+                  setComposerConfig((prev) => ({ ...prev, [sceneField]: value }));
+                  setOpenMenu(null);
+                }}
+                widthClass="w-[160px]"
+              />
+            </FloatingLayer>
+          </div>
+        </>
+      ) : null}
+
+      {composerConfig.mode === "video" ? (
+        <>
+          <div ref={videoRatioTriggerRef} className="relative z-30">
+            <SurfaceButton
+              active={openMenu === "videoRatio"}
+              onClick={() =>
+                setOpenMenu(openMenu === "videoRatio" ? null : "videoRatio")
+              }
+              className={cn("px-3", compact ? "h-[36px]" : "h-[42px]")}
+            >
+              <span>{composerConfig.videoRatio}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  openMenu === "videoRatio" && "rotate-180",
+                )}
+              />
+            </SurfaceButton>
+            <FloatingLayer
+              anchorRef={videoRatioTriggerRef}
+              open={openMenu === "videoRatio"}
+              preferredDirection={dropdownDirection}
+            >
+              <SimpleMenu
+                items={["16:9", "9:16"]}
+                selected={composerConfig.videoRatio}
+                onSelect={(value) => {
+                  setComposerConfig((prev) => ({ ...prev, videoRatio: value }));
+                  setOpenMenu(null);
+                }}
+                widthClass="w-[180px]"
+              />
+            </FloatingLayer>
+          </div>
+        </>
+      ) : null}
+
+      {composerConfig.mode === "image" ? (
+        <>
+          {!compact ? (
+            <button
+              onClick={() =>
+                setComposerConfig((prev) => ({
+                  ...prev,
+                  imageThinking: !prev.imageThinking,
+                }))
+              }
+              className={cn(
+                "inline-flex h-[42px] items-center gap-3 rounded-[14px] border px-4 text-[14px] font-semibold transition-all",
+                composerConfig.imageThinking
+                  ? "border-[#7a8bff] bg-[#f8faff] text-[#4161ff]"
+                  : "border-transparent bg-[#f5f7fb] text-[#202634]",
+              )}
+            >
+              <span
+                className={cn(
+                  "relative h-5 w-10 rounded-full transition-colors",
+                  composerConfig.imageThinking ? "bg-[#4f6bff]" : "bg-slate-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all",
+                    composerConfig.imageThinking ? "left-[22px]" : "left-0.5",
+                  )}
+                />
+              </span>
+              思考模式
+            </button>
+          ) : null}
+
+          <div ref={imageSettingsTriggerRef} className="relative z-30">
+            <SurfaceButton
+              active={openMenu === "imageSettings"}
+              onClick={() =>
+                setOpenMenu(openMenu === "imageSettings" ? null : "imageSettings")
+              }
+              className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
+            >
+              {!compact ? <MonitorSmartphone className="h-4 w-4" /> : null}
+              <span>
+                {compact
+                  ? `${composerConfig.imageRatio} 高清 ${composerConfig.imageCount}张`
+                  : `${composerConfig.imageRatio} | ${composerConfig.imageResolution} | ${composerConfig.imageCount} 张`}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  openMenu === "imageSettings" && "rotate-180",
+                )}
+              />
+            </SurfaceButton>
+            <FloatingLayer
+              anchorRef={imageSettingsTriggerRef}
+              open={openMenu === "imageSettings"}
+              preferredDirection={dropdownDirection}
+            >
+              <ImageSettingsPanel
+                config={composerConfig}
+                setConfig={setComposerConfig}
+              />
+            </FloatingLayer>
+          </div>
+
+          {compact ? (
+            <button className="inline-flex h-[36px] items-center gap-1.5 rounded-[8px] border border-[#e3e5e8] bg-white px-3 text-[13px] font-medium text-[#202634] transition-all hover:bg-[#fafbfd]">
+              <Link2 className="h-3.5 w-3.5" />
+              参考落地页
+            </button>
+          ) : null}
+        </>
+      ) : null}
+
+      {composerConfig.mode === "agent" ? (
+        <>
+          <div ref={agentRatioTriggerRef} className="relative z-30">
+            <SurfaceButton
+              active={openMenu === "agentRatio"}
+              onClick={() => setOpenMenu(openMenu === "agentRatio" ? null : "agentRatio")}
+              className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
+            >
+              <MonitorSmartphone className="h-4 w-4" />
+              <span>{composerConfig.agentRatio}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  openMenu === "agentRatio" && "rotate-180",
+                )}
+              />
+            </SurfaceButton>
+            <FloatingLayer
+              anchorRef={agentRatioTriggerRef}
+              open={openMenu === "agentRatio"}
+              preferredDirection={dropdownDirection}
+            >
+              <AgentRatioMenu
+                selected={composerConfig.agentRatio}
+                onSelect={(value) => {
+                  setComposerConfig((prev) => ({ ...prev, agentRatio: value }));
+                  setOpenMenu(null);
+                }}
+              />
+            </FloatingLayer>
+          </div>
+
+          <div className="group relative shrink-0">
+            {landingDisabled ? (
+              <FilledAttachmentChip
+                compact={compact}
+                label="落地页"
+                icon={Link2}
+                tooltip={composerAttachments?.landingPage?.url || "已添加落地页参考"}
+                onRemove={onRemoveLanding}
+                removeAriaLabel="移除落地页"
+              />
+            ) : (
+              <SurfaceButton
+                onClick={onOpenLandingModal}
+                className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
+              >
+                <Link2 className="h-4 w-4" />
+                <span>落地页参考</span>
+              </SurfaceButton>
+            )}
+          </div>
+
+          <div className="group relative shrink-0">
+            {scriptDisabled ? (
+              <FilledAttachmentChip
+                compact={compact}
+                label="脚本"
+                icon={FileText}
+                tooltip={composerAttachments?.voiceScript?.content || "已添加口播脚本"}
+                onRemove={onRemoveScript}
+                removeAriaLabel="移除口播脚本"
+              />
+            ) : (
+              <SurfaceButton
+                onClick={onOpenScriptModal}
+                className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
+              >
+                <FileText className="h-4 w-4" />
+                <span>口播脚本</span>
+              </SurfaceButton>
+            )}
+          </div>
+
+        </>
+      ) : null}
+
+    </div>
+  );
+}
+
+function InputComposer({
+  prompt,
+  setPrompt,
+  onSubmit,
+  isGenerating = false,
+  onStopGenerating,
+  composerConfig,
+  setComposerConfig,
+  composerAttachments,
+  setComposerAttachments,
+  openMenu,
+  setOpenMenu,
+  promptPresets,
+  onApplyPreset,
+  onCreatePreset,
+  onEditPreset,
+  onDuplicatePreset,
+  onDeletePreset,
+  onOpenImageLibrary,
+  onOpenVideoLibrary,
+  onNotify,
+  variant = "hero",
+}) {
+  const isHero = variant === "hero";
+  const isFloating = variant === "floating";
+  const isOverlay = variant === "overlay";
+  const promptTextareaRef = useRef(null);
+  const promptMentionAnchorRef = useRef(null);
+  const attachmentScrollerRef = useRef(null);
+  const uploadTriggerRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const [mentionState, setMentionState] = useState(null);
+  const [attachmentScrollState, setAttachmentScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
+  const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
+  const [uploadAccept, setUploadAccept] = useState("image/*,video/*");
+  const [isUploadDragging, setIsUploadDragging] = useState(false);
+  const [landingModalOpen, setLandingModalOpen] = useState(false);
+  const [landingInput, setLandingInput] = useState("");
+  const [landingError, setLandingError] = useState("");
+  const [landingLoading, setLandingLoading] = useState(false);
+  const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [scriptInput, setScriptInput] = useState("");
+  const [scriptError, setScriptError] = useState("");
+  const [removeReferenceDialog, setRemoveReferenceDialog] = useState(null);
+  const scriptLength = getVoiceScriptLength(scriptInput);
+  const scriptLiveError = getVoiceScriptValidationMessage(scriptInput, { allowEmpty: true });
+  const scriptDisplayError = scriptError || scriptLiveError;
+
+  const placeholder =
+    composerConfig.mode === "video"
+      ? "请输入你想生成的视频，例如：生成一个少儿木机构用于双11招生的营销视频。"
+      : composerConfig.mode === "image"
+        ? "请输入你想生成的图片，例如：清爽草绿色香水海报，通透自然，夏日质感。"
+        : "请输入创意描述词...";
+  const uploadAssets = composerAttachments?.uploads || [];
+  const landingAsset = composerAttachments?.landingPage || null;
+  const scriptAsset = composerAttachments?.voiceScript || null;
+  const attachmentItems = uploadAssets;
+  const attachmentTileSize = isHero ? "hero" : isFloating || isOverlay ? "compact" : "default";
+  const showAttachmentArrows = attachmentItems.length > 0;
+  const canSubmit =
+    Boolean(prompt.trim() || uploadAssets.length || landingAsset || scriptAsset) && !isGenerating;
+  const mentionAssets = useMemo(
+    () => [
+      ...uploadAssets.map((item) => ({
+        id: item.id,
+        kind: "asset",
+        name: item.name,
+        description: item.rawName || `${item.assetType === "image" ? "图片" : "视频"}素材`,
+        typeLabel: item.assetType === "image" ? "图片" : "视频",
+        preview: item.preview,
+        tokenLabel: item.name,
+        searchText: `${item.name} ${item.rawName || ""} ${item.assetType === "image" ? "图片" : "视频"}`,
+      })),
+      ...(landingAsset
+        ? [
+            {
+              id: landingAsset.id,
+              kind: "asset",
+              name: landingAsset.name,
+              description: landingAsset.url,
+              typeLabel: "落地页",
+              preview: null,
+              tokenLabel: landingAsset.name,
+              searchText: `${landingAsset.name} ${landingAsset.url} 落地页 链接`,
+            },
+          ]
+        : []),
+      ...(scriptAsset
+        ? [
+            {
+              id: scriptAsset.id,
+              kind: "asset",
+              name: scriptAsset.name,
+              description: scriptAsset.content,
+              typeLabel: "脚本",
+              preview: null,
+              tokenLabel: scriptAsset.name,
+              searchText: `${scriptAsset.name} ${scriptAsset.content} 口播 脚本`,
+            },
+          ]
+        : []),
+    ],
+    [landingAsset, scriptAsset, uploadAssets],
+  );
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionState) return [];
+    const normalized = mentionState.query.trim().toLowerCase();
+
+    return mentionAssets
+      .filter((item) =>
+        !normalized
+          ? true
+          : item.name.toLowerCase().includes(normalized) ||
+            item.description.toLowerCase().includes(normalized) ||
+            item.searchText.toLowerCase().includes(normalized),
+      )
+      .slice(0, 8);
+  }, [mentionAssets, mentionState]);
+  const mentionRegistry = useMemo(
+    () =>
+      mentionAssets.reduce((acc, item) => {
+        acc[item.tokenLabel] = {
+          assetType:
+            item.typeLabel === "落地页"
+              ? "landing"
+              : item.typeLabel === "脚本"
+                ? "script"
+                : item.typeLabel === "视频"
+                  ? "video"
+                  : "image",
+          preview: item.preview || null,
+        };
+        return acc;
+      }, {}),
+    [mentionAssets],
+  );
+
+  const syncPromptMentionState = (value, selectionStart) => {
+    const match = getActiveMentionMatch(value, selectionStart);
+    setMentionState(match ? { ...match, field: "prompt" } : null);
+  };
+
+  const handlePromptChange = (event) => {
+    const nextValue = event.target.value;
+    setPrompt(nextValue);
+    syncPromptMentionState(nextValue, event.target.selectionStart);
+  };
+
+  const handlePromptSelect = (event) => {
+    syncPromptMentionState(event.target.value, event.target.selectionStart);
+  };
+
+  const insertTokenIntoPrompt = (tokenLabel) => {
+    const textarea = promptTextareaRef.current;
+    const sourceValue = prompt || "";
+    const cursorStart = textarea?.selectionStart ?? sourceValue.length;
+    const cursorEnd = textarea?.selectionEnd ?? cursorStart;
+    const beforeCursor = sourceValue.slice(0, cursorStart);
+    const afterCursor = sourceValue.slice(cursorEnd);
+    const token = `@[${tokenLabel}]`;
+    const spacer = beforeCursor && !/\s$/u.test(beforeCursor) ? " " : "";
+    const nextValue = `${beforeCursor}${spacer}${token} ${afterCursor}`;
+    const nextCursor = beforeCursor.length + spacer.length + token.length + 1;
+
+    setPrompt(nextValue);
+    setMentionState(null);
+
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  const insertPromptMention = (item) => {
+    const textarea = promptTextareaRef.current;
+    if (!textarea) return;
+    const sourceValue = prompt || "";
+    const cursorStart = textarea.selectionStart ?? sourceValue.length;
+    const cursorEnd = textarea.selectionEnd ?? cursorStart;
+    const beforeCursor = sourceValue.slice(0, cursorStart);
+    const afterCursor = sourceValue.slice(cursorEnd);
+    const mentionMatch = getActiveMentionMatch(sourceValue, cursorStart);
+    if (!mentionMatch) return;
+
+    const mentionStart = mentionMatch.start;
+    const token = `@[${item.tokenLabel}]`;
+    const nextValue = `${beforeCursor.slice(0, mentionStart)}${token} ${afterCursor}`;
+    const nextCursor = mentionStart + token.length + 1;
+    setPrompt(nextValue);
+    setMentionState(null);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  const addComposerFiles = (sourceFiles) => {
+    const files = Array.from(sourceFiles || []);
+    if (!files.length) return;
+    const unsupportedCount = getUnsupportedFileCount(files);
+    const remainingSlots = Math.max(0, COMPOSER_UPLOAD_MAX - uploadAssets.length);
+
+    if (unsupportedCount) {
+      onNotify?.({
+        type: "warning",
+        title: "部分文件未添加",
+        description: "当前输入框只支持图片或视频文件。",
+      });
+    }
+
+    if (!remainingSlots) {
+      onNotify?.({
+        type: "warning",
+        title: "素材已达上限",
+        description: `当前输入框最多添加 ${COMPOSER_UPLOAD_MAX} 个图片或视频素材。`,
+      });
+      return;
+    }
+
+    let imageCount = uploadAssets.filter((item) => item.assetType === "image").length;
+    let videoCount = uploadAssets.filter((item) => item.assetType === "video").length;
+    const nextUploads = files
+      .filter(isSupportedMediaFile)
+      .slice(0, remainingSlots)
+      .map((file, index) => {
+        const assetType = file.type.startsWith("video/") ? "video" : "image";
+        if (assetType === "image") imageCount += 1;
+        if (assetType === "video") videoCount += 1;
+        return {
+          id: `composer-upload-${Date.now()}-${index}`,
+          assetType,
+          name: assetType === "image" ? `图片${imageCount}` : `视频${videoCount}`,
+          rawName: file.name,
+          preview: URL.createObjectURL(file),
+        };
+      });
+    if (!nextUploads.length) return;
+
+    if (files.filter(isSupportedMediaFile).length > nextUploads.length) {
+      onNotify?.({
+        type: "warning",
+        title: "已截取可添加数量",
+        description: `当前输入框最多保留 ${COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+    }
+
+    setComposerAttachments((prev) => ({
+      ...prev,
+      uploads: [...prev.uploads, ...nextUploads],
+    }));
+    setPrompt((prev) =>
+      nextUploads.reduce((value, item) => appendMentionTokenToText(value, item.name), prev),
+    );
+    onNotify?.({
+      type: "success",
+      title: "素材已添加",
+      description: `已添加 ${nextUploads.length} 个图片/视频素材，可继续补充或直接发送。`,
+    });
+  };
+
+  const handleFilePick = (event) => {
+    addComposerFiles(event.target.files);
+
+    event.target.value = "";
+  };
+
+  const insertPromptLineBreak = () => {
+    const textarea = promptTextareaRef.current;
+    const sourceValue = prompt || "";
+    const cursorStart = textarea?.selectionStart ?? sourceValue.length;
+    const cursorEnd = textarea?.selectionEnd ?? cursorStart;
+    const nextValue = `${sourceValue.slice(0, cursorStart)}\n${sourceValue.slice(cursorEnd)}`;
+    const nextCursor = cursorStart + 1;
+
+    setPrompt(nextValue);
+    setMentionState(null);
+
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  const handlePromptKeyDown = (event) => {
+    if (event.key !== "Enter" || event.nativeEvent?.isComposing) return;
+
+    event.preventDefault();
+    if (event.metaKey || event.ctrlKey) {
+      insertPromptLineBreak();
+      return;
+    }
+    if (canSubmit) {
+      onSubmit();
+    } else {
+      onNotify?.({
+        type: "warning",
+        title: "还不能发送",
+        description: isGenerating ? "当前任务还在生成中。" : "先输入内容，或添加图片、视频、落地页、脚本素材。",
+      });
+    }
+  };
+
+  const isFileDragEvent = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+
+  const handleComposerDragEnter = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    setIsUploadDragging(true);
+  };
+
+  const handleComposerDragOver = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsUploadDragging(true);
+  };
+
+  const handleComposerDragLeave = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setIsUploadDragging(false);
+  };
+
+  const handleComposerDrop = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    setIsUploadDragging(false);
+    addComposerFiles(event.dataTransfer.files);
+  };
+
+  const handleOpenNativeUpload = (kind) => {
+    setUploadMenuOpen(false);
+    setUploadAccept(kind === "video" ? "video/*" : "image/*");
+    window.requestAnimationFrame(() => {
+      uploadInputRef.current?.click();
+    });
+  };
+  const handleOpenImageLibrary = () => {
+    setUploadMenuOpen(false);
+    if (onOpenImageLibrary) {
+      onOpenImageLibrary();
+      return;
+    }
+    handleOpenNativeUpload("image");
+  };
+  const handleOpenVideoLibrary = () => {
+    setUploadMenuOpen(false);
+    if (onOpenVideoLibrary) {
+      onOpenVideoLibrary();
+      return;
+    }
+    handleOpenNativeUpload("video");
+  };
+
+  const handleConfirmLanding = () => {
+    const normalized = landingInput.trim();
+    if (!normalized) {
+      setLandingError("请输入落地页链接");
+      return;
+    }
+
+    setLandingError("");
+    setComposerAttachments((prev) => ({
+      ...prev,
+      landingPage: {
+        id: "composer-landing-page",
+        assetType: "landing",
+        name: "落地页",
+        url: normalized,
+      },
+    }));
+    setLandingLoading(false);
+    setLandingModalOpen(false);
+    insertTokenIntoPrompt("落地页");
+    onNotify?.({
+      type: "success",
+      title: "落地页已添加",
+      description: "已带入输入框，可继续补充要求。",
+    });
+  };
+
+  const handleConfirmScript = () => {
+    const normalized = scriptInput.trim();
+    const validationMessage = getVoiceScriptValidationMessage(normalized);
+    if (validationMessage) {
+      setScriptError(validationMessage);
+      return;
+    }
+
+    setScriptError("");
+    setComposerAttachments((prev) => ({
+      ...prev,
+      voiceScript: {
+        id: "composer-voice-script",
+        assetType: "script",
+        name: "脚本",
+        content: normalized,
+      },
+    }));
+    setScriptModalOpen(false);
+    insertTokenIntoPrompt("脚本");
+    onNotify?.({
+      type: "success",
+      title: "口播脚本已添加",
+      description: "已带入输入框，可直接引用。",
+    });
+  };
+
+  const requestRemoveLandingAsset = () => {
+    setRemoveReferenceDialog({
+      type: "landing",
+      title: "确认移除落地页",
+      description: "确定移除当前落地页参考吗？输入框里对应的 @落地页 引用也会一起删除。",
+    });
+  };
+
+  const requestRemoveScriptAsset = () => {
+    setRemoveReferenceDialog({
+      type: "script",
+      title: "确认移除口播脚本",
+      description: "确定移除当前口播脚本吗？输入框里对应的 @脚本 引用也会一起删除。",
+    });
+  };
+
+  const confirmRemoveReferenceAsset = () => {
+    if (!removeReferenceDialog) return;
+    const { type } = removeReferenceDialog;
+    setRemoveReferenceDialog(null);
+    if (type === "landing") {
+      setComposerAttachments((prev) => ({ ...prev, landingPage: null }));
+      setPrompt((prev) => removeMentionTokenFromText(prev, "落地页"));
+      onNotify?.({
+        type: "success",
+        title: "落地页已移除",
+        description: "已同步清理输入框引用。",
+      });
+      return;
+    }
+    if (type === "script") {
+      setComposerAttachments((prev) => ({ ...prev, voiceScript: null }));
+      setPrompt((prev) => removeMentionTokenFromText(prev, "脚本"));
+      onNotify?.({
+        type: "success",
+        title: "口播脚本已移除",
+        description: "已同步清理输入框引用。",
+      });
+    }
+  };
+
+  const handleRemoveLandingAsset = () => {
+    requestRemoveLandingAsset();
+  };
+
+  const handleRemoveScriptAsset = () => {
+    requestRemoveScriptAsset();
+  };
+
+  const updateAttachmentScrollState = () => {
+    const element = attachmentScrollerRef.current;
+    if (!element) {
+      setAttachmentScrollState({
+        canScrollLeft: false,
+        canScrollRight: false,
+      });
+      return;
+    }
+
+    const maxScrollLeft = element.scrollWidth - element.clientWidth;
+    setAttachmentScrollState({
+      canScrollLeft: element.scrollLeft > 6,
+      canScrollRight: maxScrollLeft - element.scrollLeft > 6,
+    });
+  };
+
+  useLayoutEffect(() => {
+    const rafId = window.requestAnimationFrame(updateAttachmentScrollState);
+    const handleResize = () => updateAttachmentScrollState();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [attachmentItems.length, attachmentTileSize]);
+
+  useEffect(() => {
+    if (!uploadMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = uploadTriggerRef.current;
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-upload-source-menu="true"]')) return;
+      setUploadMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, [uploadMenuOpen]);
+
+  const handleAttachmentScroll = (direction) => {
+    const element = attachmentScrollerRef.current;
+    if (!element) return;
+    const distance = Math.max(220, Math.floor(element.clientWidth * 0.55));
+    element.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <>
+      <div
+        onDragEnter={handleComposerDragEnter}
+        onDragOver={handleComposerDragOver}
+        onDragLeave={handleComposerDragLeave}
+        onDrop={handleComposerDrop}
+        className={cn(
+          "relative overflow-visible bg-white",
+          isHero
+            ? "rounded-[20px] px-3 py-3 shadow-[0_10px_26px_rgba(126,148,186,0.08)] sm:px-4"
+            : "rounded-[28px] px-3 py-4 shadow-[0_18px_42px_rgba(109,128,167,0.1)] sm:px-4",
+        )}
+      >
+        <div className={cn("pointer-events-none absolute inset-0 bg-white", isHero ? "rounded-[20px]" : "rounded-[28px]")} />
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 border border-transparent bg-[linear-gradient(97deg,rgba(0,153,229,0.92),rgba(58,91,253,0.92),rgba(121,77,255,0.8))] [mask-composite:exclude] [-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] p-[1.5px]",
+          isHero ? "rounded-[20px]" : "rounded-[28px]",
+        )}
+      />
+      {isHero ? (
+        <div className="pointer-events-none absolute inset-x-6 bottom-[-8px] h-8 rounded-full bg-[linear-gradient(90deg,rgba(227,173,255,0.46),rgba(193,163,255,0.46),rgba(173,190,255,0.42),rgba(153,216,255,0.4))] blur-[20px]" />
+      ) : null}
+      <div className={cn("pointer-events-none absolute inset-[1px] bg-white", isHero ? "rounded-[19px]" : "rounded-[27px]")} />
+      {isUploadDragging ? (
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-[6px] z-30 flex items-center justify-center border border-dashed border-[#7b5cff] bg-[#f8f5ff]/88 text-[14px] font-semibold text-[#6d4cff] backdrop-blur-[6px]",
+            isHero ? "rounded-[16px]" : "rounded-[24px]",
+          )}
+        >
+          拖拽图片或视频上传
+        </div>
+      ) : null}
+
+        <div className="relative">
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept={uploadAccept}
+            multiple
+            className="hidden"
+            onChange={handleFilePick}
+          />
+
+          {attachmentItems.length > 0 ? (
+            <div className="relative mb-3">
+              {showAttachmentArrows && attachmentScrollState.canScrollLeft ? (
+                <button
+                  type="button"
+                  onClick={() => handleAttachmentScroll("left")}
+                  className="absolute left-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6edf7] bg-white/92 text-[#687181] shadow-[0_8px_20px_rgba(99,116,151,0.16)] backdrop-blur-[8px] transition-all hover:text-[#3a5bfd]"
+                  aria-label="向左查看素材"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              ) : null}
+              {showAttachmentArrows && attachmentScrollState.canScrollRight ? (
+                <button
+                  type="button"
+                  onClick={() => handleAttachmentScroll("right")}
+                  className="absolute right-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6edf7] bg-white/92 text-[#687181] shadow-[0_8px_20px_rgba(99,116,151,0.16)] backdrop-blur-[8px] transition-all hover:text-[#3a5bfd]"
+                  aria-label="向右查看素材"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : null}
+
+              <div
+                ref={attachmentScrollerRef}
+                onScroll={updateAttachmentScrollState}
+                className="flex items-start gap-3 overflow-x-auto pb-1 pr-1 scrollbar-hide scroll-smooth"
+              >
+                <div ref={uploadTriggerRef} className="relative shrink-0">
+                  <UploadTile
+                    size={attachmentTileSize}
+                    onClick={() => setUploadMenuOpen((prev) => !prev)}
+                  />
+                  <FloatingLayer
+                    anchorRef={uploadTriggerRef}
+                    open={uploadMenuOpen}
+                    preferredDirection={isFloating || isOverlay ? "up" : "down"}
+                    offset={14}
+                  >
+                    <UploadSourceMenu
+                      onPickImageLibrary={handleOpenImageLibrary}
+                      onPickImageLocal={() => handleOpenNativeUpload("image")}
+                      onPickVideoLibrary={handleOpenVideoLibrary}
+                      onPickVideoLocal={() => handleOpenNativeUpload("video")}
+                    />
+                  </FloatingLayer>
+                </div>
+                {attachmentItems.map((item) => (
+                  <ComposerAttachmentCard
+                    key={item.id}
+                    item={item}
+                    size={attachmentTileSize}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-3 flex items-start gap-3">
+              <div ref={uploadTriggerRef} className="relative shrink-0">
+                <UploadTile
+                  size={attachmentTileSize}
+                  onClick={() => setUploadMenuOpen((prev) => !prev)}
+                />
+                <FloatingLayer
+                  anchorRef={uploadTriggerRef}
+                  open={uploadMenuOpen}
+                  preferredDirection={isFloating || isOverlay ? "up" : "down"}
+                  offset={14}
+                >
+                  <UploadSourceMenu
+                    onPickImageLibrary={handleOpenImageLibrary}
+                    onPickImageLocal={() => handleOpenNativeUpload("image")}
+                    onPickVideoLibrary={handleOpenVideoLibrary}
+                    onPickVideoLocal={() => handleOpenNativeUpload("video")}
+                  />
+                </FloatingLayer>
+              </div>
+            </div>
+          )}
+
+          <div ref={promptMentionAnchorRef} className="relative">
+            <MentionEditor
+              value={prompt}
+              onChange={handlePromptChange}
+              onClick={handlePromptSelect}
+              onKeyDown={handlePromptKeyDown}
+              onKeyUp={handlePromptSelect}
+              onFocus={handlePromptSelect}
+              onBlur={() => window.setTimeout(() => setMentionState(null), 120)}
+              placeholder={placeholder}
+              textareaRef={promptTextareaRef}
+              mentionRegistry={mentionRegistry}
+              rows={isHero || isOverlay ? 2 : 3}
+              editorClassName={cn(
+                "w-full resize-none border-none bg-transparent text-[#202634] outline-none placeholder:text-[#98a1b1]",
+                isHero || isOverlay
+                  ? "min-h-[52px] text-[14px] leading-[26px]"
+                  : "min-h-[54px] text-[15px]",
+              )}
+            />
+          </div>
+
+          <FloatingLayer
+            anchorRef={promptMentionAnchorRef}
+            open={Boolean(mentionState)}
+            preferredDirection={isFloating || isOverlay ? "up" : "down"}
+          >
+            <div className="w-[340px]">
+              <MentionSuggestionPanel
+                suggestions={mentionSuggestions}
+                title="已添加素材"
+                emptyLabel="还没有可引用的素材"
+                onSelect={insertPromptMention}
+              />
+            </div>
+          </FloatingLayer>
+
+          <div className="mt-3 flex items-end justify-between gap-4 max-[680px]:flex-col max-[680px]:items-stretch">
+            <div className="flex flex-wrap items-center gap-3 max-[680px]:gap-2">
+              <ComposerControls
+                composerConfig={composerConfig}
+                setComposerConfig={setComposerConfig}
+                composerAttachments={composerAttachments}
+                onOpenLandingModal={() => {
+                  setLandingInput("");
+                  setLandingError("");
+                  setLandingLoading(false);
+                  setLandingModalOpen(true);
+                }}
+                onOpenScriptModal={() => {
+                  setScriptInput("");
+                  setScriptError("");
+                  setScriptModalOpen(true);
+                }}
+                onRemoveLanding={handleRemoveLandingAsset}
+                onRemoveScript={handleRemoveScriptAsset}
+                openMenu={openMenu}
+                setOpenMenu={setOpenMenu}
+                promptPresets={promptPresets}
+                onApplyPreset={onApplyPreset}
+                onCreatePreset={onCreatePreset}
+                onEditPreset={onEditPreset}
+                onDuplicatePreset={onDuplicatePreset}
+                onDeletePreset={onDeletePreset}
+                dropdownDirection={isFloating || isOverlay ? "up" : "down"}
+                compact={isHero}
+              />
+            </div>
+
+            <div className="max-[680px]:flex max-[680px]:justify-end">
+              <ComposerSubmitButton
+                isGenerating={isGenerating}
+                canSubmit={canSubmit}
+                size={isHero ? "compact" : "default"}
+                onClick={() => {
+                  if (isGenerating) {
+                    onStopGenerating?.();
+                    return;
+                  }
+                  if (!canSubmit) {
+                    onNotify?.({
+                      type: "warning",
+                      title: "还不能发送",
+                      description: "先输入内容，或添加图片、视频、落地页、脚本素材。",
+                    });
+                    return;
+                  }
+                  onSubmit();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <FullscreenReferenceModal
+        open={landingModalOpen}
+        title="落地页参考"
+        label="落地页链接"
+        value={landingInput}
+        onChange={(event) => {
+          setLandingInput(event.target.value);
+          if (landingError) setLandingError("");
+        }}
+        onClose={() => {
+          if (landingLoading) return;
+          setLandingModalOpen(false);
+        }}
+        onConfirm={handleConfirmLanding}
+        placeholder="请输入落地页url"
+        error={landingError}
+        loading={landingLoading}
+      />
+      <FullscreenReferenceModal
+        open={scriptModalOpen}
+        title="口播脚本"
+        label="口播脚本"
+        value={scriptInput}
+        onChange={(event) => {
+          setScriptInput(event.target.value);
+          if (scriptError) setScriptError("");
+        }}
+        onClose={() => setScriptModalOpen(false)}
+        onConfirm={handleConfirmScript}
+        placeholder="请输入口播脚本内容"
+        error={scriptDisplayError}
+        helperText={`字数需在 ${VOICE_SCRIPT_MIN_LENGTH}～${VOICE_SCRIPT_MAX_LENGTH} 个字内`}
+        badgeText={`${scriptLength}/${VOICE_SCRIPT_MAX_LENGTH}`}
+        badgeError={Boolean(scriptDisplayError)}
+        multiline
+      />
+      <DeleteConfirmModal
+        open={Boolean(removeReferenceDialog)}
+        title={removeReferenceDialog?.title || "确认移除"}
+        description={removeReferenceDialog?.description || ""}
+        cancelLabel="取消"
+        confirmLabel="移除"
+        onClose={() => setRemoveReferenceDialog(null)}
+        onConfirm={confirmRemoveReferenceAsset}
+      />
+    </>
+  );
+}
+
+function CollapsedDock({ prompt, onExpand }) {
+  return (
+    <button
+      onClick={onExpand}
+      className="flex h-[54px] w-[680px] max-w-[calc(100vw-180px)] items-center justify-between rounded-full border border-[#e6edf5] bg-white/95 px-6 text-left shadow-[0_18px_32px_rgba(101,125,175,0.12)] backdrop-blur-xl"
+    >
+      <span className="truncate text-[14px] text-[#8f97a6]">
+        {prompt || "请输入你想生成的视频，例如：生成一个少儿美术机构用于双11招生的营销视频。"}
+      </span>
+      <span className="ml-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#5c84ff] to-[#5967ff] text-white shadow-[0_10px_20px_rgba(89,103,255,0.28)]">
+        <ArrowUp className="h-4 w-4" />
+      </span>
+    </button>
+  );
+}
+
+function HandwritingDock({ prompt, onExpand, widthClass = "w-[760px]" }) {
+  return (
+    <button
+      onClick={onExpand}
+      className={cn(
+        "flex h-[74px] max-w-[calc(100vw-180px)] items-center justify-between rounded-full border border-[#e6edf5] bg-white/95 px-6 text-left shadow-[0_18px_32px_rgba(101,125,175,0.12)] backdrop-blur-xl",
+        widthClass,
+      )}
+    >
+      <span className="truncate text-[16px] text-[#98a1b1]">
+        {prompt || "请输入创意描述词..."}
+      </span>
+      <span className="ml-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#5c84ff] to-[#5967ff] text-white shadow-[0_10px_20px_rgba(89,103,255,0.28)]">
+        <ArrowUp className="h-5 w-5" />
+      </span>
+    </button>
+  );
+}
+
+function GenerateCollapsedDock({ prompt, onExpand }) {
+  return (
+    <button
+      onClick={onExpand}
+      className="relative w-[830px] max-w-[calc(100vw-112px)] pb-[10px] text-left max-[640px]:max-w-[calc(100vw-84px)]"
+    >
+      <div className="pointer-events-none absolute inset-x-0 bottom-[-4px] h-[36px] rounded-full bg-[linear-gradient(90deg,rgba(227,173,255,0.44),rgba(193,163,255,0.42),rgba(173,190,255,0.4),rgba(153,216,255,0.38))] blur-[22px]" />
+      <div className="relative flex h-[58px] items-center gap-3 rounded-[20px] border-[1.5px] border-[#e3e5e8] bg-white px-4 shadow-[0_10px_24px_rgba(124,142,176,0.06)]">
+        <span className="min-w-0 flex-1 truncate text-[14px] text-[#98a1b1]">
+          {prompt || "请输入创意描述词..."}
+        </span>
+        <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5c84ff_0%,#5967ff_60%,#8f67ff_100%)] text-white shadow-[0_10px_22px_rgba(89,103,255,0.28)] transition-all hover:-translate-y-0.5">
+          <ArrowUp className="h-4 w-4" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function HomeCollapsedDock({
+  prompt,
+  composerAttachments,
+  onExpand,
+  isGenerating = false,
+  onStopGenerating,
+}) {
+  const uploads = composerAttachments?.uploads || [];
+  const assetTiles = uploads.slice(0, 6).map((item) => ({
+    id: item.id,
+    type: item.assetType,
+    name: item.name,
+    preview: item.preview,
+  }));
+  const previewLabel =
+    normalizeMentionText(prompt, { keepAt: false }).trim() ||
+    (composerAttachments?.landingPage && composerAttachments?.voiceScript
+      ? "已添加落地页参考和口播脚本"
+      : composerAttachments?.landingPage
+        ? "已添加落地页参考"
+        : composerAttachments?.voiceScript
+          ? "已添加口播脚本"
+          : "继续补充你的创意描述…");
+
+  return (
+    <div className="relative w-[830px] max-w-[calc(100vw-112px)] pb-[10px] text-left max-[640px]:max-w-[calc(100vw-84px)]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[-4px] h-[36px] rounded-full bg-[linear-gradient(90deg,rgba(227,173,255,0.44),rgba(193,163,255,0.42),rgba(173,190,255,0.4),rgba(153,216,255,0.38))] blur-[22px]" />
+      <div className="relative flex items-center gap-3 rounded-[20px] border-[1.5px] border-[#e3e5e8] bg-white px-4 py-4 shadow-[0_10px_24px_rgba(124,142,176,0.06)]">
+        <button
+          type="button"
+          onClick={onExpand}
+          className="min-w-0 flex flex-1 items-center gap-3 overflow-hidden text-left"
+        >
+          {assetTiles.length ? (
+            <div className="flex shrink-0 items-center gap-2 overflow-hidden">
+              {assetTiles.map((item) => (
+                <div
+                  key={item.id}
+                  className="relative h-[36px] w-[36px] shrink-0 overflow-hidden rounded-[8px] bg-[#f6f7f9]"
+                >
+                  {item.preview ? (
+                    item.type === "video" ? (
+                      <video src={item.preview} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={item.preview} alt={item.name} className="h-full w-full object-cover" />
+                    )
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(180deg,#e9f0ff_0%,#f5f8ff_56%,#eef2fb_56%,#e1e6f2_100%)] text-[#5a71ff]">
+                      {item.type === "landing" ? <Link2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-[14px] leading-[26px] text-[#686e7a]">
+            <span className="block truncate">{previewLabel}</span>
+          </div>
+        </button>
+        {isGenerating ? (
+          <ComposerSubmitButton
+            isGenerating
+            size="compact"
+            onClick={onStopGenerating}
+          />
+        ) : (
+          <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5c84ff_0%,#5967ff_60%,#8f67ff_100%)] text-white shadow-[0_10px_22px_rgba(89,103,255,0.28)]">
+            <ArrowUp className="h-4 w-4" />
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppLogo({ compact = false }) {
+  return (
+    <div className={cn("relative overflow-hidden", compact ? "h-8 w-8" : "h-6 w-[151px]")}>
+      <img
+        src={logoImage}
+        alt="擎舵"
+        className="h-full max-w-none object-contain object-left"
+        style={{ width: compact ? 160 : 151 }}
+      />
+    </div>
+  );
+}
+
+function FeatureCardArt({ kind }) {
+  const artSrc = featureCardLocalArtwork[kind] || featureCardLocalArtwork.expand;
+
+  return (
+    <img
+      src={artSrc}
+      alt=""
+      decoding="async"
+      className="h-[56px] w-[56px] shrink-0 rounded-[8px] object-cover"
+    />
+  );
+}
+
+function FeatureCard({ title, kind, showArrow }) {
+  return (
+    <button className="group relative flex h-20 items-center justify-between overflow-hidden rounded-[20px] border border-[#e0e8f5] bg-white px-4 shadow-[0_6px_28px_rgba(0,71,194,0.04),0_5px_30px_rgba(0,71,194,0.05),0_4px_28px_rgba(0,71,194,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_34px_rgba(0,71,194,0.07),0_8px_24px_rgba(0,71,194,0.06),0_4px_14px_rgba(0,71,194,0.05)]">
+      <span className="pointer-events-none absolute right-[-68px] top-[-68px] h-[212px] w-[212px] rounded-full bg-[linear-gradient(135deg,rgba(230,242,255,0.78)_0%,rgba(238,232,255,0.7)_100%)] opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className="flex items-center gap-1.5">
+        <span className="text-[16px] font-medium leading-[22px] text-[#191b1e]">{title}</span>
+        {showArrow ? <ChevronRight className="h-4 w-4 text-[#202634]" /> : null}
+      </div>
+      <FeatureCardArt kind={kind} />
+    </button>
+  );
+}
+
+function RecommendationGrid() {
+  const masonryItems = [
+    { src: resultSets[0][0], h: 368 },
+    { src: resultSets[1][0], h: 368 },
+    { src: resultSets[2][0], h: 368 },
+    { src: resultSets[0][1], h: 368 },
+    { src: resultSets[1][1], h: 368 },
+    { src: resultSets[2][1], h: 368 },
+    { src: resultSets[0][2], h: 368 },
+    { src: resultSets[1][2], h: 368 },
+    { src: resultSets[2][2], h: 368 },
+    { src: resultSets[0][3], h: 368 },
+    { src: resultSets[1][3], h: 368 },
+    { src: resultSets[2][3], h: 368 },
+    { src: showcaseImages[0], h: 236, span: 2 },
+    { src: showcaseImages[1], h: 236, span: 2 },
+    { src: galleryFinishedImage, h: 236, span: 2 },
+    { src: resultSets[0][1], h: 280, span: 2 },
+    { src: resultSets[1][2], h: 280, span: 2 },
+    { src: resultSets[2][3], h: 280, span: 2 },
+  ];
+
+  return (
+    <div className="w-full">
+      <div className="columns-2 gap-[2px] md:columns-4 xl:columns-6">
+        {masonryItems.map((item, index) => (
+          <button
+            key={`${item.src}-${index}`}
+            type="button"
+            className="group mb-[2px] block w-full break-inside-avoid overflow-hidden rounded-[2px] bg-[#eef2f8] text-left"
+            style={{ height: item.h }}
+          >
+            <img
+              src={item.src}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+            />
+            <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/[0.04]" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HomePage({
+  prompt,
+  setPrompt,
+  onSubmit,
+  isGenerating,
+  onStopGenerating,
+  composerConfig,
+  setComposerConfig,
+  composerAttachments,
+  setComposerAttachments,
+  openMenu,
+  setOpenMenu,
+  promptPresets,
+  onApplyPreset,
+  onCreatePreset,
+  onEditPreset,
+  onDuplicatePreset,
+  onDeletePreset,
+  onOpenImageLibrary,
+  onOpenVideoLibrary,
+  onNotify,
+}) {
+  const [activeTab, setActiveTab] = useState("成片");
+  const [showFloatingDock, setShowFloatingDock] = useState(false);
+  const [overlayExpanded, setOverlayExpanded] = useState(false);
+  const scrollRef = useRef(null);
+  const overlayExpandedRef = useRef(false);
+  const collapseOverlay = () => {
+    setOverlayExpanded(false);
+    setOpenMenu(null);
+  };
+
+  useEffect(() => {
+    overlayExpandedRef.current = overlayExpanded;
+  }, [overlayExpanded]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return undefined;
+
+    const handleScroll = () => {
+      const nextShow = node.scrollTop > 260;
+      setShowFloatingDock(nextShow);
+      if (overlayExpandedRef.current) {
+        collapseOverlay();
+      }
+      if (!nextShow) {
+        collapseOverlay();
+      }
+    };
+
+    handleScroll();
+    node.addEventListener("scroll", handleScroll);
+    return () => node.removeEventListener("scroll", handleScroll);
+  }, [setOpenMenu]);
+
+  return (
+    <div className="relative h-full">
+      {openMenu || overlayExpanded ? (
+        <button
+          className="fixed inset-0 z-20 cursor-default"
+          onClick={collapseOverlay}
+          onWheel={collapseOverlay}
+          onTouchMove={collapseOverlay}
+        />
+      ) : null}
+
+      <div
+        ref={scrollRef}
+        className="h-full overflow-y-auto pb-12 pt-[80px] scrollbar-hide"
+      >
+        <div className="mx-auto max-w-[1256px] px-4 sm:px-6">
+          <div className="mb-[42px] text-center">
+            <h1 className="text-[27px] font-semibold tracking-[-0.03em] text-black">
+              一句话生成
+              <span className="bg-gradient-to-r from-[#1d8dff] via-[#4d71ff] to-[#8c67ff] bg-clip-text text-transparent">
+                爆款营销创意
+              </span>
+            </h1>
+          </div>
+
+          <div className="mx-auto mb-9 max-w-[1014px]">
+            <InputComposer
+              prompt={prompt}
+              setPrompt={setPrompt}
+              onSubmit={onSubmit}
+              isGenerating={isGenerating}
+              onStopGenerating={onStopGenerating}
+              composerConfig={composerConfig}
+              setComposerConfig={setComposerConfig}
+              composerAttachments={composerAttachments}
+              setComposerAttachments={setComposerAttachments}
+              openMenu={openMenu}
+              setOpenMenu={setOpenMenu}
+              promptPresets={promptPresets}
+              onApplyPreset={onApplyPreset}
+              onCreatePreset={onCreatePreset}
+              onEditPreset={onEditPreset}
+              onDuplicatePreset={onDuplicatePreset}
+              onDeletePreset={onDeletePreset}
+              onOpenImageLibrary={onOpenImageLibrary}
+              onOpenVideoLibrary={onOpenVideoLibrary}
+              onNotify={onNotify}
+              variant="hero"
+            />
+          </div>
+
+          <div className="mx-auto mb-16 grid max-w-[1014px] grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {featureCards.map((item) => (
+              <FeatureCard
+                key={item.title}
+                title={item.title}
+                kind={item.kind}
+                showArrow={item.showArrow}
+              />
+            ))}
+          </div>
+
+          <div className="sticky top-0 z-30 pt-5">
+            <div className="mx-auto max-w-[1256px] border-b border-[#edf1f6] bg-white">
+              <div className="flex h-[62px] items-end justify-between px-[12px]">
+                <div className="flex h-full items-end gap-8">
+                {["成片", "片段", "图片"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "relative flex h-full items-center border-b-2 border-transparent pb-[14px] text-[16px] tracking-[-0.02em] transition-colors",
+                      activeTab === tab ? "font-semibold text-[#3a5bfd]" : "font-medium text-[#000000]",
+                    )}
+                  >
+                    {tab}
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute bottom-[-1px] left-1/2 h-[2px] w-[20px] -translate-x-1/2 rounded-full bg-[#3a5bfd] transition-opacity",
+                        activeTab === tab ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </button>
+                ))}
+                </div>
+
+                <button className="mb-[14px] flex items-center gap-1.5 text-[14px] font-medium text-[#000000]">
+                  <SlidersHorizontal className="h-[16px] w-[16px]" strokeWidth={2.2} />
+                  筛选
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-[2px]">
+            <RecommendationGrid />
+          </div>
+          <div className="h-24" />
+        </div>
+      </div>
+
+      {showFloatingDock ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-3 sm:px-8">
+          <div className="pointer-events-auto">
+            {overlayExpanded ? (
+              <div className="w-[830px] max-w-[calc(100vw-112px)] max-[640px]:max-w-[calc(100vw-84px)]">
+                <InputComposer
+                  prompt={prompt}
+                  setPrompt={setPrompt}
+                  onSubmit={onSubmit}
+                  isGenerating={isGenerating}
+                  onStopGenerating={onStopGenerating}
+                  composerConfig={composerConfig}
+                  setComposerConfig={setComposerConfig}
+                  composerAttachments={composerAttachments}
+                  setComposerAttachments={setComposerAttachments}
+                  openMenu={openMenu}
+                  setOpenMenu={setOpenMenu}
+                  promptPresets={promptPresets}
+                  onApplyPreset={onApplyPreset}
+                  onCreatePreset={onCreatePreset}
+                  onEditPreset={onEditPreset}
+                  onDuplicatePreset={onDuplicatePreset}
+                  onDeletePreset={onDeletePreset}
+                  onOpenImageLibrary={onOpenImageLibrary}
+                  onOpenVideoLibrary={onOpenVideoLibrary}
+                  onNotify={onNotify}
+                  variant="overlay"
+                />
+              </div>
+            ) : (
+              <HomeCollapsedDock
+                prompt={prompt}
+                composerAttachments={composerAttachments}
+                onExpand={() => setOverlayExpanded(true)}
+                isGenerating={isGenerating}
+                onStopGenerating={onStopGenerating}
+              />
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ActionRow({ actions = [], rightLabel = "以上内容由 AI 生成", afterActions = null }) {
+  return (
+    <div className="mt-2 flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#202634]">
+        {actions.map((action) => (
+          <button
+            key={action.label}
+            onClick={action.onClick}
+            className={cn(
+              "flex items-center gap-1 rounded-[8px] px-1.5 py-1 transition-all hover:text-[#4f6bff]",
+              action.primary && "bg-[#f5f1ff] text-[#7b5cff] hover:bg-[#efe7ff]",
+            )}
+          >
+            <action.icon className="h-4 w-4" />
+            {action.label}
+          </button>
+        ))}
+        {afterActions}
+      </div>
+      <span className="shrink-0 text-[12px] text-[#abb0ba]">{rightLabel}</span>
+    </div>
+  );
+}
+
+function VideoCandidatePager({ current, total, onPrev, onNext }) {
+  if (total <= 1) return null;
+
+  return (
+    <div className="inline-flex h-9 items-center gap-1 rounded-[12px] border border-[#e6ebf3] bg-white px-1.5 text-[#697286] shadow-[0_8px_18px_rgba(115,134,174,0.06)]">
+      <button
+        type="button"
+        onClick={onPrev}
+        className="flex h-7 w-7 items-center justify-center rounded-[9px] transition-colors hover:bg-[#f4f6fb] hover:text-[#4f6bff]"
+        aria-label="查看上一条候选视频"
+        title="上一条"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-[40px] text-center text-[13px] font-semibold tabular-nums leading-5">
+        {current}/{total}
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        className="flex h-7 w-7 items-center justify-center rounded-[9px] transition-colors hover:bg-[#f4f6fb] hover:text-[#4f6bff]"
+        aria-label="查看下一条候选视频"
+        title="下一条"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function DetailQuickAction({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-[36px] w-[188px] items-center justify-center gap-1.5 rounded-[8px] bg-[#f6f7f9] text-[14px] font-medium text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
+function HoverActionButton({ icon: Icon, onClick, label }) {
+  const button = (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-8 w-8 items-center justify-center rounded-[8px] text-white/92 transition-colors hover:bg-white/10"
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+
+  return (
+    <HoverTooltip content={label} side="top" align="center" offset={8}>
+      {button}
+    </HoverTooltip>
+  );
+}
+
+function cloneComposerAttachments(attachments = INITIAL_COMPOSER_ATTACHMENTS) {
+  return {
+    uploads: [...(attachments?.uploads || [])],
+    landingPage: attachments?.landingPage ? { ...attachments.landingPage } : null,
+    voiceScript: attachments?.voiceScript ? { ...attachments.voiceScript } : null,
+  };
+}
+
+function getImagePromptAttachments(source) {
+  const uploads = Array.isArray(source) ? source : source?.uploads || source?.attachments || [];
+  return uploads.filter((item) => item?.assetType === "image" && item.preview);
+}
+
+function getReferencedImageAttachments(content, uploads = []) {
+  const text = String(content || "");
+  if (!text.trim()) return [];
+
+  const tokenLabels = new Set();
+  text.replace(mentionTokenPattern, (_, label) => {
+    tokenLabels.add(String(label || "").trim());
+    return "";
+  });
+
+  uploads.forEach((item) => {
+    if (item?.name && text.includes(`@${item.name}`)) tokenLabels.add(item.name);
+  });
+
+  return uploads.filter((item) => item?.assetType === "image" && item.preview && tokenLabels.has(item.name));
+}
+
+function formatUserBubbleText(content, attachments = []) {
+  const attachmentLabels = new Set((attachments || []).map((item) => item?.name).filter(Boolean));
+  const normalized = String(content || "")
+    .replace(mentionTokenPattern, (token, label) => (attachmentLabels.has(label) ? "" : `@${label}`))
+    .replace(/[ \t]{2,}/gu, " ")
+    .replace(/\s+([，。！？、,.!?])/gu, "$1")
+    .trim();
+
+  return normalized || normalizeMentionText(content, { keepAt: true }).trim();
+}
+
+function UserPromptBubble({ content, attachments = [], className }) {
+  const imageAttachments = getImagePromptAttachments(attachments);
+  const displayText = formatUserBubbleText(content, imageAttachments);
+
+  return (
+    <div className={cn("flex w-full justify-end", className)}>
+      <div className="flex max-w-[560px] flex-col items-end gap-2">
+        {imageAttachments.length ? (
+          <div className="flex max-w-full flex-wrap justify-end gap-2">
+            {imageAttachments.slice(0, 6).map((item, index) => (
+              <div
+                key={item.id || `${item.name}-${index}`}
+                className="relative h-12 w-12 overflow-hidden rounded-[8px] bg-[#f6f7f9] shadow-[0_6px_14px_rgba(32,38,52,0.08)]"
+              >
+                <img src={item.preview} alt={item.name || "上传图片"} className="h-full w-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 bg-black/45 px-1 py-0.5 text-center text-[10px] leading-3 text-white backdrop-blur-[4px]">
+                  {item.name || `图片${index + 1}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {displayText ? (
+          <div className="rounded-[16px] rounded-tr-[6px] bg-[#f6f7f9] px-4 py-3 text-[14px] leading-[26px] text-[#202634] shadow-[0_8px_22px_rgba(100,119,156,0.08)]">
+            {displayText}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ImageDetailModal({
+  job,
+  activeIndex,
+  onClose,
+  onPrev,
+  onNext,
+  onToggleMeta,
+  showMetaMenu,
+  onLocateJob,
+  onOpenEditor,
+  onConvertToVideo,
+  onApplyCutout,
+  onApplyExpand,
+  onRegenerateJob,
+  onReuseImageJob,
+}) {
+  const image = job?.resultImages?.[activeIndex];
+  const referenceImages = (job?.resultImages || []).slice(0, 2);
+  const taskId = `${String(job?.id || "").replace(/\D+/gu, "").slice(-8) || "43234533"}`;
+  const imageId = `${taskId}${String(activeIndex + 1).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (!job || !image || typeof document === "undefined") return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [image, job, onClose]);
+
+  if (!job || !image || typeof document === "undefined") return null;
+
+  const copyText = async (value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // Ignore clipboard failures in preview-only environments.
+    }
+  };
+
+  const downloadCurrentImage = () => {
+    if (typeof document === "undefined") return;
+    const link = document.createElement("a");
+    link.href = image;
+    link.download = `image-${imageId}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[160] bg-[rgba(244,247,255,0.78)] backdrop-blur-[14px]" onClick={onClose}>
+      <div className="flex h-full items-center justify-center px-6 py-6 md:px-8 md:py-8">
+        <div
+          className="flex h-[min(860px,calc(100vh-48px))] w-full max-w-[1460px] overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_24px_80px_rgba(77,104,170,0.18)]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="relative flex min-w-0 flex-1 items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,232,255,0.72),transparent_38%),linear-gradient(180deg,#f8fbff_0%,#f4f8ff_48%,#edf3ff_100%)] p-5 md:p-8">
+            <div className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-full bg-white/86 px-3 py-1.5 text-[13px] font-medium text-[#4a5cff] shadow-[0_10px_24px_rgba(117,142,198,0.14)]">
+              <ImageIcon className="h-3.5 w-3.5" />
+              图片 {activeIndex + 1} / {job.resultImages.length}
+            </div>
+
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_14px_40px_rgba(104,128,180,0.12)]">
+              <img src={image} alt="" className="max-h-full max-w-full object-contain" />
+            </div>
+
+            {job.resultImages.length > 1 ? (
+              <div className="absolute right-5 top-1/2 flex -translate-y-1/2 flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={onPrev}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#202634] shadow-[0_12px_24px_rgba(104,128,180,0.16)] transition-all hover:-translate-y-0.5 hover:bg-white"
+                >
+                  <ChevronUp className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onNext}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#202634] shadow-[0_12px_24px_rgba(104,128,180,0.16)] transition-all hover:translate-y-0.5 hover:bg-white"
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <aside className="relative flex h-full w-[420px] shrink-0 flex-col border-l border-[#eef2f8] bg-white">
+            <div className="flex items-center justify-between border-b border-[#eef2f8] px-6 py-5">
+              <div>
+                <h2 className="text-[20px] font-semibold leading-7 text-[#17191c]">图片详情</h2>
+                <p className="mt-1 text-[13px] text-[#8b93a1]">查看当前生成结果与操作信息</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={downloadCurrentImage}
+                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onLocateJob?.(job.id)}
+                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onToggleMeta}
+                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex h-9 w-9 items-center justify-center rounded-[10px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-3">
+                  <div className="text-[14px] font-medium leading-5 text-[#17191c]">创意描述</div>
+                  <p className="text-[14px] leading-[26px] text-[#191b1e]">
+                    {job.prompt}
+                  </p>
+                  {referenceImages.length ? (
+                    <div className="flex gap-3">
+                      {referenceImages.map((item, index) => (
+                        <div key={`${item}-${index}`} className="h-14 w-14 overflow-hidden rounded-[10px] border border-[#eef2f8] bg-[#f6f7f9]">
+                          <img src={item} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {["视频Agent", job.imageResolution || "高清2K", job.imageRatio || "16:9"].map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex h-[24px] items-center rounded-[8px] border border-[#e3e7ef] bg-[#f7f9fc] px-2.5 text-[12px] font-medium text-[#686e7a]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="rounded-[18px] border border-[#eef2f8] bg-[#fafcff] p-4">
+                  <div className="mb-3 text-[14px] leading-5 text-[#838995]">图片编辑</div>
+                  <div className="flex flex-wrap gap-3">
+                    <DetailQuickAction
+                      icon={PencilLine}
+                      label="去编辑器"
+                      onClick={() => onOpenEditor?.(job.id, activeIndex)}
+                    />
+                    <DetailQuickAction
+                      icon={Film}
+                      label="图转视频"
+                      onClick={() => onConvertToVideo?.(job.id, activeIndex)}
+                    />
+                    <DetailQuickAction
+                      icon={Scissors}
+                      label="智能抠图"
+                      onClick={() => onApplyCutout?.(job.id, activeIndex)}
+                    />
+                    <DetailQuickAction
+                      icon={Sparkles}
+                      label="智能扩图"
+                      onClick={() => onApplyExpand?.(job.id, activeIndex)}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-[18px] border border-[#eef2f8] bg-[#fafcff] p-4">
+                  <div className="mb-3 text-[14px] leading-5 text-[#838995]">更多</div>
+                  <div className="flex flex-wrap gap-3">
+                    <DetailQuickAction
+                      icon={PencilLine}
+                      label="重新编辑"
+                      onClick={() => {
+                        onClose?.();
+                        onReuseImageJob?.(job.id);
+                      }}
+                    />
+                    <DetailQuickAction
+                      icon={RefreshCcw}
+                      label="再次生成"
+                      onClick={() => {
+                        onClose?.();
+                        onRegenerateJob?.(job.id);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {showMetaMenu ? (
+              <div className="absolute right-6 top-[76px] w-[214px] rounded-[18px] border border-[#eef2f8] bg-white p-2 shadow-[0_18px_40px_rgba(77,104,170,0.14)]">
+                {[
+                  { label: `任务ID：${taskId}`, value: taskId },
+                  { label: `图片ID：${imageId}`, value: imageId },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => copyText(item.value)}
+                    className="flex h-10 w-full items-center justify-between rounded-[10px] px-2 text-left text-[14px] text-black transition-colors hover:bg-[#f6f7f9]"
+                  >
+                    <span>{item.label}</span>
+                    <Copy className="h-4 w-4 text-[#838995]" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function JobCard({
+  job,
+  onCreateVideoVariant,
+  onRegenerateJob,
+  onReuseImageJob,
+  onOpenImageDetail,
+  onOpenImageEditor,
+  onConvertImageToVideo,
+  onApplyCutout,
+  onApplyExpand,
+  onDeleteImage,
+  onSaveImageToRawLibrary,
+  onSaveVideoToRawLibrary,
+  onNotify,
+}) {
+  const [hoverMenuIndex, setHoverMenuIndex] = useState(null);
+  const [videoHoverMenu, setVideoHoverMenu] = useState(null);
+  const [activeGeneratedVideoIndex, setActiveGeneratedVideoIndex] = useState(0);
+  const [generatedVideoProgress, setGeneratedVideoProgress] = useState(50);
+  const [isGeneratedVideoPlaying, setIsGeneratedVideoPlaying] = useState(false);
+  const generatedVideoRef = useRef(null);
+  const isVideoJob = job.mode === "video" || job.status === "generating_video" || job.status === "done_video";
+  const isImageJob = !isVideoJob;
+  const imageLayout = getImageGridLayout(job.imageRatio, job.resultImages?.length || job.imageCount);
+  const coverImage =
+    job.status === "done"
+      ? job.resultImages[0]
+      : job.status === "done_video"
+        ? job.videoPoster || showcaseImages[0]
+        : showcaseImages[0];
+  const versionLabel = job.versionNumber ? `V${job.versionNumber}` : null;
+  const relationLabel =
+    job.toolLabel
+      ? job.toolLabel
+      : job.relationType === "derived"
+      ? `基于 V${job.sourceVersionNumber || 1} 改编`
+      : job.relationType === "rerun"
+        ? `同方案再出一版`
+        : null;
+
+  const copyText = async (value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // Ignore clipboard failures in preview-only environments.
+    }
+  };
+
+  const actions =
+    job.status === "done_video"
+      ? [
+          {
+            label: "基于此编辑",
+            icon: PencilLine,
+            onClick: () => onCreateVideoVariant?.(job.id),
+            primary: true,
+          },
+          {
+            label: "再次生成",
+            icon: RefreshCcw,
+            onClick: () => onRegenerateJob?.(job.id),
+          },
+        ]
+      : job.status === "done"
+        ? [
+            {
+              label: "重新编辑",
+              icon: PencilLine,
+              onClick: () => onReuseImageJob?.(job.id),
+            },
+            {
+              label: "再次生成",
+              icon: RefreshCcw,
+              onClick: () => onRegenerateJob?.(job.id),
+            },
+          ]
+        : [];
+  const metaItems = [
+    relationLabel,
+    job.imageRatio,
+    job.imageResolution,
+    isVideoJob && job.generatedVideoCount > 1
+      ? `${job.storyboardCombinationExpression || "素材组合"}=${job.generatedVideoCount}条`
+      : null,
+    isImageJob ? `${job.imageCount}张` : null,
+  ].filter(Boolean);
+  const generatedCount = job.status === "done" ? job.resultImages.length || job.imageCount : job.imageCount;
+  const generatedVideoCount = Math.max(1, job.generatedVideoCount || 1);
+  const safeGeneratedVideoIndex = Math.min(activeGeneratedVideoIndex, generatedVideoCount - 1);
+  const jobTaskId = `${String(job.id || "").replace(/\D+/gu, "").slice(-8) || "43234533"}`;
+  const generatedVideoUrls = Array.from(
+    { length: generatedVideoCount },
+    (_, index) => job.resultVideoUrls?.[index] || job.resultVideoUrl || demoVideoUrl,
+  );
+  const activeGeneratedVideoUrl = generatedVideoUrls[safeGeneratedVideoIndex] || job.resultVideoUrl || demoVideoUrl;
+  const activeGeneratedVideoPoster =
+    safeGeneratedVideoIndex === 0
+      ? job.videoPoster || showcaseImages[0]
+      : storyboardPreviewPool[(safeGeneratedVideoIndex + (job.createdAt || 0)) % storyboardPreviewPool.length] ||
+        job.videoPoster ||
+        showcaseImages[0];
+  const resultLabel =
+    job.status === "generating_video"
+      ? `正在生成${generatedVideoCount}条候选视频`
+    : job.status === "done_video"
+        ? `已生成${generatedVideoCount}条视频`
+        : job.status === "generating"
+          ? `正在生成${generatedCount}张创意图`
+          : `已生成${generatedCount}张创意图`;
+
+  useEffect(() => {
+    setActiveGeneratedVideoIndex((prev) => Math.min(prev, generatedVideoCount - 1));
+  }, [generatedVideoCount]);
+
+  useEffect(() => {
+    setGeneratedVideoProgress(50);
+    setIsGeneratedVideoPlaying(false);
+  }, [job.id, safeGeneratedVideoIndex]);
+
+  const stepGeneratedVideo = (direction) => {
+    if (generatedVideoCount <= 1) return;
+    setActiveGeneratedVideoIndex((prev) => (prev + direction + generatedVideoCount) % generatedVideoCount);
+  };
+  const toggleGeneratedVideoPlayback = () => {
+    const video = generatedVideoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play?.();
+      setIsGeneratedVideoPlaying(true);
+      return;
+    }
+    video.pause?.();
+    setIsGeneratedVideoPlaying(false);
+  };
+  const handleGeneratedVideoTimeUpdate = () => {
+    const video = generatedVideoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    setGeneratedVideoProgress(Math.min(100, Math.max(0, (video.currentTime / video.duration) * 100)));
+  };
+  const handleGeneratedVideoSeek = (event) => {
+    const video = generatedVideoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nextProgress = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    video.currentTime = nextProgress * video.duration;
+    setGeneratedVideoProgress(nextProgress * 100);
+  };
+  const toggleGeneratedVideoFullscreen = () => {
+    const video = generatedVideoRef.current;
+    video?.requestFullscreen?.();
+  };
+  const triggerAssetDownload = (href, filename) => {
+    if (typeof document === "undefined") return;
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+  const downloadVideoSelection = (scope) => {
+    const targetIndexes =
+      scope === "all" ? Array.from({ length: generatedVideoCount }, (_, index) => index) : [safeGeneratedVideoIndex];
+    targetIndexes.forEach((videoIndex) => {
+      const videoUrl = generatedVideoUrls[videoIndex] || activeGeneratedVideoUrl;
+      triggerAssetDownload(videoUrl, `video-${jobTaskId}-${String(videoIndex + 1).padStart(2, "0")}.mp4`);
+    });
+    setVideoHoverMenu(null);
+    onNotify?.({
+      type: "success",
+      title: scope === "all" ? "已开始下载全部视频" : "已开始下载当前视频",
+      description:
+        scope === "all"
+          ? `正在下载本组中的 ${generatedVideoCount} 条视频。`
+          : `正在下载第 ${safeGeneratedVideoIndex + 1} 条视频。`,
+    });
+  };
+  const saveVideoSelectionToRawLibrary = (scope) => {
+    setVideoHoverMenu(null);
+    onSaveVideoToRawLibrary?.(job.id, scope, safeGeneratedVideoIndex, generatedVideoCount);
+  };
+  const videoCandidatePager =
+    job.status === "done_video" && generatedVideoCount > 1 ? (
+      <VideoCandidatePager
+        current={safeGeneratedVideoIndex + 1}
+        total={generatedVideoCount}
+        onPrev={() => stepGeneratedVideo(-1)}
+        onNext={() => stepGeneratedVideo(1)}
+      />
+    ) : null;
+
+  return (
+    <div className="mb-8 w-full">
+      <UserPromptBubble
+        content={job.prompt}
+        attachments={job.promptAttachments}
+        className={cn(isVideoJob ? "mb-12" : "mb-5")}
+      />
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-[14px] leading-5 text-black">{resultLabel}</span>
+          {versionLabel ? (
+            <span className="inline-flex h-[22px] items-center rounded-[6px] border border-[#efe6ff] bg-[#faf7ff] px-1.5 text-[12px] font-semibold leading-[20px] text-[#7b5cff]">
+              {versionLabel}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-[#686e7a]">
+          {metaItems.map((item, index) => (
+            <Fragment key={`${item}-${index}`}>
+              {index > 0 ? <span className="h-[12px] w-px bg-[#e3e5e8]" /> : null}
+              <span>{item}</span>
+            </Fragment>
+          ))}
+        </div>
+      </div>
+
+      {job.status === "generating" ? (
+        <div
+          className="relative grid gap-[2px] overflow-hidden rounded-[2px]"
+          style={{ gridTemplateColumns: `repeat(${imageLayout.columns}, minmax(0, 1fr))` }}
+        >
+          <div className="absolute left-4 top-4 z-10 rounded-2xl bg-white/88 px-4 py-2 text-[15px] font-bold text-[#315fff] shadow-[0_6px_18px_rgba(85,115,255,0.1)]">
+            生成中99%
+          </div>
+          {Array.from({ length: job.imageCount }).map((_, index) => (
+            <div
+              key={index}
+              className="bg-gradient-to-br from-[#dbeffd] via-[#d9e8ff] to-[#eadfff]"
+              style={{ aspectRatio: imageLayout.tileAspectRatio }}
+            />
+          ))}
+        </div>
+      ) : job.status === "generating_video" ? (
+        <div className="generation-diffuse-loading relative h-[467px] overflow-hidden rounded-[2px] max-[900px]:h-auto max-[900px]:aspect-video">
+          <div className="absolute left-3 top-3 z-10 rounded-[8px] bg-white/60 px-2 py-1 backdrop-blur-[5px]">
+            <span className="generation-loading-label text-[14px] font-medium leading-5">生成中99%</span>
+          </div>
+        </div>
+      ) : job.status === "done_video" ? (
+        <>
+          <div className="group relative h-[467px] overflow-hidden rounded-[2px] bg-[#d7dbde] shadow-[0_6px_28px_rgba(0,71,194,0.04),0_5px_30px_rgba(0,71,194,0.05),0_4px_28px_rgba(0,71,194,0.04)] max-[900px]:h-auto max-[900px]:aspect-video" onMouseLeave={() => setVideoHoverMenu(null)}>
+            <video
+              ref={generatedVideoRef}
+              key={`${job.id}-${safeGeneratedVideoIndex}`}
+              src={activeGeneratedVideoUrl}
+              poster={activeGeneratedVideoPoster}
+              className="h-full w-full object-cover"
+              playsInline
+              onTimeUpdate={handleGeneratedVideoTimeUpdate}
+              onPlay={() => setIsGeneratedVideoPlaying(true)}
+              onPause={() => setIsGeneratedVideoPlaying(false)}
+              onEnded={() => setIsGeneratedVideoPlaying(false)}
+            />
+            <div className="absolute left-2 top-2 inline-flex h-6 items-center rounded-[4px] bg-black/50 px-2 text-[14px] font-medium leading-5 text-white backdrop-blur-[5px]">
+              组合{safeGeneratedVideoIndex + 1}
+            </div>
+            <div className="absolute right-2 top-2 z-20">
+              <div className="relative">
+                <div className="flex h-8 items-center justify-center gap-1 rounded-[8px] bg-black/50 px-2 backdrop-blur-[5px]">
+                  <HoverActionButton
+                    icon={Download}
+                    label="下载"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (generatedVideoCount > 1) {
+                        setVideoHoverMenu((prev) => (prev === "download" ? null : "download"));
+                        return;
+                      }
+                      downloadVideoSelection("current");
+                    }}
+                  />
+                  <HoverActionButton
+                    icon={Save}
+                    label="保存到原料库"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (generatedVideoCount > 1) {
+                        setVideoHoverMenu((prev) => (prev === "save" ? null : "save"));
+                        return;
+                      }
+                      saveVideoSelectionToRawLibrary("current");
+                    }}
+                  />
+                  <HoverActionButton
+                    icon={IdCard}
+                    label="查看任务 ID"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setVideoHoverMenu((prev) => (prev === "task" ? null : "task"));
+                    }}
+                  />
+                </div>
+
+                {videoHoverMenu === "download" ? (
+                  <div className="absolute right-0 top-11 z-30 w-[248px] rounded-[16px] border border-[#eef2f8] bg-white p-2 shadow-[0_18px_40px_rgba(22,34,52,0.18)]">
+                    {[
+                      { label: "下载当前视频", scope: "current" },
+                      { label: `下载全部 ${generatedVideoCount} 条视频`, scope: "all" },
+                    ].map((item) => (
+                      <button
+                        key={item.scope}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          downloadVideoSelection(item.scope);
+                        }}
+                        className="flex h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left text-[15px] font-medium text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+                      >
+                        <Download className="h-4 w-4 text-[#191b1e]" />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {videoHoverMenu === "save" ? (
+                  <div className="absolute right-0 top-11 z-30 w-[248px] rounded-[16px] border border-[#eef2f8] bg-white p-2 shadow-[0_18px_40px_rgba(22,34,52,0.18)]">
+                    {[
+                      { label: "保存当前视频", scope: "current" },
+                      { label: `保存全部 ${generatedVideoCount} 条视频`, scope: "all" },
+                    ].map((item) => (
+                      <button
+                        key={item.scope}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          saveVideoSelectionToRawLibrary(item.scope);
+                        }}
+                        className="flex h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left text-[15px] font-medium text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+                      >
+                        <Save className="h-4 w-4 text-[#191b1e]" />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {videoHoverMenu === "task" ? (
+                  <div className="absolute right-0 top-11 z-30 w-[200px] rounded-[16px] border border-[#eef2f8] bg-white p-2 shadow-[0_18px_40px_rgba(22,34,52,0.18)]">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        copyText(jobTaskId);
+                      }}
+                      className="flex h-9 w-full items-center justify-between rounded-[8px] px-2 text-left text-[14px] text-black transition-colors hover:bg-[#f6f7f9]"
+                    >
+                      <span>{`任务ID：${jobTaskId}`}</span>
+                      <Copy className="h-4 w-4 text-[#838995]" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 flex h-[60px] items-end gap-3 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.56)_100%)] px-3 pb-2 pt-6">
+              <button
+                type="button"
+                onClick={toggleGeneratedVideoPlayback}
+                className="flex h-5 w-5 shrink-0 items-center justify-center text-white"
+                aria-label={isGeneratedVideoPlaying ? "暂停视频" : "播放视频"}
+              >
+                {isGeneratedVideoPlaying ? (
+                  <Pause className="h-4 w-4 fill-white text-white" />
+                ) : (
+                  <Play className="h-4 w-4 fill-white text-white" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleGeneratedVideoSeek}
+                className="relative h-5 min-w-0 flex-1"
+                aria-label="调整视频播放进度"
+              >
+                <span className="absolute inset-x-0 top-[8px] h-1 rounded-full bg-white/35" />
+                <span
+                  className="absolute left-0 top-[8px] h-1 rounded-full bg-white"
+                  style={{ width: `${generatedVideoProgress}%` }}
+                />
+                <span
+                  className="absolute top-[4px] h-3 w-3 -translate-x-1/2 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.45)]"
+                  style={{ left: `${generatedVideoProgress}%` }}
+                />
+              </button>
+              <Volume2 className="h-4 w-4 shrink-0 text-white" />
+              <button
+                type="button"
+                onClick={toggleGeneratedVideoFullscreen}
+                className="flex h-5 w-5 shrink-0 items-center justify-center text-white"
+                aria-label="全屏预览"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={action.onClick}
+                  className="flex h-9 items-center gap-1 rounded-[8px] bg-[#f6f7f9] px-2 text-[12px] font-normal leading-4 text-black transition-all hover:bg-[#eef2f7]"
+                >
+                  <action.icon className="h-3.5 w-3.5" />
+                  {action.label}
+                </button>
+              ))}
+              {generatedVideoCount > 1 ? (
+                <div className="flex h-9 items-center gap-1 rounded-[8px] bg-[#f6f7f9] px-2 text-[12px] font-normal leading-4 text-black">
+                  <button
+                    type="button"
+                    onClick={() => stepGeneratedVideo(-1)}
+                    className="flex h-5 w-5 items-center justify-center rounded-[5px] transition-colors hover:bg-white"
+                    aria-label="查看上一条候选视频"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span>组合{safeGeneratedVideoIndex + 1}/{generatedVideoCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => stepGeneratedVideo(1)}
+                    className="flex h-5 w-5 items-center justify-center rounded-[5px] transition-colors hover:bg-white"
+                    aria-label="查看下一条候选视频"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <span className="shrink-0 text-[12px] leading-5 text-[#abb0ba]">以上内容由 AI 生成</span>
+          </div>
+        </>
+      ) : (
+        <div
+          className="grid gap-[2px] overflow-hidden rounded-[2px]"
+          style={{ gridTemplateColumns: `repeat(${imageLayout.columns}, minmax(0, 1fr))` }}
+        >
+          {job.resultImages.map((image, index) => {
+            const imageId = `${jobTaskId}${String(index + 1).padStart(2, "0")}`;
+
+            return (
+              <div
+                key={image + index}
+                className="group relative overflow-visible rounded-[2px]"
+                style={{ aspectRatio: isImageJob ? imageLayout.tileAspectRatio : "1 / 1.06" }}
+                onMouseLeave={() => setHoverMenuIndex((prev) => (prev === index ? null : prev))}
+              >
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenImageDetail?.(job.id, index);
+                }}
+                className="absolute inset-0 overflow-hidden rounded-[2px] text-left transition-opacity hover:opacity-95"
+              >
+                <img src={image} alt="" className="h-full w-full object-cover" />
+              </button>
+
+              <div className="pointer-events-none absolute inset-0 rounded-[2px] bg-[linear-gradient(180deg,rgba(9,12,18,0.18)_0%,rgba(9,12,18,0)_28%,rgba(9,12,18,0)_62%,rgba(9,12,18,0.18)_100%)] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+
+              <div className="pointer-events-none absolute left-2 top-2 flex h-4 w-4 items-center justify-center rounded-[3px] border border-[#78a4ff] bg-white opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <Check className="h-3 w-3 text-[#3a5bfd]" />
+              </div>
+
+              <div className="pointer-events-none absolute right-2 top-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div className="flex h-8 items-center justify-center gap-3 rounded-[10px] bg-[rgba(0,0,0,0.6)] px-3 backdrop-blur-[6px]">
+                  <HoverActionButton
+                    icon={Download}
+                    label="下载"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      triggerAssetDownload(image, `image-${imageId}.jpg`);
+                    }}
+                  />
+                  <HoverActionButton
+                    icon={Save}
+                    label="保存到原料库"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSaveImageToRawLibrary?.(job.id, index);
+                    }}
+                  />
+                  <HoverActionButton
+                    icon={IdCard}
+                    label="查看任务 ID"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setHoverMenuIndex((prev) => (prev === index ? null : index));
+                    }}
+                  />
+                </div>
+              </div>
+
+              {hoverMenuIndex === index ? (
+                <div className="absolute right-2 top-12 z-20 w-[200px] rounded-[16px] border border-[#eef2f8] bg-white p-2 shadow-[0_2px_24px_rgba(0,71,194,0.05),0_4px_26px_rgba(0,71,194,0.03),0_6px_28px_rgba(0,71,194,0.04)]">
+                  {[
+                    {
+                      label: `任务ID：${jobTaskId}`,
+                      onClick: () => copyText(jobTaskId),
+                      copy: true,
+                    },
+                  ].map((item) => (
+                    <button
+                    key={item.label}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      item.onClick();
+                    }}
+                    className="flex h-9 w-full items-center justify-between rounded-[8px] px-2 text-left text-[14px] text-black transition-colors hover:bg-[#f6f7f9]"
+                  >
+                    <span>{item.label}</span>
+                    {item.copy ? <Copy className="h-4 w-4 text-[#838995]" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div className="flex items-center gap-3 rounded-[10px] bg-[rgba(0,0,0,0.6)] px-3 py-2 backdrop-blur-[6px]">
+                  {[
+                    { label: "生同款", onClick: () => onReuseImageJob?.(job.id) },
+                    { label: "生视频", onClick: () => onConvertImageToVideo?.(job.id, index) },
+                    { label: "抠图", onClick: () => onApplyCutout?.(job.id, index) },
+                    { label: "扩图", onClick: () => onApplyExpand?.(job.id, index) },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        item.onClick();
+                      }}
+                      className="text-[12px] font-medium leading-4 text-white transition-opacity hover:opacity-80"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {job.status !== "done_video" && (actions.length || videoCandidatePager) ? <ActionRow actions={actions} afterActions={videoCandidatePager} /> : null}
+    </div>
+  );
+}
+
+function DateSection({ title, children }) {
+  return (
+    <section className="mb-8">
+      <h2 className="mb-3 text-[20px] font-medium leading-[28px] tracking-[-0.02em] text-black">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function AgentRequirementForm({ job, onConfirm }) {
+  const initialValues = useMemo(
+    () =>
+      buildAgentState(
+        {
+          ...(job.agentForm || {}),
+          triggerPrompt: job.agentForm?.triggerPrompt || job.prompt,
+        },
+        job.agentState,
+      ).businessInfo,
+    [job],
+  );
+  const [businessPoint, setBusinessPoint] = useState(initialValues.businessPoint);
+  const [conversionGuidance, setConversionGuidance] = useState(initialValues.conversionGuidance);
+  const [style, setStyle] = useState(initialValues.style);
+  const [audience, setAudience] = useState(initialValues.audience);
+  const [additionalInfo, setAdditionalInfo] = useState(initialValues.additionalInfo);
+
+  useEffect(() => {
+    setBusinessPoint(initialValues.businessPoint);
+    setConversionGuidance(initialValues.conversionGuidance);
+    setStyle(initialValues.style);
+    setAudience(initialValues.audience);
+    setAdditionalInfo(initialValues.additionalInfo);
+  }, [initialValues]);
+
+  const renderInputField = ({
+    label,
+    value,
+    onChange,
+    placeholder,
+    maxLength,
+  }) => (
+    <div className="flex flex-col gap-3">
+      <div className="text-[16px] font-semibold text-[#202634]">{label}</div>
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value.slice(0, maxLength))}
+          placeholder={placeholder}
+          className="h-[58px] w-full rounded-[14px] border border-[#edf1f6] bg-[linear-gradient(180deg,#f7faff_0%,#f4f7ff_100%)] px-5 pr-20 text-[15px] text-[#202634] outline-none placeholder:text-[#a2abb9]"
+        />
+        <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#7c8595]">
+          {`${value.length}/${maxLength}`}
+        </span>
+      </div>
+    </div>
+  );
+
+  const renderSelectField = ({ label, value, onChange, options, placeholder }) => (
+    <div className="flex flex-col gap-3">
+      <div className="text-[16px] font-semibold text-[#202634]">{label}</div>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-[58px] w-full appearance-none rounded-[14px] border border-[#edf1f6] bg-[linear-gradient(180deg,#f7faff_0%,#f4f7ff_100%)] px-5 pr-12 text-[15px] text-[#202634] outline-none"
+        >
+          {placeholder ? (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          ) : null}
+          {options.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7c8595]" />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="mt-6 rounded-[28px] border border-[#e7edf5] bg-white px-7 py-7 shadow-[0_16px_36px_rgba(112,131,171,0.08)]">
+      <div className="space-y-7">
+        {renderInputField({
+          label: "业务点信息",
+          value: businessPoint,
+          onChange: setBusinessPoint,
+          placeholder: "请输入",
+          maxLength: 30,
+        })}
+        {renderSelectField({
+          label: "转化引导",
+          value: conversionGuidance,
+          onChange: setConversionGuidance,
+          options: agentConversionGuidanceOptions,
+        })}
+        {renderSelectField({
+          label: "视频风格",
+          value: style,
+          onChange: setStyle,
+          options: agentVideoStyleOptions,
+          placeholder: "请选择",
+        })}
+        {renderInputField({
+          label: "目标受众",
+          value: audience,
+          onChange: setAudience,
+          placeholder: "请输入",
+          maxLength: 30,
+        })}
+        {renderInputField({
+          label: "补充信息",
+          value: additionalInfo,
+          onChange: setAdditionalInfo,
+          placeholder: "请输入",
+          maxLength: 100,
+        })}
+      </div>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={() =>
+            onConfirm(job.id, {
+              triggerPrompt: initialValues.triggerPrompt,
+              businessPoint,
+              conversionGuidance,
+              style,
+              audience,
+              additionalInfo,
+            })
+          }
+          className="rounded-[14px] bg-[#4164ff] px-10 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#3556ef]"
+        >
+          提交
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AgentFeedCard({ job, onConfirm }) {
+  return (
+    <div className="mb-14">
+      <UserPromptBubble
+        content={job.prompt}
+        attachments={job.promptAttachments}
+        className="mb-6"
+      />
+
+      <div className="mb-3 text-[16px] font-medium leading-7 text-[#202634]">
+        这是一个长视频任务，我先学习相关技能再进行后续任务。
+      </div>
+
+      <div className="mb-5 text-[15px] leading-7 text-[#6f7888]">
+        先在生成页补齐这条视频的关键信息，确认后我再带你进入深度创编。
+      </div>
+
+      <AgentRequirementForm job={job} onConfirm={onConfirm} />
+    </div>
+  );
+}
+
+function AgentRetainedPromptBubble({ job }) {
+  const attachments = job.promptAttachments || {};
+  const imageAttachments = getImagePromptAttachments(attachments);
+  const displayText = formatUserBubbleText(job.prompt, imageAttachments);
+  const attachmentPills = [
+    attachments.landingPage ? { label: "落地页", icon: Link2 } : null,
+    attachments.voiceScript ? { label: "口播脚本", icon: FileText } : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="flex w-full justify-end">
+      <div className="flex max-w-[720px] flex-col items-end gap-3">
+        {attachmentPills.length || imageAttachments.length ? (
+          <div className="flex max-w-full items-center justify-end gap-2">
+            {attachmentPills.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="flex h-9 min-w-[80px] items-center gap-1 rounded-[8px] border border-[#e3e5e8] bg-white px-3 text-[12px] leading-4 text-black"
+                >
+                  <Icon className="h-3.5 w-3.5 text-[#3a5bfd]" strokeWidth={2} />
+                  <span className="truncate">{item.label}</span>
+                </div>
+              );
+            })}
+            {imageAttachments.slice(0, 3).map((item, index) => (
+              <div
+                key={item.id || `${item.name}-${index}`}
+                className="h-9 w-9 overflow-hidden rounded-[8px] bg-[#f6f7f9]"
+              >
+                <img src={item.preview} alt={item.name || "上传图片"} className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {displayText ? (
+          <div className="max-w-full rounded-bl-[20px] rounded-br-[20px] rounded-tl-[20px] rounded-tr-[4px] bg-[#f6f7f9]/80 px-4 py-3 text-[14px] leading-[26px] text-black">
+            {displayText}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AgentDeepSummaryCard({ job, onResume }) {
+  const currentStep = clampDeepStep(job.agentProgress?.currentStep || 1);
+  const currentStepMeta = deepModeSteps.find((step) => step.no === currentStep) || deepModeSteps[0];
+  const nextStepMeta = deepModeSteps.find((step) => step.no === Math.min(currentStep + 1, FINAL_DEEP_STEP));
+  const state = buildAgentState(job.agentForm, job.agentState);
+  const originalIntent =
+    state.businessInfo.triggerPrompt || job.prompt || state.businessInfo.businessPoint || state.theme;
+  const themeSummary = summarizeCreativeTheme(
+    state.theme || state.businessInfo.businessPoint || originalIntent,
+  );
+  const businessPointValue = summarizeBusinessPoint(state.businessInfo.businessPoint || originalIntent);
+  const audienceValue = summarizeAgentInfoValue(
+    state.businessInfo.audience || inferAgentAudienceFromPrompt(originalIntent),
+    "待确认目标受众",
+    18,
+  );
+  const videoTypeValue = summarizeAgentInfoValue(
+    state.businessInfo.videoType || state.businessInfo.style,
+    "待确认视频类型",
+    14,
+  );
+  const actionLabel = `继续${currentStepMeta.title}`;
+  const completionHint =
+    currentStep >= FINAL_DEEP_STEP
+      ? `完成${currentStepMeta.title}后进入视频合成`
+      : `完成${currentStepMeta.title}后进入${nextStepMeta?.title || "下一步"}`;
+  const retainedStepLabels = {
+    1: "创意解析",
+    2: "创意规划",
+    3: "分镜编辑",
+    4: "成片设置",
+  };
+
+  return (
+    <div className="mb-12 space-y-12">
+      <AgentRetainedPromptBubble job={job} />
+
+      <div className="relative overflow-hidden rounded-[16px] border border-[#e3e5e8] bg-white">
+        <div className="relative px-4 pb-3 pt-4">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[156px] overflow-hidden opacity-60">
+            <div className="absolute -left-9 -top-7 h-[195px] w-[270px] rounded-full bg-[#e5f5ff] blur-[24px]" />
+            <div className="absolute left-[70px] top-[-50px] h-[178px] w-[430px] rounded-full bg-[#eef8ff] blur-[36px]" />
+            <div className="absolute left-[300px] top-[-72px] h-[212px] w-[335px] rounded-full bg-[#eaf0ff] blur-[40px]" />
+            <div className="absolute right-[150px] top-[-35px] h-[196px] w-[120px] rounded-full bg-[#eeebff] blur-[38px]" />
+            <div className="absolute right-[-16px] top-[-36px] h-[196px] w-[150px] rounded-full bg-[#f6ebff] blur-[38px]" />
+            <div className="absolute inset-x-0 bottom-[-70px] h-[190px] bg-[linear-gradient(180deg,rgba(250,251,255,0)_0%,#fafbff_42%,#fff_100%)]" />
+          </div>
+
+          <div className="relative">
+            <div className="flex h-[22px] items-center gap-4">
+              <div className="min-w-0 flex-1 truncate text-[16px] font-medium leading-[22px] text-black">
+                创意主题：{themeSummary}
+              </div>
+              <div className="flex shrink-0 items-center gap-1 text-[12px] font-medium leading-4 text-[#3a5bfd]">
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={2.1} />
+                深度创编中
+              </div>
+            </div>
+
+            <div className="mt-4 flex h-5 items-center gap-4">
+              {deepModeSteps.map((step, index) => {
+                const isDone = step.no < currentStep;
+                const isCurrent = step.no === currentStep;
+                const label = retainedStepLabels[step.no] || step.title;
+
+                return (
+                  <Fragment key={step.no}>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[12px] leading-4",
+                          isDone
+                            ? "bg-[#e3edff] text-[#3a5bfd]"
+                            : isCurrent
+                              ? "bg-[#3a5bfd] text-white"
+                              : "border border-[#e3e5e8] bg-white text-[#686e7a]",
+                        )}
+                      >
+                        {isDone ? <Check className="h-3.5 w-3.5" strokeWidth={2.3} /> : step.no}
+                      </div>
+                      <span
+                        className={cn(
+                          "whitespace-nowrap text-[14px] font-medium leading-5",
+                          isDone || isCurrent ? "text-black" : "text-[#686e7a]",
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                    {index < deepModeSteps.length - 1 ? (
+                      <div className="h-px min-w-[48px] flex-1 bg-[#dbe3f1]" />
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                ["业务点", businessPointValue],
+                ["目标受众", audienceValue],
+                ["视频类型", videoTypeValue],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="min-w-0 rounded-[8px] border border-[#e3e5e8] bg-white p-3"
+                >
+                  <div className="mb-2 text-[12px] font-normal leading-4 text-[#686e7a]">{label}</div>
+                  <div className="truncate text-[12px] font-medium leading-4 text-black">{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 border-t border-[#e3e5e8] p-4">
+          <div className="min-w-0 flex-1 text-[12px] leading-4">
+            <div className="truncate font-medium text-black">{completionHint}</div>
+            <div className="mt-1 truncate font-normal text-[#838995]">
+              当前已经整理好本轮关键信息，继续后会进入下一步工作台。
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onResume(job.id)}
+            className="flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#3a5bfd] px-3 text-[12px] font-medium leading-4 text-white transition-colors hover:bg-[#2f50e6]"
+          >
+            {actionLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DigitalHumanLibraryModal({ open, onClose, onConfirm }) {
+  const [selectedIndustry, setSelectedIndustry] = useState("全部行业");
+  const [selectedId, setSelectedId] = useState(null);
+  const industryTabs = ["全部行业", "口腔美容", "教育培训", "眼科美容", "心理援助", "国学", "保险业", "证券业", "职业培训"];
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedIndustry("全部行业");
+      setSelectedId(null);
+    }
+  }, [open]);
+
+  const visibleItems = useMemo(() => {
+    if (selectedIndustry === "全部行业") return digitalHumanLibrary;
+    return digitalHumanLibrary.filter((item) => item.industry === selectedIndustry);
+  }, [selectedIndustry]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(20,28,45,0.34)] px-10 py-6 backdrop-blur-[9px]">
+      <div className="flex h-[min(1274px,calc(100vh-48px))] w-[min(1724px,calc(100vw-112px))] flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_28px_80px_rgba(32,45,77,0.22)]">
+        <div className="flex h-[126px] shrink-0 items-center justify-between border-b border-[#e8edf5] px-[60px]">
+          <div>
+            <div className="text-[32px] font-bold tracking-[-0.03em] text-[#202634]">角色库</div>
+            <div className="mt-2 text-[16px] font-medium leading-6 text-[#8a93a6]">选择适合当前视频出场的角色。</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-[60px] w-[60px] items-center justify-center rounded-[18px] border border-[#d9e2ef] bg-white text-[#7c8595] transition-all hover:border-[#cfd9ea] hover:bg-[#f7f9fd] hover:text-[#202634]"
+            aria-label="关闭角色库弹窗"
+          >
+            <X className="h-8 w-8" strokeWidth={2.1} />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,#f8fbff_0%,#f5f8fd_100%)] px-[48px] py-[48px]">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-[#e8edf5] bg-white px-10 pb-10 pt-8 shadow-[0_16px_38px_rgba(115,134,174,0.06)]">
+            <div className="mb-8 flex shrink-0 items-center gap-8 overflow-x-auto pb-1 scrollbar-hide">
+              {industryTabs.map((label) => {
+                const active = selectedIndustry === label;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setSelectedIndustry(label)}
+                    className={cn(
+                      "shrink-0 rounded-[8px] px-3 py-2 text-[18px] leading-7 transition-all",
+                      active ? "bg-[#f0f4ff] font-semibold text-[#3a5bfd]" : "font-semibold text-[#202634] hover:bg-[#f6f8fc]",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#f4f7fb] text-[#202634] transition-all hover:bg-[#edf2fb]"
+                aria-label="展开更多角色行业"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+              <div className="grid grid-cols-5 gap-x-8 gap-y-10">
+                {visibleItems.map((item, index) => {
+                  const selected = item.id === selectedId;
+                  const badgeTone = index === 0 ? "text-[#f7b733]" : index === 1 ? "text-[#5b83ff]" : "";
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedId(item.id)}
+                      className="min-w-0 text-left"
+                    >
+                      <div
+                        className={cn(
+                          "relative mb-4 aspect-[1/1.02] overflow-hidden rounded-[8px] border bg-[#f4f7fb] transition-all",
+                          selected ? "border-[#3a5bfd]" : "border-transparent hover:border-[#dce6f7]",
+                        )}
+                      >
+                        {badgeTone ? (
+                          <span className={cn("absolute left-4 top-4 z-10 text-[18px] leading-none", badgeTone)}>◆</span>
+                        ) : null}
+                        <img src={item.avatar} alt={item.name} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="truncate text-[18px] font-semibold leading-7 text-[#202634]">{item.name}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {visibleItems.length === 0 ? (
+                <div className="flex h-full min-h-[320px] items-center justify-center text-[16px] text-[#8a93a6]">
+                  当前行业暂无角色
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex h-[152px] shrink-0 items-center gap-6 border-t border-[#e8edf5] bg-white px-[60px]">
+          <button
+            type="button"
+            onClick={() => {
+              const selected = digitalHumanLibrary.find((item) => item.id === selectedId);
+              if (!selected) return;
+              onConfirm(selected);
+            }}
+            className="h-[72px] min-w-[164px] rounded-[18px] bg-[#3a5bfd] px-10 text-[22px] font-semibold text-white shadow-[0_16px_30px_rgba(58,91,253,0.22)] transition-all hover:bg-[#2949e8]"
+          >
+            确定
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[72px] min-w-[164px] rounded-[18px] bg-[#eef2f7] px-10 text-[22px] font-semibold text-[#202634] transition-all hover:bg-[#e5ebf3]"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function DeleteConfirmModal({
+  open,
+  title = "确认删除",
+  description = "",
+  confirmLabel = "删除",
+  cancelLabel = "取消",
+  tone = "danger",
+  onClose,
+  onConfirm,
+}) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[260] bg-[rgba(13,15,18,0.26)]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div className="flex h-full items-center justify-center px-6">
+        <div
+          className="flex w-[min(480px,calc(100vw-48px))] flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_6px_16px_rgba(0,71,194,0.06),0_5px_15px_rgba(0,71,194,0.05),0_4px_14px_rgba(0,71,194,0.04)]"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+        >
+          <div className="flex h-[58px] shrink-0 items-center justify-between px-6">
+            <div className="text-[18px] font-medium leading-[26px] text-[#191b1e]">{title}</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+              aria-label="关闭确认弹窗"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="bg-[#f6f7f9] px-6 py-4">
+            <div className="rounded-[8px] bg-white px-4 py-3 text-[14px] leading-6 text-[#191b1e]">
+              {description}
+            </div>
+          </div>
+          <div className="flex h-[68px] shrink-0 items-center justify-end gap-2 bg-white px-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 min-w-[80px] rounded-[8px] bg-[#f6f7f9] px-4 text-[12px] leading-4 text-[#191b1e] transition-colors hover:bg-[#eef1f6]"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className={cn(
+                "h-9 min-w-[80px] rounded-[8px] px-4 text-[12px] leading-4 text-white transition-colors",
+                tone === "danger"
+                  ? "bg-[#f04452] hover:bg-[#d92f3d]"
+                  : "bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] hover:opacity-90",
+              )}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function SaveStep1ChangesModal({
+  open,
+  onClose,
+  onDiscard,
+  onSave,
+}) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[260] bg-[rgba(13,15,18,0.26)]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div className="flex h-full items-center justify-center px-6">
+        <div
+          className="flex w-[min(520px,calc(100vw-48px))] flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_20px_58px_rgba(24,34,65,0.18)]"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="保存当前修改"
+        >
+          <div className="flex h-[60px] shrink-0 items-center justify-between px-6">
+            <div className="text-[18px] font-semibold leading-[26px] text-[#191b1e]">保存当前修改？</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+              aria-label="关闭保存确认弹窗"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="bg-[#f6f7f9] px-6 py-4">
+            <div className="rounded-[10px] bg-white px-4 py-3 text-[14px] leading-6 text-[#4e596f]">
+              你修改了「创意收集」里的业务信息。保存后会更新第一步内容，但不会进入「方案规划」。
+            </div>
+          </div>
+          <div className="flex min-h-[76px] shrink-0 flex-wrap items-center justify-end gap-2 bg-white px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 min-w-[92px] rounded-[8px] bg-[#f6f7f9] px-4 text-[13px] font-medium leading-4 text-[#191b1e] transition-colors hover:bg-[#eef1f6]"
+            >
+              继续编辑
+            </button>
+            <button
+              type="button"
+              onClick={onDiscard}
+              className="h-10 min-w-[104px] rounded-[8px] border border-[#dce4f0] bg-white px-4 text-[13px] font-medium leading-4 text-[#4e596f] transition-colors hover:bg-[#f8fafc]"
+            >
+              不保存退出
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              className="h-10 min-w-[112px] rounded-[8px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] px-4 text-[13px] font-semibold leading-4 text-white transition-opacity hover:opacity-90"
+            >
+              保存并退出
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function OverwriteConfirmModal({
+  open,
+  title = "确认重新生成？",
+  description = "",
+  affectedText = "",
+  confirmLabel = "确认，重新生成",
+  cancelLabel = "继续编辑",
+  onClose,
+  onConfirm,
+}) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[260] bg-[rgba(13,15,18,0.26)]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div className="flex h-full items-center justify-center px-6">
+        <div
+          className="flex w-[min(520px,calc(100vw-48px))] flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_20px_58px_rgba(24,34,65,0.18)]"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+        >
+          <div className="flex h-[60px] shrink-0 items-center justify-between px-6">
+            <div className="text-[18px] font-semibold leading-[26px] text-[#191b1e]">{title}</div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
+              aria-label="关闭覆盖确认弹窗"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="bg-[#f6f7f9] px-6 py-4">
+            <div className="space-y-3 rounded-[10px] bg-white px-4 py-3 text-[14px] leading-6 text-[#4e596f]">
+              <p>{description}</p>
+              {affectedText ? (
+                <div className="rounded-[8px] bg-[#fff7ed] px-3 py-2 text-[#9a5a0a]">
+                  影响范围：{affectedText}
+                </div>
+              ) : null}
+              <p>当前已生成的后续内容会保留为历史只读，不再作为最新结果继续使用。</p>
+            </div>
+          </div>
+          <div className="flex min-h-[76px] shrink-0 flex-wrap items-center justify-end gap-2 bg-white px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 min-w-[92px] rounded-[8px] bg-[#f6f7f9] px-4 text-[13px] font-medium leading-4 text-[#191b1e] transition-colors hover:bg-[#eef1f6]"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="h-10 min-w-[132px] rounded-[8px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] px-4 text-[13px] font-semibold leading-4 text-white transition-opacity hover:opacity-90"
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function MusicPickerModal({
+  open,
+  selectedTrackId,
+  volume,
+  favoriteOnly,
+  onClose,
+  onConfirm,
+}) {
+  const [tab, setTab] = useState("music");
+  const [draftCategory, setDraftCategory] = useState("全部类型");
+  const [draftTrackId, setDraftTrackId] = useState(selectedTrackId);
+  const [draftVolume, setDraftVolume] = useState(volume);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftTrackId(selectedTrackId);
+    setDraftVolume(volume);
+    setTab(favoriteOnly ? "mine" : "music");
+    setDraftCategory("全部类型");
+  }, [favoriteOnly, open, selectedTrackId, volume]);
+
+  const visibleTracks = useMemo(() => {
+    return musicTracks.filter((item) => {
+      if (item.id === "none") return true;
+      if (tab === "mine" && !item.favorite) return false;
+      if (draftCategory !== "全部类型" && item.pickerType !== draftCategory) return false;
+      return true;
+    });
+  }, [draftCategory, tab]);
+
+  if (!open) return null;
+
+  return (
+    <>
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[rgba(20,28,45,0.18)] backdrop-blur-[6px]">
+      <div className="flex h-[84vh] w-[min(1820px,calc(100vw-72px))] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(48,63,96,0.18)]">
+        <div className="flex h-[78px] items-center justify-between border-b border-[#edf1f6] px-12">
+          <div className="text-[20px] font-semibold leading-[28px] text-[#191b1e]">音乐</div>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-[12px] text-[#707b91] transition-all hover:bg-[#f5f7fb]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-hidden bg-[rgba(110,160,247,0.07)] p-4">
+          <div className="flex h-full flex-col overflow-hidden rounded-[12px] bg-white px-6 pb-0 pt-6 shadow-[0_10px_24px_rgba(116,134,172,0.06)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="inline-flex w-[236px] rounded-[6px] bg-[rgba(110,160,247,0.07)] p-[2px]">
+                <button
+                  onClick={() => setTab("music")}
+                  className={cn(
+                    "inline-flex h-8 w-[120px] items-center justify-center rounded-[4px] px-3 text-[14px] leading-5 transition-all",
+                    tab === "music"
+                      ? "bg-white text-[#3a5bfd]"
+                      : "text-[#191b1e]",
+                  )}
+                >
+                  音乐
+                </button>
+                <button
+                  onClick={() => setTab("mine")}
+                  className={cn(
+                    "inline-flex h-8 w-[108px] items-center justify-center rounded-[4px] px-3 text-[14px] leading-[18px] transition-all",
+                    tab === "mine"
+                      ? "bg-white text-[#3a5bfd]"
+                      : "text-[#191b1e]",
+                  )}
+                >
+                  我的音乐
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {musicPickerTypeOptions.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setDraftCategory(label)}
+                  className={cn(
+                    "shrink-0 rounded-[6px] px-2 py-1.5 text-[14px] leading-5 transition-all",
+                    draftCategory === label
+                      ? "bg-[#ebf2ff] text-[#3a5bfd]"
+                      : "text-[#191b1e] hover:bg-[#f5f7fb]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+              <div className="grid grid-cols-1 gap-3 pb-6 md:grid-cols-2 xl:grid-cols-3">
+                {visibleTracks.map((track) => {
+                  const selected = draftTrackId === track.id;
+                  return (
+                    <button
+                      key={track.id}
+                      type="button"
+                      onClick={() => setDraftTrackId(track.id)}
+                      className={cn(
+                        "flex min-h-[72px] items-center gap-3 rounded-[6px] border px-3 py-3 text-left transition-all",
+                        selected
+                          ? "border-[1.5px] border-[#0054e6] bg-[rgba(110,160,247,0.07)]"
+                          : "border border-transparent bg-[rgba(110,160,247,0.07)] hover:border-[#dfe6f2]",
+                      )}
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(126,155,206,0.15)] text-[#a1acc0]">
+                        {track.id === "none" ? (
+                          <span className="text-[22px] leading-none">⊘</span>
+                        ) : (
+                          <Music2 className="h-6 w-6" strokeWidth={1.8} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] leading-4 text-[#191b1e]">
+                          {track.id === "none" ? "暂不添加音乐" : track.title}
+                        </div>
+                        <div className="mt-1 text-[12px] leading-4 text-[#848b99]">
+                          {track.id === "none" ? "-" : track.duration || "00:20"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-baseline justify-between border-t border-[#edf1f6] bg-white px-6 py-[14px]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onConfirm({ selectedTrackId: draftTrackId, volume: draftVolume, favoriteOnly: tab === "mine" })}
+              className="flex h-9 min-w-[88px] items-center justify-center rounded-[6px] bg-[#3a5bfd] px-4 text-[14px] leading-5 text-white shadow-[0_10px_20px_rgba(58,91,253,0.18)]"
+            >
+              确定
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-9 min-w-[88px] items-center justify-center rounded-[6px] bg-[rgba(102,139,204,0.1)] px-4 text-[14px] leading-5 text-[#282c33]"
+            >
+              取消
+            </button>
+          </div>
+          <div className="flex w-[223px] items-center gap-2 self-stretch">
+            <div className="whitespace-nowrap text-[14px] leading-5 text-black">音量({draftVolume}%)</div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={draftVolume}
+              onChange={(e) => setDraftVolume(Number(e.target.value))}
+              className="h-3 flex-1 accent-[#5e99ff]"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+    <DeleteConfirmModal
+      open={Boolean(deletePromptItemDialog)}
+      title="确认删除提示语"
+      description={
+        deletePromptItemDialog
+          ? `确定删除${deletePromptItemDialog.label}吗？删除后该提示语内容和样式调整不会保留。`
+          : ""
+      }
+      cancelLabel="取消"
+      confirmLabel="删除"
+      onClose={() => setDeletePromptItemDialog(null)}
+      onConfirm={confirmRemovePromptItem}
+    />
+    </>
+  );
+}
+
+function SubtitleEditorModal({ open, settings, onClose, onConfirm }) {
+  const [draft, setDraft] = useState(settings || defaultSubtitleSettings);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(settings || defaultSubtitleSettings);
+  }, [open, settings]);
+
+  if (!open) return null;
+
+  const scaleProgress = Math.min(100, Math.max(0, (((draft.scale ?? 100) - 80) / 60) * 100));
+  const strokeProgress = Math.min(100, Math.max(0, ((draft.strokeWidth ?? 0) / 10) * 100));
+  const controlClass =
+    "flex h-9 items-center justify-between rounded-[6px] bg-[#f6f7f9] px-3 text-[12px] font-medium text-[#1f2430]";
+  const iconToggleClass =
+    "flex h-9 w-9 items-center justify-center rounded-[6px] bg-[#f6f7f9] text-[13px] font-semibold transition-all";
+  const checkboxClass = (checked) =>
+    cn(
+      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border transition-all",
+      checked ? "border-[#3a5bfd] bg-[#3a5bfd] text-white" : "border-[#cbd5e4] bg-white text-transparent",
+    );
+
+  return (
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[rgba(20,24,32,0.40)] backdrop-blur-[7px]">
+      <div className="flex h-[750px] max-h-[calc(100vh-48px)] w-[min(448px,calc(100vw-32px))] flex-col overflow-hidden rounded-[14px] bg-white p-6 shadow-[0_24px_72px_rgba(15,23,42,0.26)]">
+        <div className="flex h-8 shrink-0 items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-[14px] font-semibold leading-5 text-black">字幕编辑</div>
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, enabled: !prev.enabled }))}
+              className="flex h-6 items-center gap-1.5 rounded-[6px] bg-[#f6f7f9] px-2 text-[10px] font-medium text-[#596273]"
+              aria-pressed={draft.enabled}
+            >
+              <span
+                className={cn(
+                  "relative h-3.5 w-6 rounded-full transition-all",
+                  draft.enabled ? "bg-[#dce5ff]" : "bg-[#d2d8e3]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-[0_1px_4px_rgba(15,23,42,0.18)] transition-all",
+                    draft.enabled ? "left-[11px]" : "left-0.5",
+                  )}
+                />
+              </span>
+              显示字幕
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-[6px] text-black transition-all hover:bg-[#f6f7f9]"
+            aria-label="关闭字幕编辑"
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+          <section>
+            <div className="mb-2 text-[12px] font-semibold leading-5 text-[#1f2430]">文字样式</div>
+            <button type="button" className={cn(controlClass, "w-full")}>
+              <span className="truncate">{draft.font}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-[#a5afc0]" />
+            </button>
+
+            <div className="mt-3 grid grid-cols-[146px_146px_36px_36px] gap-3">
+              <button type="button" className={controlClass}>
+                <span className="h-5 w-[92px] rounded-[3px]" style={{ backgroundColor: draft.textColor || "#3a5bfd" }} />
+                <ChevronDown className="h-3.5 w-3.5 text-[#a5afc0]" />
+              </button>
+              <button type="button" className={controlClass}>
+                <span>{draft.size}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-[#a5afc0]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraft((prev) => ({ ...prev, bold: !prev.bold }))}
+                className={cn(iconToggleClass, draft.bold ? "text-[#3a5bfd]" : "text-black")}
+                aria-pressed={draft.bold}
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraft((prev) => ({ ...prev, italic: !prev.italic }))}
+                className={cn(iconToggleClass, "italic", draft.italic ? "text-[#3a5bfd]" : "text-black")}
+                aria-pressed={draft.italic}
+              >
+                I
+              </button>
+            </div>
+          </section>
+
+          <div className="mt-4 flex h-9 items-center gap-3">
+            <span className="w-8 shrink-0 text-[12px] font-medium text-[#767f8f]">缩放</span>
+            <input
+              type="range"
+              min="80"
+              max="140"
+              value={draft.scale ?? 100}
+              onChange={(e) => setDraft((prev) => ({ ...prev, scale: Number(e.target.value) }))}
+              className="subtitle-figma-slider flex-1"
+              style={{
+                background: `linear-gradient(90deg,#8facff 0%,#8facff ${scaleProgress}%,#edf1f7 ${scaleProgress}%,#edf1f7 100%)`,
+              }}
+            />
+            <button type="button" className={cn(controlClass, "w-[55px] justify-center px-0")}>
+              {draft.scale ?? 100}%
+            </button>
+          </div>
+
+          <section className="mt-4">
+            <div className="mb-2 text-[12px] font-semibold leading-5 text-[#1f2430]">预设样式</div>
+            <div className="grid grid-cols-5 gap-3">
+              {subtitlePresetStyles.map((item) => {
+                const active = draft.preset === item.id;
+                const isPlain = item.id === "plain";
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        preset: item.id,
+                        colorName: item.label,
+                        textColor: item.color,
+                        stroke: item.stroke,
+                        strokeColor: item.strokeColor,
+                        strokeWidth: item.strokeWidth,
+                      }))
+                    }
+                    className={cn(
+                      "flex aspect-square items-center justify-center rounded-[4px] border bg-[#f6f7f9] transition-all",
+                      active ? "border-[#3a5bfd] shadow-[0_0_0_2px_rgba(58,91,253,0.10)]" : "border-transparent hover:border-[#dbe5ff]",
+                    )}
+                    title={item.label}
+                  >
+                    {isPlain ? (
+                      <span className="relative h-5 w-5 rounded-full border-[1.6px] border-[#6d7584]">
+                        <span className="absolute left-1/2 top-1/2 h-[1.6px] w-6 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-full bg-[#6d7584]" />
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[23px] font-bold leading-none"
+                        style={{
+                          color: item.color,
+                          WebkitTextStroke: item.stroke ? `${Math.max(item.strokeWidth * 0.42, 1)}px ${item.strokeColor}` : "0 transparent",
+                        }}
+                      >
+                        T
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, stroke: !prev.stroke }))}
+              className="flex h-5 items-center gap-2 text-[12px] font-semibold text-[#1f2430]"
+              aria-pressed={draft.stroke}
+            >
+              <span className={checkboxClass(draft.stroke)}>
+                <Check className="h-3 w-3" strokeWidth={2.2} />
+              </span>
+              描边
+            </button>
+
+            <div className="mt-4 grid grid-cols-[146px_1fr] gap-3">
+              <button type="button" className={controlClass}>
+                <span className="h-5 w-[92px] rounded-[3px]" style={{ backgroundColor: draft.strokeColor || "#000000" }} />
+                <ChevronDown className="h-3.5 w-3.5 text-[#a5afc0]" />
+              </button>
+              <div className="flex h-9 items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={draft.strokeWidth ?? 0}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, strokeWidth: Number(e.target.value) }))}
+                  className="subtitle-figma-slider flex-1"
+                  style={{
+                    background: `linear-gradient(90deg,#8facff 0%,#8facff ${strokeProgress}%,#edf1f7 ${strokeProgress}%,#edf1f7 100%)`,
+                  }}
+                />
+                <button type="button" className={cn(controlClass, "w-[55px] justify-center px-0")}>
+                  {draft.strokeWidth ?? 0}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, shadow: !prev.shadow }))}
+              className="flex h-5 items-center gap-2 text-[12px] font-semibold text-[#1f2430]"
+              aria-pressed={draft.shadow}
+            >
+              <span className={checkboxClass(draft.shadow)}>
+                <Check className="h-3 w-3" strokeWidth={2.2} />
+              </span>
+              阴影
+            </button>
+          </section>
+        </div>
+
+        <div className="mt-6 flex h-9 shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onConfirm(draft)}
+            className="h-9 w-[100px] rounded-[6px] bg-[#3a5bfd] text-[12px] font-semibold text-white transition-all hover:bg-[#2f4fec]"
+          >
+            确定
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 w-[100px] rounded-[6px] bg-[#f6f7f9] text-[12px] font-semibold text-black transition-all hover:bg-[#eef1f6]"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VoicePickerModal({
+  open,
+  selectedVoiceId,
+  onClose,
+  onConfirm,
+  title = "配音",
+}) {
+  const [draftVoiceId, setDraftVoiceId] = useState(selectedVoiceId || dubbingVoiceOptions[0]?.id || null);
+  const [draftIndustry, setDraftIndustry] = useState("全部行业");
+  const [draftSpeed, setDraftSpeed] = useState(1);
+  const [draftTone, setDraftTone] = useState(40);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftVoiceId(selectedVoiceId || dubbingVoiceOptions[0]?.id || null);
+    setDraftIndustry("全部行业");
+    setDraftSpeed(1);
+    setDraftTone(40);
+  }, [open, selectedVoiceId]);
+
+  const visibleVoices = useMemo(() => {
+    return dubbingVoiceOptions.filter((item) => {
+      if (draftIndustry === "全部行业") return true;
+      return item.industry === draftIndustry;
+    });
+  }, [draftIndustry]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[rgba(20,28,45,0.18)] backdrop-blur-[6px]">
+      <div className="flex h-[84vh] w-[min(1820px,calc(100vw-72px))] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(48,63,96,0.18)]">
+        <div className="flex h-[78px] items-center justify-between border-b border-[#edf1f6] px-12">
+          <div className="text-[20px] font-semibold leading-[28px] text-[#191b1e]">{title}</div>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-[12px] text-[#707b91] transition-all hover:bg-[#f5f7fb]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-hidden bg-[#f5f8fe] p-4">
+          <div className="flex h-full flex-col overflow-hidden rounded-[12px] bg-white px-6 pb-0 pt-6">
+            <div className="rounded-[10px] border border-dashed border-[#1a6eff] bg-[linear-gradient(180deg,rgba(227,237,255,0.3)_0%,rgba(227,237,255,0.5)_100%)] px-10 py-8">
+              <div className="flex items-center justify-between gap-8">
+                <div>
+                  <div className="bg-[linear-gradient(285deg,#4d83ff_1.67%,#5565f6_52.54%,#7d69fc_97.31%)] bg-clip-text text-[16px] font-medium text-transparent">
+                    AI语音生成
+                  </div>
+                  <div className="mt-2 text-[14px] leading-5 text-[rgba(73,86,107,0.8)]">
+                    输入音频即可秒级生成您的专属声音
+                  </div>
+                </div>
+                <div className="pointer-events-none flex h-[92px] w-[132px] items-center justify-center rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.75)_0%,rgba(243,247,255,0.92)_100%)] shadow-[0_18px_28px_rgba(95,117,181,0.08)]">
+                  <div className="text-[54px] leading-none text-[#7b79ff]">♪</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {voiceIndustryOptions.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setDraftIndustry(label)}
+                  className={cn(
+                    "shrink-0 rounded-[6px] px-2 py-1.5 text-[14px] leading-5 transition-all",
+                    draftIndustry === label
+                      ? "bg-[#ebf2ff] text-[#0054e6]"
+                      : "text-[#191b1e] hover:bg-[#f5f7fb]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] bg-[rgba(110,160,247,0.07)] text-[#68758f]"
+                aria-label="展开更多行业"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 pr-1 scrollbar-hide">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleVoices.map((voice) => {
+                  const active = voice.id === draftVoiceId;
+                  return (
+                    <button
+                      key={voice.id}
+                      type="button"
+                      onClick={() => setDraftVoiceId(voice.id)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-[6px] border px-3 py-3 text-left transition-all",
+                        active
+                          ? "border border-[#0054e6] bg-[rgba(110,160,247,0.07)]"
+                          : "border border-transparent bg-[rgba(110,160,247,0.07)] hover:border-[#dfe6f2]",
+                      )}
+                    >
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[rgba(126,155,206,0.15)]">
+                        <img src={voice.avatar} alt={voice.title} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-[14px] font-medium leading-5 text-[#191b1e]">{voice.title}</div>
+                        <div className="mt-1 text-[12px] leading-4 text-[#848b99]">{voice.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-baseline justify-between border-t border-[#edf1f6] bg-white px-6 py-[14px]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (!draftVoiceId) return;
+                onConfirm(draftVoiceId);
+              }}
+              className="flex h-9 min-w-[88px] items-center justify-center rounded-[6px] bg-[#3a5bfd] px-4 text-[14px] leading-5 text-white shadow-[0_10px_20px_rgba(58,91,253,0.18)]"
+            >
+              确定
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-9 min-w-[88px] items-center justify-center rounded-[6px] bg-[rgba(102,139,204,0.1)] px-4 text-[14px] leading-5 text-[#282c33]"
+            >
+              取消
+            </button>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex w-[207px] items-center gap-2">
+              <div className="whitespace-nowrap text-[14px] leading-5 text-black">语速({draftSpeed.toFixed(1)}x)</div>
+              <input
+                type="range"
+                min="0.5"
+                max="1.5"
+                step="0.1"
+                value={draftSpeed}
+                onChange={(e) => setDraftSpeed(Number(e.target.value))}
+                className="h-3 flex-1 accent-[#5e99ff]"
+              />
+            </div>
+            <div className="flex w-[204px] items-center gap-2">
+              <div className="whitespace-nowrap text-[14px] leading-5 text-black">语调({draftTone}%)</div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={draftTone}
+                onChange={(e) => setDraftTone(Number(e.target.value))}
+                className="h-3 flex-1 accent-[#5e99ff]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PromptEditorModal({
+  open,
+  value,
+  settings,
+  position,
+  onClose,
+  onConfirm,
+  title = "提示语",
+  description = "当前分镜提示语",
+  placeholder = "例如：这一段更强调知识点权威感，镜头节奏更稳，角色表达更坚定。",
+  previewImage = "",
+  storyboardName = "当前分镜",
+}) {
+  const [draftItems, setDraftItems] = useState(() => splitPromptTextItems(value));
+  const [activeItemIndex, setActiveItemIndex] = useState(0);
+  const [draftSettings, setDraftSettings] = useState(() => normalizePromptTextSettings(settings));
+  const [draftPosition, setDraftPosition] = useState(() => normalizePromptTextPosition(position));
+  const [isPromptDragging, setIsPromptDragging] = useState(false);
+  const [deletePromptItemDialog, setDeletePromptItemDialog] = useState(null);
+  const modalPreviewRef = useRef(null);
+  const modalPromptDragStateRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftItems(splitPromptTextItems(value));
+    setActiveItemIndex(0);
+    setDraftSettings(normalizePromptTextSettings(settings));
+    setDraftPosition(normalizePromptTextPosition(position));
+    setIsPromptDragging(false);
+    setDeletePromptItemDialog(null);
+    modalPromptDragStateRef.current = null;
+  }, [open, position, settings, value]);
+
+  useEffect(() => {
+    if (!isPromptDragging) return undefined;
+
+    const handlePointerMove = (event) => {
+      const dragState = modalPromptDragStateRef.current;
+      const previewBounds = modalPreviewRef.current?.getBoundingClientRect();
+      if (!dragState || !previewBounds || !previewBounds.width || !previewBounds.height) return;
+
+      const nextLeftPercent =
+        ((event.clientX - previewBounds.left - dragState.pointerOffsetX + dragState.overlayWidth / 2) /
+          previewBounds.width) *
+        100;
+      const nextTopPercent =
+        ((event.clientY - previewBounds.top - dragState.pointerOffsetY + dragState.overlayHeight / 2) /
+          previewBounds.height) *
+        100;
+      const nextPosition = {
+        x: clampNumber(
+          (nextLeftPercent - promptTextBounds.minXPercent) /
+            (promptTextBounds.maxXPercent - promptTextBounds.minXPercent),
+          0,
+          1,
+        ),
+        y: clampNumber(
+          (nextTopPercent - promptTextBounds.minYPercent) /
+            (promptTextBounds.maxYPercent - promptTextBounds.minYPercent),
+          0,
+          1,
+        ),
+      };
+
+      setDraftPosition(nextPosition);
+    };
+
+    const handlePointerUp = () => {
+      modalPromptDragStateRef.current = null;
+      setIsPromptDragging(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isPromptDragging]);
+
+  if (!open) return null;
+
+  const safeActiveIndex = Math.min(activeItemIndex, Math.max(draftItems.length - 1, 0));
+  const activeItemValue = draftItems[safeActiveIndex] || "";
+  const joinedPromptValue = joinPromptTextItems(draftItems);
+  const normalizedPreviewText = normalizeMentionText(joinedPromptValue, { keepAt: false }).trim();
+
+  const updateActiveItem = (nextValue) => {
+    const limitedValue = String(nextValue || "").slice(0, PROMPT_TEXT_ITEM_MAX_LENGTH);
+    setDraftItems((prev) => {
+      const nextItems = [...prev];
+      nextItems[safeActiveIndex] = limitedValue;
+      return nextItems;
+    });
+  };
+
+  const handleAddPromptItem = () => {
+    if (draftItems.length >= PROMPT_TEXT_MAX_ITEMS) return;
+    const nextItems = [...draftItems, ""];
+    setDraftItems(nextItems);
+    setActiveItemIndex(nextItems.length - 1);
+  };
+
+  const removePromptItemAtIndex = (index) => {
+    if (draftItems.length <= 1) {
+      setDraftItems([""]);
+      setActiveItemIndex(0);
+      return;
+    }
+    const nextItems = draftItems.filter((_, itemIndex) => itemIndex !== index);
+    setDraftItems(nextItems);
+    setActiveItemIndex((currentIndex) => Math.max(0, Math.min(currentIndex, nextItems.length - 1)));
+  };
+  const handleRemovePromptItem = (index) => {
+    if (draftItems.length <= 1) {
+      removePromptItemAtIndex(index);
+      return;
+    }
+    setDeletePromptItemDialog({
+      index,
+      label: `提示语${index + 1}`,
+    });
+  };
+  const confirmRemovePromptItem = () => {
+    if (!deletePromptItemDialog) return;
+    const { index } = deletePromptItemDialog;
+    setDeletePromptItemDialog(null);
+    removePromptItemAtIndex(index);
+  };
+  const beginModalPromptDrag = (event) => {
+    const overlayBounds = event.currentTarget.getBoundingClientRect();
+    if (!overlayBounds) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    modalPromptDragStateRef.current = {
+      pointerOffsetX: event.clientX - overlayBounds.left,
+      pointerOffsetY: event.clientY - overlayBounds.top,
+      overlayWidth: overlayBounds.width,
+      overlayHeight: overlayBounds.height,
+    };
+    setIsPromptDragging(true);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[rgba(20,28,45,0.18)] backdrop-blur-[6px]">
+      <div className="flex h-[88vh] w-[min(1180px,calc(100vw-48px))] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_70px_rgba(48,63,96,0.18)]">
+        <div className="flex h-[88px] items-center justify-between border-b border-[#edf1f6] px-10">
+          <div>
+            <div className="text-[24px] font-bold tracking-[-0.03em] text-[#202634]">{title}</div>
+            <div className="mt-1 text-[13px] text-[#8a93a6]">仅作用于当前分镜预览与成片展示</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-[#d7e1f0] text-[#7c8595] transition-all hover:bg-[#f5f7fb]"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,#f7faff_0%,#f9fbff_100%)] p-6 md:p-8">
+          <div className="grid h-full min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="min-h-0 space-y-6 overflow-y-auto pr-1 xl:pr-3">
+              <div className="rounded-[24px] border border-[#edf1f6] bg-white p-5 shadow-[0_10px_24px_rgba(116,134,172,0.06)]">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[18px] font-bold text-[#202634]">{description}</div>
+                    <div className="mt-1 text-[13px] leading-6 text-[#8a93a6]">
+                      这段文案会叠加在当前分镜画面上，用来表达重点提示或额外说明。
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-4 flex flex-wrap items-center gap-3 text-[14px]">
+                  {draftItems.map((_, index) => {
+                    const isActive = index === safeActiveIndex;
+                    return (
+                      <Fragment key={`prompt-item-${index}`}>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveItemIndex(index)}
+                            className={cn(
+                              "text-[14px] leading-6 transition-all",
+                              isActive ? "font-semibold text-[#3a5bfd]" : "text-[#191b1e]",
+                            )}
+                          >
+                            提示语{index + 1}
+                          </button>
+                          {draftItems.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePromptItem(index)}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[#7d8798] transition-all hover:bg-[#f3f6fb] hover:text-[#191b1e]"
+                              aria-label={`删除提示语${index + 1}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                        {index < draftItems.length - 1 ? <div className="text-[#d0d7e6]">|</div> : null}
+                      </Fragment>
+                    );
+                  })}
+
+                  <HoverTooltip
+                    content={draftItems.length >= PROMPT_TEXT_MAX_ITEMS ? "最多支持添加3个提示语" : ""}
+                    side="top"
+                  >
+                    <button
+                      type="button"
+                      onClick={handleAddPromptItem}
+                      disabled={draftItems.length >= PROMPT_TEXT_MAX_ITEMS}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-[8px] px-2 py-1 text-[14px] transition-all",
+                        draftItems.length >= PROMPT_TEXT_MAX_ITEMS
+                          ? "cursor-not-allowed text-[#b8c0d0]"
+                          : "text-[#191b1e] hover:bg-[#f5f7fb]",
+                      )}
+                    >
+                      <CirclePlus className="h-4 w-4" />
+                      添加
+                    </button>
+                  </HoverTooltip>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    value={activeItemValue}
+                    onChange={(e) => updateActiveItem(e.target.value)}
+                    rows={7}
+                    className="w-full resize-none rounded-[18px] border border-[#dce3ee] bg-[#fbfcff] px-5 py-4 pr-20 text-[15px] leading-7 text-[#4f5668] outline-none placeholder:text-[#a6afbf]"
+                    placeholder={placeholder}
+                  />
+                  <div className="pointer-events-none absolute bottom-4 right-5 text-[13px] font-medium text-[#8a93a6]">
+                    {activeItemValue.length}/{PROMPT_TEXT_ITEM_MAX_LENGTH}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-[#edf1f6] bg-white p-5 shadow-[0_10px_24px_rgba(116,134,172,0.06)]">
+                <div className="mb-5 flex items-center gap-2 text-[18px] font-bold text-[#202634]">
+                  <SlidersHorizontal className="h-5 w-5 text-[#7b5cff]" />
+                  文字样式
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="block">
+                    <div className="mb-2 text-[13px] font-semibold text-[#8a93a6]">字体</div>
+                    <select
+                      value={draftSettings.font}
+                      onChange={(e) =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          font: e.target.value,
+                          preset: "custom",
+                        }))
+                      }
+                      className="h-[52px] w-full rounded-[16px] border border-[#e4e9f2] bg-[#fbfcff] px-4 text-[15px] font-semibold text-[#202634] outline-none"
+                    >
+                      {promptFontOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <div className="mb-2 text-[13px] font-semibold text-[#8a93a6]">字号</div>
+                    <select
+                      value={draftSettings.size}
+                      onChange={(e) =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          size: Number(e.target.value),
+                          preset: "custom",
+                        }))
+                      }
+                      className="h-[52px] w-full rounded-[16px] border border-[#e4e9f2] bg-[#fbfcff] px-4 text-[15px] font-semibold text-[#202634] outline-none"
+                    >
+                      {promptSizeOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-5">
+                  <div className="mb-2 text-[13px] font-semibold text-[#8a93a6]">颜色</div>
+                  <div className="flex flex-wrap gap-3">
+                    {promptColorOptions.map((item) => {
+                      const active = draftSettings.textColor === item.value;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            setDraftSettings((prev) => ({
+                              ...prev,
+                              colorName: item.label,
+                              textColor: item.value,
+                              preset: "custom",
+                            }))
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-[14px] border px-3 py-2 text-[13px] font-semibold transition-all",
+                            active
+                              ? "border-[#7b5cff] bg-[#f6f1ff] text-[#5f46d6]"
+                              : "border-[#e4e9f2] bg-[#fbfcff] text-[#556078]",
+                          )}
+                        >
+                          <span className="h-3 w-3 rounded-full border border-black/5" style={{ backgroundColor: item.value }} />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="mb-2 text-[13px] font-semibold text-[#8a93a6]">字重</div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          bold: !prev.bold,
+                          preset: "custom",
+                        }))
+                      }
+                      className={cn(
+                        "inline-flex h-[44px] min-w-[88px] items-center justify-center rounded-[14px] border px-4 text-[15px] font-bold transition-all",
+                        draftSettings.bold
+                          ? "border-[#7b5cff] bg-[#f6f1ff] text-[#5f46d6]"
+                          : "border-[#e4e9f2] bg-[#fbfcff] text-[#556078]",
+                      )}
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraftSettings((prev) => ({
+                          ...prev,
+                          italic: !prev.italic,
+                          preset: "custom",
+                        }))
+                      }
+                      className={cn(
+                        "inline-flex h-[44px] min-w-[88px] items-center justify-center rounded-[14px] border px-4 text-[15px] italic transition-all",
+                        draftSettings.italic
+                          ? "border-[#7b5cff] bg-[#f6f1ff] text-[#5f46d6]"
+                          : "border-[#e4e9f2] bg-[#fbfcff] text-[#556078]",
+                      )}
+                    >
+                      I
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-[#edf1f6] bg-white p-5 shadow-[0_10px_24px_rgba(116,134,172,0.06)]">
+                <div className="mb-5 flex items-center gap-2 text-[18px] font-bold text-[#202634]">
+                  <Sparkles className="h-5 w-5 text-[#7b5cff]" />
+                  预设样式
+                </div>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {promptPresetStyles.map((item) => {
+                    const active = draftSettings.preset === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setDraftSettings((prev) => applyPromptPresetStyle(item.id, prev))}
+                        className={cn(
+                          "rounded-[18px] border bg-[#fbfcff] p-4 text-left transition-all",
+                          active
+                            ? "border-[#7b5cff] bg-[#faf7ff] shadow-[0_0_0_2px_rgba(123,92,255,0.08)]"
+                            : "border-[#e4e9f2] hover:border-[#d8dff0]",
+                        )}
+                      >
+                        <div className="mb-3 flex h-[72px] items-center justify-center rounded-[16px] bg-white">
+                          <span style={getPromptTextRenderStyle(item, 0.55)}>T</span>
+                        </div>
+                        <div className="text-[13px] font-semibold text-[#202634]">{item.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto xl:overflow-visible">
+              <div className="rounded-[24px] border border-[#edf1f6] bg-white p-5 shadow-[0_10px_24px_rgba(116,134,172,0.06)] xl:sticky xl:top-0">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[18px] font-bold text-[#202634]">实时预览</div>
+                    <div className="mt-1 text-[13px] text-[#8a93a6]">{storyboardName}</div>
+                  </div>
+                  <div className="rounded-full border border-[#e6dcff] bg-[#faf7ff] px-3 py-1 text-[11px] font-semibold text-[#6b50d8]">
+                    当前分镜
+                  </div>
+                </div>
+                <div
+                  ref={modalPreviewRef}
+                  className={cn(
+                    "relative aspect-[16/10] overflow-hidden rounded-[24px] bg-[#101622]",
+                    isPromptDragging && "select-none",
+                  )}
+                >
+                  {previewImage ? (
+                    <img src={previewImage} alt={storyboardName} className="h-full w-full object-cover opacity-90" />
+                  ) : null}
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,16,28,0.1)_0%,rgba(10,16,28,0.2)_50%,rgba(10,16,28,0.5)_100%)]" />
+                  <div className="absolute left-4 top-4 rounded-[10px] bg-[rgba(10,16,28,0.82)] px-3 py-1.5 text-[12px] font-semibold text-white">
+                    {storyboardName}
+                  </div>
+                  <div
+                    style={getPromptTextOverlayStyle(draftPosition)}
+                    className={cn(
+                      "absolute flex max-w-[86%] justify-center",
+                      "cursor-grab active:cursor-grabbing",
+                      isPromptDragging && "z-10",
+                    )}
+                    onPointerDown={beginModalPromptDrag}
+                    title="拖拽调整提示语位置"
+                  >
+                    <div
+                      className="whitespace-pre-wrap break-words text-center"
+                      style={getPromptTextRenderStyle(draftSettings, 0.42)}
+                    >
+                      {normalizedPreviewText || "在这里预览当前分镜提示语效果"}
+                    </div>
+                  </div>
+                  <div className="absolute inset-x-6 bottom-5 rounded-full bg-[rgba(10,16,28,0.54)] px-4 py-2 text-center text-[12px] font-medium text-white backdrop-blur-[6px]">
+                    字幕内容仍会单独显示，提示语会作为上层强调信息叠加在画面上。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 border-t border-[#edf1f6] bg-white px-10 py-6">
+          <button
+            onClick={() =>
+              onConfirm({
+                value: joinedPromptValue,
+                settings: normalizePromptTextSettings(draftSettings),
+                position: normalizePromptTextPosition(draftPosition),
+              })
+            }
+            className="rounded-[16px] bg-gradient-to-b from-[#4f6bff] to-[#3956f4] px-10 py-4 text-[18px] font-semibold text-white shadow-[0_12px_24px_rgba(66,95,255,0.22)]"
+          >
+            确定
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-[16px] bg-[#eef1f5] px-10 py-4 text-[18px] font-semibold text-[#202634]"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LogoLibraryModal({
+  open,
+  selectedLogo,
+  myImages,
+  stockImages,
+  onClose,
+  onConfirm,
+  onUpload,
+  title = "图片库",
+  selectedHeading = "已选图片（1/1）",
+  emptyMineTitle = "还没有图片，先上传一张吧",
+  emptyMineDescription = "支持本地上传，也可以直接从右侧确认选中的 Logo。",
+  confirmLabel = "确定",
+  durationHintSeconds = null,
+  durationHintLabel = "脚本时长",
+  durationHintDescription = "选择素材后会作为新增分镜时长。",
+  onNotify,
+}) {
+  const [activeTab, setActiveTab] = useState("mine");
+  const [keyword, setKeyword] = useState("");
+  const [draftSelectedId, setDraftSelectedId] = useState(null);
+  const uploadInputRef = useRef(null);
+
+  const allImages = useMemo(() => [...myImages, ...stockImages], [myImages, stockImages]);
+  const selectedImage = allImages.find((item) => item.id === draftSelectedId) || null;
+  const currentImages = activeTab === "mine" ? myImages : stockImages;
+  const filteredImages = currentImages.filter((item) => {
+    const searchText = `${item.name || ""} ${item.meta || ""}`.toLowerCase();
+    return keyword.trim() ? searchText.includes(keyword.trim().toLowerCase()) : true;
+  });
+  const shouldShowDurationHint = Number.isFinite(Number(durationHintSeconds)) && Number(durationHintSeconds) > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    setKeyword("");
+    const matched = allImages.find((item) => item.preview === selectedLogo);
+    const nextSelected = matched || myImages[0] || stockImages[0] || null;
+    setActiveTab(matched ? (myImages.some((item) => item.id === matched.id) ? "mine" : "stock") : myImages.length ? "mine" : "stock");
+    setDraftSelectedId(nextSelected?.id || null);
+  }, [allImages, myImages, open, selectedLogo, stockImages]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[96] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
+      <div className="flex h-[min(900px,calc(100vh-24px))] w-[min(920px,calc(100vw-24px))] flex-col overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_1px_8px_rgba(0,0,0,0.05),0_7px_14px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.08)] sm:rounded-[24px]">
+        <div className="flex items-center justify-between border-b border-[#edf1f6] px-4 py-4 sm:px-6 sm:py-[18px]">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <div className="text-[20px] font-bold leading-7 text-[#191b1e]">{title}</div>
+            {shouldShowDurationHint ? (
+              <div className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#ddd2ff] bg-[#f7f4ff] px-3 text-[12px] font-semibold text-[#6d4cff]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#7b5cff]" />
+                {durationHintLabel} {formatPreviewClock(durationHintSeconds)}
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] text-[#191b1e] transition-all hover:bg-[#f2f5fb]"
+            aria-label={`关闭${title}`}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 bg-[#f5f8fe] p-3 sm:p-4">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] bg-white px-3 pt-3 min-[760px]:flex-row min-[760px]:px-4 min-[760px]:pt-4">
+            <div className="min-w-0 min-[760px]:flex-[0_0_58%] min-[760px]:pr-4">
+              <div className="flex h-8 items-end gap-6 border-b border-[#ebedf5]">
+                {[
+                  { id: "mine", label: "我的图片" },
+                  { id: "stock", label: "图片库" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "h-8 border-b-2 text-[14px] transition-all",
+                      activeTab === tab.id
+                        ? "border-[#0054e6] font-medium text-[#0054e6]"
+                        : "border-transparent text-[#191b1e] hover:text-[#0054e6]",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-[118px_minmax(0,1fr)]">
+                <button
+                  type="button"
+                  onClick={() => uploadInputRef.current?.click()}
+                  className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#3a5bfd] px-3 text-[14px] text-white transition-all hover:bg-[#2f50dc]"
+                >
+                  本地上传
+                </button>
+                <div className="flex h-9 items-center gap-2 rounded-[6px] bg-[rgba(110,160,247,0.07)] px-3">
+                  <input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="搜索图片"
+                    className="min-w-0 flex-1 bg-transparent text-[14px] text-[#191b1e] outline-none placeholder:text-[#848b99]"
+                  />
+                  <Search className="h-4 w-4 text-[#505a6b]" />
+                </div>
+              </div>
+
+              <div className="mt-4 h-[260px] overflow-y-auto pr-1 scrollbar-hide min-[760px]:h-[calc(100%-84px)]">
+                {filteredImages.length ? (
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-5">
+                    {filteredImages.map((item) => {
+                      const active = draftSelectedId === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setDraftSelectedId(item.id)}
+                          className="group text-left"
+                        >
+                          <div
+                            className={cn(
+                              "relative overflow-hidden rounded-[8px] bg-[rgba(110,160,247,0.07)] transition-all",
+                              active
+                                ? "ring-2 ring-[#3a5bfd] ring-offset-2 ring-offset-white"
+                                : "group-hover:ring-2 group-hover:ring-[#d3d9e6] group-hover:ring-offset-2 group-hover:ring-offset-white",
+                            )}
+                          >
+                            <div className="aspect-square">
+                              <img src={item.preview} alt={item.name} className="h-full w-full object-cover" />
+                            </div>
+                            {active ? (
+                              <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#3a5bfd] text-white">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 truncate text-[14px] font-medium leading-5 text-[#191b1e]">{item.name}</div>
+                          <div className="truncate text-[12px] leading-5 text-[#848b99]">{item.meta}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-full min-h-[420px] flex-col items-center justify-center rounded-[12px] border border-dashed border-[#d3d9e6] bg-[#fbfcff] text-center">
+                    <ImageIcon className="h-10 w-10 text-[#b4bdcc]" />
+                    <div className="mt-3 text-[14px] font-medium text-[#282c33]">
+                      {activeTab === "mine" ? emptyMineTitle : "暂无匹配图片"}
+                    </div>
+                    <div className="mt-1 max-w-[260px] text-[12px] leading-5 text-[#848b99]">
+                      {activeTab === "mine" ? emptyMineDescription : "换个关键词，或上传一张本地图片。"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="my-4 h-px bg-[#ebedf5] min-[760px]:my-0 min-[760px]:h-auto min-[760px]:w-px min-[760px]:self-stretch" />
+
+            <div className="min-h-0 min-w-0 flex-[1_0_0] min-[760px]:pl-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[14px] font-medium text-[#191b1e]">{selectedHeading}</div>
+                {selectedImage ? (
+                  <button
+                    type="button"
+                    onClick={() => setDraftSelectedId(null)}
+                    className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[rgba(102,139,204,0.1)] px-3 text-[13px] text-[#282c33] transition-all hover:bg-[rgba(102,139,204,0.16)]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    清空
+                  </button>
+                ) : null}
+              </div>
+              {shouldShowDurationHint ? (
+                <div className="mt-3 rounded-[10px] border border-[#e3d8ff] bg-[#fbf8ff] px-3 py-2 text-[12px] font-medium leading-5 text-[#6d4cff]">
+                  已按脚本测算为 <span className="font-bold">{formatPreviewClock(durationHintSeconds)}</span>，{durationHintDescription}
+                </div>
+              ) : null}
+
+              <div className="mt-4 flex min-h-[180px] flex-col min-[760px]:mt-6 min-[760px]:h-[calc(100%-60px)]">
+                {selectedImage ? (
+                  <div className="rounded-[12px] border border-[#d3d9e6] bg-[#fbfcff] p-3">
+                    <div className="overflow-hidden rounded-[8px] bg-[#eef3fb]">
+                      <div className="aspect-square">
+                        <img src={selectedImage.preview} alt={selectedImage.name} className="h-full w-full object-contain" />
+                      </div>
+                    </div>
+                    <div className="mt-3 truncate text-[15px] font-semibold text-[#191b1e]">{selectedImage.name}</div>
+                    <div className="mt-1 truncate text-[12px] text-[#848b99]">{selectedImage.meta}</div>
+                  </div>
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center text-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-[18px] bg-[#eef2fa] text-[#3a5bfd] shadow-[inset_0_0_0_1px_rgba(58,91,253,0.06)]">
+                      <ImageIcon className="h-9 w-9" />
+                    </div>
+                    <div className="mt-5 text-[14px] font-medium text-[#282c33]">请从左侧选择图片</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-[#edf1f6] bg-white px-4 py-3 sm:px-6 sm:py-[14px]">
+          <DisabledTooltip
+            disabled={!selectedImage}
+            reason="先选择一张图片"
+            side="top"
+            align="start"
+            wrapperClassName="inline-flex"
+          >
+            <button
+              type="button"
+              onClick={() => selectedImage && onConfirm(selectedImage)}
+              disabled={!selectedImage}
+              className={cn(
+                "h-9 min-w-[88px] rounded-[8px] px-4 text-[14px] transition-all",
+                selectedImage
+                  ? "bg-[#3a5bfd] text-white hover:bg-[#2f50dc]"
+                  : "cursor-not-allowed bg-[#edf1f6] text-[#a8b0bd]",
+              )}
+            >
+              {confirmLabel}
+            </button>
+          </DisabledTooltip>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 min-w-[88px] rounded-[8px] bg-[rgba(102,139,204,0.1)] px-4 text-[14px] text-[#282c33]"
+          >
+            取消
+          </button>
+        </div>
+
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            const files = Array.from(event.target.files || []);
+            if (getUnsupportedFileCount(files)) {
+              onNotify?.({
+                type: "warning",
+                title: "部分文件未添加",
+                description: "图片库只支持上传图片文件。",
+              });
+            }
+            const nextItems = onUpload?.(event.target.files) || [];
+            if (nextItems.length) {
+              setActiveTab("mine");
+              setDraftSelectedId(nextItems[0].id);
+              onNotify?.({
+                type: "success",
+                title: "图片已上传",
+                description: `已添加 ${nextItems.length} 张图片，可在右侧确认。`,
+              });
+            } else if (files.length) {
+              onNotify?.({
+                type: "warning",
+                title: "没有可用图片",
+                description: "请上传 JPG、PNG、WebP 等图片文件。",
+              });
+            }
+            event.target.value = "";
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function VideoSegmentLibraryModal({
+  open,
+  targetName = "当前分镜",
+  usage = "storyboard",
+  targetDurationSeconds = 6,
+  durationHintLabel = "分镜时长",
+  durationHintDescription = "选择视频后会按这个时长截取片段。",
+  showDurationHint = false,
+  videos = [],
+  initialVideo = null,
+  initialClipStartSeconds = 0,
+  startInClipStage = false,
+  onClose,
+  onConfirm,
+  onNotify,
+}) {
+  const [activeTab, setActiveTab] = useState("public");
+  const [keyword, setKeyword] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [localVideos, setLocalVideos] = useState([]);
+  const [hoveredVideoId, setHoveredVideoId] = useState(null);
+  const [clipStartSeconds, setClipStartSeconds] = useState(0);
+  const [clipDraftEndSeconds, setClipDraftEndSeconds] = useState(null);
+  const [clipStageOpen, setClipStageOpen] = useState(false);
+  const uploadInputRef = useRef(null);
+  const timelineTrackRef = useRef(null);
+
+  const allVideos = useMemo(() => {
+    const merged = [...localVideos, ...videos];
+    if (!initialVideo?.id || merged.some((item) => item.id === initialVideo.id)) return merged;
+    return [initialVideo, ...merged];
+  }, [initialVideo, localVideos, videos]);
+  const selectedVideo = allVideos.find((item) => item.id === selectedId) || null;
+  const tabVideos = allVideos.filter((item) => {
+    if (activeTab === "mine") return item.origin === "我的视频";
+    if (activeTab === "public") return item.origin === "公共原料库";
+    return item.origin === "原料库" || item.origin === "公共原料库";
+  });
+  const filteredVideos = tabVideos.filter((item) => {
+    const searchText = `${item.name || ""} ${item.size || ""} ${item.type || ""}`.toLowerCase();
+    return keyword.trim() ? searchText.includes(keyword.trim().toLowerCase()) : true;
+  });
+  const selectedDurationSeconds = parseDurationLabelToSeconds(selectedVideo?.sourceDuration || selectedVideo?.duration);
+  const effectiveTargetDurationSeconds = Math.max(1, Math.round(Number(targetDurationSeconds) || 6));
+  const shouldUseSegmentDuration = usage !== "reference";
+  const shouldShowDurationHint = shouldUseSegmentDuration && Boolean(showDurationHint);
+  const hasKnownSelectedDuration = Number.isFinite(selectedDurationSeconds) && selectedDurationSeconds > 0;
+  const sourceDurationSecondsForClip = hasKnownSelectedDuration
+    ? selectedDurationSeconds
+    : effectiveTargetDurationSeconds;
+  const defaultClipDurationSeconds = shouldUseSegmentDuration
+    ? Math.min(effectiveTargetDurationSeconds, sourceDurationSecondsForClip)
+    : effectiveTargetDurationSeconds;
+  const minClipDurationSeconds = Math.min(1, sourceDurationSecondsForClip);
+  const rawClipEndSeconds = Number.isFinite(Number(clipDraftEndSeconds))
+    ? Number(clipDraftEndSeconds)
+    : Number(clipStartSeconds || 0) + defaultClipDurationSeconds;
+  const safeClipStartSeconds = clampNumber(
+    Math.round(Number(clipStartSeconds) || 0),
+    0,
+    Math.max(0, sourceDurationSecondsForClip - minClipDurationSeconds),
+  );
+  const safeClipEndSeconds = clampNumber(
+    Math.round(rawClipEndSeconds),
+    Math.min(sourceDurationSecondsForClip, safeClipStartSeconds + minClipDurationSeconds),
+    sourceDurationSecondsForClip,
+  );
+  const clipDurationSeconds = Math.max(minClipDurationSeconds, safeClipEndSeconds - safeClipStartSeconds);
+  const canMoveClipWindow =
+    shouldUseSegmentDuration && sourceDurationSecondsForClip > clipDurationSeconds + 0.5;
+  const clipEndSeconds = safeClipEndSeconds;
+  const clipWindowPercent =
+    shouldUseSegmentDuration && sourceDurationSecondsForClip > 0
+      ? Math.min(100, Math.max(8, (clipDurationSeconds / sourceDurationSecondsForClip) * 100))
+      : 100;
+  const rawClipLeftPercent =
+    shouldUseSegmentDuration && sourceDurationSecondsForClip > 0
+      ? (safeClipStartSeconds / sourceDurationSecondsForClip) * 100
+      : 0;
+  const clipLeftPercent = Math.max(0, Math.min(100 - clipWindowPercent, rawClipLeftPercent));
+  const timelineFrameCount = 12;
+
+  useEffect(() => {
+    if (!open) {
+      setActiveTab("public");
+      setKeyword("");
+      setSelectedId(null);
+      setLocalVideos([]);
+      setHoveredVideoId(null);
+      setClipStartSeconds(0);
+      setClipDraftEndSeconds(null);
+      setClipStageOpen(false);
+      return;
+    }
+    setSelectedId(initialVideo?.id || null);
+    setHoveredVideoId(null);
+    const nextStart = Math.max(0, Math.round(Number(initialClipStartSeconds) || 0));
+    setClipStartSeconds(nextStart);
+    setClipDraftEndSeconds(null);
+    setClipStageOpen(Boolean(startInClipStage && initialVideo?.id));
+  }, [initialClipStartSeconds, initialVideo?.id, open, startInClipStage]);
+
+  useEffect(() => {
+    if (!open || !shouldUseSegmentDuration) return;
+
+    const nextStart = selectedId === initialVideo?.id
+      ? Math.max(0, Math.round(Number(initialClipStartSeconds) || 0))
+      : 0;
+    const nextDuration = Math.min(effectiveTargetDurationSeconds, sourceDurationSecondsForClip);
+    setClipStartSeconds(nextStart);
+    setClipDraftEndSeconds(Math.min(sourceDurationSecondsForClip, nextStart + nextDuration));
+  }, [
+    effectiveTargetDurationSeconds,
+    initialClipStartSeconds,
+    initialVideo?.id,
+    open,
+    selectedId,
+    shouldUseSegmentDuration,
+    sourceDurationSecondsForClip,
+  ]);
+
+  if (!open) return null;
+  const getVideoPlaybackSrc = (item) => (item?.rawName ? item.preview : demoVideoUrl);
+  const confirmSelectedVideo = () => {
+    if (!selectedVideo || selectedVideo.duration === "读取中") return;
+
+    if (!shouldUseSegmentDuration) {
+      onConfirm?.(selectedVideo);
+      return;
+    }
+
+    if (!clipStageOpen) {
+      setClipStageOpen(true);
+      return;
+    }
+
+    onConfirm?.({
+      ...selectedVideo,
+      sourceDuration: selectedVideo.sourceDuration || selectedVideo.duration,
+      clipStartSeconds: safeClipStartSeconds,
+      clipDurationSeconds,
+      clipEndSeconds,
+      duration: formatPreviewClock(clipDurationSeconds),
+    });
+  };
+
+  const getClipTimelineSeconds = (clientX) => {
+    const rect = timelineTrackRef.current?.getBoundingClientRect();
+    if (!rect?.width) return safeClipStartSeconds;
+    const progress = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+    return progress * sourceDurationSecondsForClip;
+  };
+
+  const commitClipRange = (nextStart, nextEnd) => {
+    const roundedStart = Math.round(nextStart);
+    const roundedEnd = Math.round(nextEnd);
+    const maxStart = Math.max(0, sourceDurationSecondsForClip - minClipDurationSeconds);
+    const safeStart = clampNumber(roundedStart, 0, maxStart);
+    const safeEnd = clampNumber(
+      roundedEnd,
+      Math.min(sourceDurationSecondsForClip, safeStart + minClipDurationSeconds),
+      sourceDurationSecondsForClip,
+    );
+    setClipStartSeconds(safeStart);
+    setClipDraftEndSeconds(safeEnd);
+  };
+
+  const beginClipRangeDrag = (event, mode) => {
+    if (!shouldUseSegmentDuration || sourceDurationSecondsForClip <= minClipDurationSeconds) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const pointerSecond = getClipTimelineSeconds(event.clientX);
+    const startAtDrag = safeClipStartSeconds;
+    const endAtDrag = safeClipEndSeconds;
+    const durationAtDrag = Math.max(minClipDurationSeconds, endAtDrag - startAtDrag);
+    const pointerOffsetSeconds = pointerSecond - startAtDrag;
+
+    const handlePointerMove = (moveEvent) => {
+      const nextPointerSecond = getClipTimelineSeconds(moveEvent.clientX);
+      let nextStart = startAtDrag;
+      let nextEnd = endAtDrag;
+
+      if (mode === "left") {
+        nextStart = clampNumber(nextPointerSecond, 0, endAtDrag - minClipDurationSeconds);
+      } else if (mode === "right") {
+        nextEnd = clampNumber(nextPointerSecond, startAtDrag + minClipDurationSeconds, sourceDurationSecondsForClip);
+      } else {
+        nextStart = clampNumber(
+          nextPointerSecond - pointerOffsetSeconds,
+          0,
+          Math.max(0, sourceDurationSecondsForClip - durationAtDrag),
+        );
+        nextEnd = nextStart + durationAtDrag;
+      }
+
+      commitClipRange(nextStart, nextEnd);
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleLocalUpload = (event) => {
+    const files = Array.from(event.target.files || []);
+    const file = files.find((item) => item.type.startsWith("video/"));
+    if (!file) {
+      if (files.length) {
+        onNotify?.({
+          type: "warning",
+          title: "没有可用视频",
+          description: "视频库只支持上传视频文件。",
+        });
+      }
+      event.target.value = "";
+      return;
+    }
+    const uploadedVideoId = `local-storyboard-video-${Date.now()}`;
+    const previewUrl = URL.createObjectURL(file);
+    const uploadedVideo = {
+      id: uploadedVideoId,
+      name: file.name.replace(/\.[^.]+$/u, "") || "本地上传片段",
+      duration: "读取中",
+      size: "本地上传",
+      type: "我的视频",
+      origin: "我的视频",
+      rawName: file.name,
+      preview: previewUrl,
+    };
+    setLocalVideos((prev) => [uploadedVideo, ...prev]);
+    setActiveTab("mine");
+    setSelectedId(uploadedVideo.id);
+    const metadataVideo = document.createElement("video");
+    metadataVideo.preload = "metadata";
+    metadataVideo.src = previewUrl;
+    metadataVideo.onloadedmetadata = () => {
+      const duration = metadataVideo.duration;
+      if (!Number.isFinite(duration) || duration <= 0) return;
+      setLocalVideos((prev) =>
+        prev.map((item) =>
+          item.id === uploadedVideoId ? { ...item, duration: formatPreviewClock(duration) } : item,
+        ),
+      );
+    };
+    metadataVideo.onerror = () => {
+      setLocalVideos((prev) =>
+        prev.map((item) =>
+          item.id === uploadedVideoId ? { ...item, duration: "自有片段" } : item,
+        ),
+      );
+    };
+    onNotify?.({
+      type: "success",
+      title: "视频已上传",
+      description: "已添加到我的视频，并自动选中。",
+    });
+    event.target.value = "";
+  };
+
+  const clipStageBody =
+    clipStageOpen && selectedVideo && shouldUseSegmentDuration ? (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,28,45,0.24)] p-3 backdrop-blur-[10px] sm:p-6">
+        <div className="flex h-[min(820px,calc(100vh-32px))] w-[min(1180px,calc(100vw-32px))] flex-col overflow-hidden rounded-[28px] border border-white/86 bg-white p-5 text-[#202634] shadow-[0_28px_80px_rgba(78,96,132,0.22)] sm:p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <div className="text-[24px] font-bold leading-8 text-[#191b1e]">选择片段</div>
+              <div className="mt-1 text-[13px] font-medium text-[#8a93a6]">
+                {targetName} · 当前 {formatPreviewClock(safeClipStartSeconds)}-
+                {formatPreviewClock(clipEndSeconds)} · {formatPreviewClock(clipDurationSeconds)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-[12px] text-[#44516b] transition-colors hover:bg-[#f3f6fb]"
+              aria-label="关闭选择片段"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1">
+            <div className="rounded-[22px] border border-[#edf1f6] bg-[#f6f8fe] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+              <div className="relative mx-auto aspect-video h-[min(470px,calc(100vh-360px))] min-h-[280px] overflow-hidden rounded-[18px] bg-[#111827]">
+                <video
+                  key={`${selectedVideo.id}-${safeClipStartSeconds}-${safeClipEndSeconds}`}
+                  src={getVideoPlaybackSrc(selectedVideo)}
+                  poster={selectedVideo.rawName ? undefined : selectedVideo.preview}
+                  muted
+                  autoPlay
+                  loop
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(10,16,28,0)_0%,rgba(10,16,28,0.62)_100%)]" />
+                <div className="absolute bottom-8 left-8 flex items-center gap-4 text-[16px] font-semibold text-white">
+                  <Play className="h-5 w-5 fill-white text-white" />
+                  <span>
+                    {formatPreviewClock(safeClipStartSeconds)} / {formatPreviewClock(clipEndSeconds)}
+                  </span>
+                </div>
+                <div className="absolute bottom-8 right-8 flex items-center gap-5 text-white/92">
+                  <Volume2 className="h-6 w-6" />
+                  <Maximize2 className="h-6 w-6" />
+                </div>
+                <div className="absolute bottom-5 left-8 right-8 h-1 overflow-hidden rounded-full bg-white/18">
+                  <div
+                    className="h-full rounded-full bg-white"
+                    style={{ width: `${Math.max(6, (clipDurationSeconds / sourceDurationSecondsForClip) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mx-auto mt-6 max-w-[1060px]">
+              <div
+                ref={timelineTrackRef}
+                className="relative h-[88px] overflow-hidden rounded-[14px] border border-[#dfe6f2] bg-[#edf2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
+              >
+                <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineFrameCount}, 1fr)` }}>
+                  {Array.from({ length: timelineFrameCount }).map((_, frameIndex) => (
+                    <div key={frameIndex} className="relative overflow-hidden border-r border-white/45 last:border-r-0">
+                      <img
+                        src={selectedVideo.preview}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{
+                          filter: frameIndex % 3 === 0 ? "brightness(0.86)" : frameIndex % 3 === 1 ? "brightness(1.02)" : "brightness(0.78)",
+                          transform: `scale(1.08) translateX(${(frameIndex % 4) * -2}px)`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div
+                  className="absolute inset-y-0 bg-[#1f2937]/36"
+                  style={{ left: 0, width: `${clipLeftPercent}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 bg-[#1f2937]/36"
+                  style={{ left: `${clipLeftPercent + clipWindowPercent}%`, right: 0 }}
+                />
+                <button
+                  type="button"
+                  onPointerDown={(event) => beginClipRangeDrag(event, "move")}
+                  className="absolute inset-y-0 cursor-grab rounded-[12px] border-[5px] border-[#7b5cff] bg-white/10 text-left shadow-[0_0_0_1px_rgba(255,255,255,0.56),0_12px_28px_rgba(123,92,255,0.22)] active:cursor-grabbing"
+                  style={{ left: `${clipLeftPercent}%`, width: `${clipWindowPercent}%` }}
+                  aria-label="拖动选择视频片段范围"
+                >
+                  <span
+                    role="presentation"
+                    onPointerDown={(event) => beginClipRangeDrag(event, "left")}
+                    className="absolute left-[-7px] top-1/2 flex h-14 w-[14px] -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full bg-[#7b5cff] shadow-[0_8px_18px_rgba(123,92,255,0.24)]"
+                  >
+                    <span className="h-8 w-[3px] rounded-full bg-white/86" />
+                  </span>
+                  <span
+                    role="presentation"
+                    onPointerDown={(event) => beginClipRangeDrag(event, "right")}
+                    className="absolute right-[-7px] top-1/2 flex h-14 w-[14px] -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full bg-[#7b5cff] shadow-[0_8px_18px_rgba(123,92,255,0.24)]"
+                  >
+                    <span className="h-8 w-[3px] rounded-full bg-white/86" />
+                  </span>
+                  <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-[8px] bg-[#202634]/88 px-2.5 py-1 text-[13px] font-semibold text-white shadow-[0_8px_18px_rgba(32,38,52,0.18)]">
+                    {formatPreviewClock(clipDurationSeconds)}
+                  </span>
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-[13px] font-medium text-[#8a93a6]">
+                <span>
+                  拖动选择窗移动范围，拖动两侧手柄调整截取时长。
+                </span>
+                <span className="shrink-0 text-[#6d7585]">
+                  原视频 {selectedVideo.duration} · 当前 {formatPreviewClock(safeClipStartSeconds)}-
+                  {formatPreviewClock(clipEndSeconds)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#edf1f6] pt-4">
+            <button
+              type="button"
+              onClick={() => setClipStageOpen(false)}
+              className="h-11 min-w-[96px] rounded-[12px] bg-[#f3f6fb] px-5 text-[15px] font-semibold text-[#44516b] transition-colors hover:bg-[#edf2fa]"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={confirmSelectedVideo}
+              className="h-11 min-w-[104px] rounded-[12px] bg-[linear-gradient(135deg,#7b5cff_0%,#5f7dff_100%)] px-6 text-[15px] font-bold text-white shadow-[0_12px_24px_rgba(123,92,255,0.20)] transition-all hover:-translate-y-0.5"
+            >
+              确认
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const body = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
+      <div className="flex h-[min(900px,calc(100vh-24px))] w-[min(920px,calc(100vw-24px))] flex-col overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_1px_8px_rgba(0,0,0,0.05),0_7px_14px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.08)] sm:rounded-[24px]">
+        <div className="flex items-center justify-between border-b border-[#edf1f6] px-4 py-4 sm:px-6 sm:py-[18px]">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <div className="text-[20px] font-bold text-[#191b1e]">视频库</div>
+            {shouldShowDurationHint ? (
+              <div className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#ddd2ff] bg-[#f7f4ff] px-3 text-[12px] font-semibold text-[#6d4cff]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#7b5cff]" />
+                {durationHintLabel} {formatPreviewClock(effectiveTargetDurationSeconds)}
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] text-[#191b1e] transition-all hover:bg-[#f2f5fb]"
+            aria-label="关闭视频库"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 bg-[#f5f8fe] p-3 sm:p-4">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] bg-white px-3 pt-3 sm:px-4 sm:pt-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden min-[820px]:flex-row">
+              <div className="min-w-0 min-[820px]:flex-[0_0_58%] min-[820px]:pr-2">
+                <div className="flex h-8 items-end gap-6 border-b border-[#ebedf5]">
+                  {[
+                    { id: "raw", label: "原料库" },
+                    { id: "public", label: "公共原料库" },
+                    { id: "mine", label: "我的视频" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cn(
+                        "h-8 border-b-2 text-[14px] transition-all",
+                        activeTab === tab.id
+                          ? "border-[#0054e6] font-medium text-[#0054e6]"
+                          : "border-transparent text-[#191b1e] hover:text-[#0054e6]",
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="flex h-9 items-center gap-2 rounded-[4px] bg-[rgba(110,160,247,0.07)] px-3">
+                    <input
+                      value={keyword}
+                      onChange={(event) => setKeyword(event.target.value)}
+                      placeholder="搜索"
+                      className="min-w-0 flex-1 bg-transparent text-[14px] text-[#191b1e] outline-none placeholder:text-[#848b99]"
+                    />
+                    <Search className="h-4 w-4 text-[#505a6b]" />
+                  </div>
+                  {["全部尺寸", "全部类型", "全部时长"].map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className="flex h-9 items-center justify-between rounded-[4px] bg-[rgba(110,160,247,0.07)] px-3 text-[14px] text-[#191b1e]"
+                    >
+                      <span>{label}</span>
+                      <ChevronDown className="h-4 w-4 text-[#505a6b]" />
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 h-[260px] overflow-y-auto pr-1 scrollbar-hide min-[820px]:h-[calc(100%-84px)]">
+                  {filteredVideos.length ? (
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-5">
+                      {filteredVideos.map((item) => {
+                        const selected = item.id === selectedId;
+                        const hovering = item.id === hoveredVideoId;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedId(item.id);
+                              setClipStageOpen(false);
+                            }}
+                            onMouseEnter={() => setHoveredVideoId(item.id)}
+                            onMouseLeave={() => setHoveredVideoId((prev) => (prev === item.id ? null : prev))}
+                            onFocus={() => setHoveredVideoId(item.id)}
+                            onBlur={() => setHoveredVideoId((prev) => (prev === item.id ? null : prev))}
+                            className="group text-left"
+                          >
+                            <div
+                              className={cn(
+                                "relative overflow-hidden rounded-[6px] bg-[rgba(110,160,247,0.07)] transition-all",
+                                selected
+                                  ? "ring-2 ring-[#3a5bfd] ring-offset-2 ring-offset-white"
+                                  : "group-hover:ring-2 group-hover:ring-[#d3d9e6] group-hover:ring-offset-2 group-hover:ring-offset-white",
+                              )}
+                            >
+                              <div className="aspect-square">
+                                {hovering ? (
+                                  <video
+                                    src={getVideoPlaybackSrc(item)}
+                                    poster={item.rawName ? undefined : item.preview}
+                                    muted
+                                    autoPlay
+                                    loop
+                                    playsInline
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <img src={item.preview} alt={item.name} className="h-full w-full object-cover" />
+                                )}
+                              </div>
+                              <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-[6px] bg-black/50 px-2 py-1 text-[12px] leading-4 text-white">
+                                <Film className="h-3.5 w-3.5" />
+                                {item.duration}
+                              </div>
+                              {!hovering ? (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-[#282c33] shadow-[0_8px_16px_rgba(10,16,28,0.18)]">
+                                    <Play className="h-3.5 w-3.5 fill-[#282c33]" />
+                                  </div>
+                                </div>
+                              ) : null}
+                              {selected ? (
+                                <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#3a5bfd] text-white">
+                                  <Check className="h-4 w-4" />
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 truncate text-[14px] font-medium leading-5 text-[#191b1e]">{item.name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex h-full min-h-[420px] flex-col items-center justify-center rounded-[12px] border border-dashed border-[#d3d9e6] bg-[#fbfcff] text-center">
+                      <Film className="h-10 w-10 text-[#b4bdcc]" />
+                      <div className="mt-3 text-[14px] font-medium text-[#282c33]">暂无匹配视频</div>
+                      <div className="mt-1 text-[12px] text-[#848b99]">换个关键词，或上传一个本地片段。</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-[#ebedf5] min-[820px]:h-auto min-[820px]:w-px min-[820px]:self-stretch" />
+
+              <div className="min-h-0 min-w-0 flex-[1_0_0] min-[820px]:pl-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[14px] font-medium text-[#191b1e]">已选视频（{selectedVideo ? 1 : 0}/1）</div>
+                  <button
+                    type="button"
+                    onClick={() => uploadInputRef.current?.click()}
+                    className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[rgba(102,139,204,0.1)] px-3 text-[13px] font-medium text-[#282c33] transition-all hover:bg-[rgba(102,139,204,0.16)]"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                    上传视频
+                  </button>
+                </div>
+                {shouldShowDurationHint ? (
+                  <div className="mt-3 rounded-[10px] border border-[#e3d8ff] bg-[#fbf8ff] px-3 py-2 text-[12px] font-medium leading-5 text-[#6d4cff]">
+                    已按脚本测算为 <span className="font-bold">{formatPreviewClock(effectiveTargetDurationSeconds)}</span>，{durationHintDescription}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 flex min-h-[200px] flex-col min-[820px]:mt-6 min-[820px]:h-[calc(100%-60px)]">
+                  {selectedVideo ? (
+                    <div className="rounded-[12px] border border-[#d3d9e6] bg-[#fbfcff] p-3">
+                      <div className="overflow-hidden rounded-[8px] bg-[#eef3fb]">
+                        <div className="aspect-video">
+                          <video
+                            src={getVideoPlaybackSrc(selectedVideo)}
+                            poster={selectedVideo.rawName ? undefined : selectedVideo.preview}
+                            muted
+                            autoPlay
+                            loop
+                            playsInline
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3 truncate text-[15px] font-semibold text-[#191b1e]">{selectedVideo.name}</div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-[12px] text-[#848b99]">
+                        <span>{selectedVideo.duration}</span>
+                        <span>{selectedVideo.size}</span>
+                        <span>{selectedVideo.origin}</span>
+                      </div>
+                      {shouldUseSegmentDuration ? (
+                        <div className="mt-4 rounded-[10px] border border-[#e3e9f2] bg-white p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-[13px] font-semibold text-[#282c33]">{durationHintLabel}</div>
+                            <div className="rounded-full bg-[#f4f0ff] px-2.5 py-1 text-[12px] font-semibold text-[#6d4cff]">
+                              {formatPreviewClock(effectiveTargetDurationSeconds)}
+                            </div>
+                          </div>
+                          <div className="mt-3 rounded-[9px] bg-[#f7f4ff] px-3 py-2 text-[12px] leading-5 text-[#6d4cff]">
+                            下一步选择用于这个分镜的视频片段。
+                          </div>
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(null)}
+                        className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-[6px] bg-[rgba(102,139,204,0.1)] px-3 text-[13px] text-[#282c33]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        清空选择
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 flex-col items-center justify-center text-center">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-[18px] bg-[#eef2fa] text-[#3a5bfd] shadow-[inset_0_0_0_1px_rgba(58,91,253,0.06)]">
+                        <Film className="h-9 w-9" />
+                      </div>
+                      <div className="mt-5 text-[14px] font-medium text-[#282c33]">请从左侧选择视频</div>
+                      <div className="mt-2 max-w-[220px] text-[12px] leading-5 text-[#848b99]">悬停左侧视频可快速预览。</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#edf1f6] px-2 py-4">
+              <DisabledTooltip
+                disabled={!selectedVideo || selectedVideo.duration === "读取中"}
+                reason={selectedVideo?.duration === "读取中" ? "视频读取中，稍等一下" : "先选择一个视频"}
+                side="top"
+                align="start"
+                wrapperClassName="inline-flex"
+              >
+                <button
+                  type="button"
+                  onClick={confirmSelectedVideo}
+                  disabled={!selectedVideo || selectedVideo.duration === "读取中"}
+                  className={cn(
+                    "h-9 rounded-[6px] px-6 text-[14px] transition-all",
+                    selectedVideo && selectedVideo.duration !== "读取中"
+                      ? "bg-[#3a5bfd] text-white"
+                      : "cursor-not-allowed bg-[#edf1f6] text-[#a8b0bd]",
+                  )}
+                >
+                  {selectedVideo?.duration === "读取中"
+                    ? "读取中"
+                    : shouldUseSegmentDuration
+                      ? "下一步：选择片段"
+                      : "确定"}
+                </button>
+              </DisabledTooltip>
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 rounded-[6px] bg-[rgba(102,139,204,0.1)] px-6 text-[14px] text-[#282c33]"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <input ref={uploadInputRef} type="file" accept="video/*" className="hidden" onChange={handleLocalUpload} />
+      </div>
+    </div>
+  );
+
+  return createPortal(clipStageBody || body, document.body);
+}
+
+function DeepModeView({
+  job,
+  onExit,
+  onSendMessage,
+  onProgressChange,
+  onStateChange,
+  onStepFlowAction,
+  onExportVideo,
+  onNotify,
+}) {
+  const initialAgentState = buildAgentState(job.agentForm, job.agentState);
+  const cloneStep1BusinessInfo = (info) => ({ ...(info || {}) });
+  const [draft, setDraft] = useState("");
+  const [currentStep, setCurrentStep] = useState(clampDeepStep(job.agentProgress?.currentStep || 1));
+  const [maxStepReached, setMaxStepReached] = useState(clampDeepStep(job.agentProgress?.maxStepReached || 1));
+  const [businessInfo, setBusinessInfo] = useState(initialAgentState.businessInfo);
+  const [step1TouchedFields, setStep1TouchedFields] = useState({});
+  const [step1ValidationTriggered, setStep1ValidationTriggered] = useState(false);
+  const [theme, setTheme] = useState(initialAgentState.theme);
+  const [characters, setCharacters] = useState(initialAgentState.characters);
+  const [syncedOutlineCharacters, setSyncedOutlineCharacters] = useState(initialAgentState.characters);
+  const [outlines, setOutlines] = useState(initialAgentState.outlines);
+  const [regenerateTarget, setRegenerateTarget] = useState(null);
+  const [rewriteTarget, setRewriteTarget] = useState(null);
+  const [planComposerTarget, setPlanComposerTarget] = useState(null);
+  const [libraryTarget, setLibraryTarget] = useState(null);
+  const [addCharacterMenuOpen, setAddCharacterMenuOpen] = useState(false);
+  const [voiceBindingTargetIndex, setVoiceBindingTargetIndex] = useState(null);
+  const [activeStoryboard, setActiveStoryboard] = useState(0);
+  const [storyboardDraft, setStoryboardDraft] = useState(() =>
+    createStoryboardDraft(initialAgentState.outlines[0]),
+  );
+  const [globalStoryboardSettings, setGlobalStoryboardSettings] = useState({
+    dialogue: true,
+    subtitles: initialAgentState.finalSettings.subtitleSettings.enabled,
+    bgm: initialAgentState.finalSettings.selectedMusicId !== "none",
+  });
+  const [musicModalOpen, setMusicModalOpen] = useState(false);
+  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const [favoriteMusicOnly, setFavoriteMusicOnly] = useState(
+    initialAgentState.finalSettings.favoriteMusicOnly,
+  );
+  const [selectedMusicId, setSelectedMusicId] = useState(initialAgentState.finalSettings.selectedMusicId);
+  const [musicVolume, setMusicVolume] = useState(initialAgentState.finalSettings.musicVolume);
+  const [subtitleSettings, setSubtitleSettings] = useState(initialAgentState.finalSettings.subtitleSettings);
+  const [videoSettings, setVideoSettings] = useState(initialAgentState.finalSettings.videoSettings);
+  const [activeFinalCombinationIndex, setActiveFinalCombinationIndex] = useState(0);
+  const [deepComposerAttachments, setDeepComposerAttachments] = useState(() => ({
+    uploads: [...(initialAgentState.deepComposerAttachments?.uploads || [])],
+    landingPage: null,
+    voiceScript: null,
+  }));
+  const inputRef = useRef(null);
+  const descTextareaRef = useRef(null);
+  const subtitleTextareaRef = useRef(null);
+  const descMentionAnchorRef = useRef(null);
+  const chatMentionAnchorRef = useRef(null);
+  const deepAttachmentScrollerRef = useRef(null);
+  const deepUploadTriggerRef = useRef(null);
+  const deepUploadInputRef = useRef(null);
+  const deepSubmitButtonRef = useRef(null);
+  const storyboardMediaAddTriggerRef = useRef(null);
+  const storyboardScriptMaterialTriggerRef = useRef(null);
+  const storyboardSlotAddTriggerRefs = useRef({});
+  const storyboardInsertTriggerRefs = useRef({});
+  const addCharacterTriggerRef = useRef(null);
+  const previewVideoRef = useRef(null);
+  const previewCanvasRef = useRef(null);
+  const pipDragStateRef = useRef(null);
+  const storyboardDraftOverrideRef = useRef(null);
+  const conversationEndRef = useRef(null);
+  const conversationScrollRef = useRef(null);
+  const workspaceScrollRef = useRef(null);
+  const rightFocusCueTimerRef = useRef(null);
+  const storyboardGenerationTimerRef = useRef(null);
+  const storyboardLibraryScriptTimerRef = useRef(null);
+  const composerGenerationTimerRef = useRef(null);
+  const [recentCharacterChange, setRecentCharacterChange] = useState(null);
+  const [recentOutlineChange, setRecentOutlineChange] = useState(null);
+  const [outlineSyncState, setOutlineSyncState] = useState(null);
+  const [downstreamStatus, setDownstreamStatus] = useState(null);
+  const [mentionState, setMentionState] = useState(null);
+  const [collapsedAnalysisCards, setCollapsedAnalysisCards] = useState({});
+  const [generationTraceExpanded, setGenerationTraceExpanded] = useState(false);
+  const [storyboardGenerationState, setStoryboardGenerationState] = useState(null);
+  const [composerGenerationState, setComposerGenerationState] = useState(null);
+  const [deletedStoryboardSlots, setDeletedStoryboardSlots] = useState([]);
+  const [hiddenEmptyStoryboardSlots, setHiddenEmptyStoryboardSlots] = useState([]);
+  const [storyboardAddTarget, setStoryboardAddTarget] = useState(null);
+  const [videoLibraryTarget, setVideoLibraryTarget] = useState(null);
+  const [imageLibraryTarget, setImageLibraryTarget] = useState(null);
+  const [storyboardLibraryScriptDraft, setStoryboardLibraryScriptDraft] = useState("");
+  const [storyboardLibraryScriptMeasureState, setStoryboardLibraryScriptMeasureState] = useState(null);
+  const [storyboardSubmittedScriptState, setStoryboardSubmittedScriptState] = useState(null);
+  const [storyboardMediaAddMenuOpen, setStoryboardMediaAddMenuOpen] = useState(false);
+  const [storyboardScriptMaterialMenuOpen, setStoryboardScriptMaterialMenuOpen] = useState(false);
+  const [storyboardMaterialValidationCue, setStoryboardMaterialValidationCue] = useState(null);
+  const [storyboardSlotAddMenuTarget, setStoryboardSlotAddMenuTarget] = useState(null);
+  const [storyboardInsertMenuTarget, setStoryboardInsertMenuTarget] = useState(null);
+  const [previewVideoFailed, setPreviewVideoFailed] = useState(false);
+  const [isPipDragging, setIsPipDragging] = useState(false);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [previewPlayback, setPreviewPlayback] = useState({
+    isPlaying: false,
+    mode: "sequence",
+    shotIndex: null,
+  });
+  const [stepGenerationState, setStepGenerationState] = useState(null);
+  const [stepGenerationFailure, setStepGenerationFailure] = useState(null);
+  const [historyVersionPreview, setHistoryVersionPreview] = useState(null);
+  const [rightFocusCue, setRightFocusCue] = useState(null);
+  const [isDeepComposerExpanded, setIsDeepComposerExpanded] = useState(false);
+  const [deepUploadMenuOpen, setDeepUploadMenuOpen] = useState(false);
+  const [deepUploadAccept, setDeepUploadAccept] = useState("image/*,video/*");
+  const [isDeepUploadDragging, setIsDeepUploadDragging] = useState(false);
+  const [deleteRoleDialog, setDeleteRoleDialog] = useState(null);
+  const [deleteStoryboardDialog, setDeleteStoryboardDialog] = useState(null);
+  const [deleteStoryboardMediaDialog, setDeleteStoryboardMediaDialog] = useState(null);
+  const [deleteBrandLogoDialog, setDeleteBrandLogoDialog] = useState(null);
+  const [saveStep1ExitDialogOpen, setSaveStep1ExitDialogOpen] = useState(false);
+  const [overwriteConfirmDialog, setOverwriteConfirmDialog] = useState(null);
+  const [deepAttachmentScrollState, setDeepAttachmentScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
+  const [composerImportCue, setComposerImportCue] = useState(null);
+  const [isComposerImportHighlight, setIsComposerImportHighlight] = useState(false);
+  const [rightUpdateCue, setRightUpdateCue] = useState(null);
+  const [rightUpdateHighlight, setRightUpdateHighlight] = useState(null);
+  const [deepChatRailWidth, setDeepChatRailWidth] = useState(
+    () => getDeepModeSplitBounds(getDeepModeInitialShellWidth()).preferred,
+  );
+  const [storyboardSettingsPanelWidth, setStoryboardSettingsPanelWidth] = useState(
+    () => getStoryboardSplitBounds().preferred,
+  );
+  const [deepSplitHoverSource, setDeepSplitHoverSource] = useState(null);
+  const [isDeepSplitDragging, setIsDeepSplitDragging] = useState(false);
+  const [storyboardSplitHoverSource, setStoryboardSplitHoverSource] = useState(null);
+  const [isStoryboardSplitDragging, setIsStoryboardSplitDragging] = useState(false);
+  const generationTimersRef = useRef([]);
+  const overwriteConfirmActionRef = useRef(null);
+  const step23FailureDemoShownRef = useRef(false);
+  const composerImportCueTimerRef = useRef(null);
+  const composerImportHighlightTimerRef = useRef(null);
+  const rightUpdateCueTimerRef = useRef(null);
+  const rightUpdateHighlightTimerRef = useRef(null);
+  const rightUpdateTargetRefs = useRef({ characterCards: [], outlineCards: [] });
+  const deepModeShellRef = useRef(null);
+  const deepSplitDragRef = useRef(null);
+  const deepChatRailUserAdjustedRef = useRef(false);
+  const storyboardSplitGridRef = useRef(null);
+  const storyboardSplitDragRef = useRef(null);
+  const storyboardSplitUserAdjustedRef = useRef(false);
+  const skipStoryboardDraftSyncRef = useRef(false);
+  const showChatComposer = true;
+  const businessInfoFeedbackRef = useRef(initialAgentState.businessInfo);
+  const step1ExitBaselineRef = useRef(cloneStep1BusinessInfo(initialAgentState.businessInfo));
+  const themeFeedbackRef = useRef(initialAgentState.theme);
+  const editSessionSnapshotRef = useRef({ key: null, step: null, snapshot: null });
+  const manualEditStartRef = useRef({});
+
+  const steps = deepModeSteps;
+  const stepTitleMap = useMemo(
+    () => steps.reduce((acc, step) => ({ ...acc, [step.no]: step.title }), {}),
+    [steps],
+  );
+  const selectedMusic = musicTracks.find((item) => item.id === selectedMusicId);
+  const voiceoverCharacterIndex = getSceneVoiceoverCharacterIndex(characters);
+  const voiceoverCharacter = getSceneVoiceoverCharacter(characters);
+  const step2CharacterRuleError = getCharacterVoiceRuleError(characters);
+  const isCharacterLimitReached = characters.length >= MAX_SCENE_CHARACTER_COUNT;
+  const outlineCharacterOptions = outlineSyncState ? syncedOutlineCharacters : characters;
+  const voiceBindingCharacter =
+    voiceBindingTargetIndex !== null ? characters[voiceBindingTargetIndex] || null : null;
+  const isInitialStep1ExitContext = currentStep === 1 && maxStepReached === 1;
+  const hasStep1ExitChanges = useMemo(
+    () =>
+      isInitialStep1ExitContext &&
+      JSON.stringify(businessInfo || {}) !== JSON.stringify(step1ExitBaselineRef.current || {}),
+    [businessInfo, isInitialStep1ExitContext],
+  );
+  const deepUploadAssets = deepComposerAttachments?.uploads || [];
+  const isStoryboardNaturalLanguageTarget =
+    storyboardAddTarget !== null && !isStoryboardLibraryScriptTarget(storyboardAddTarget);
+  const isStoryboardScriptOnlyDraft =
+    isStoryboardLibraryScriptTarget(storyboardAddTarget) &&
+    storyboardSubmittedScriptState?.index === storyboardAddTarget.index &&
+    storyboardSubmittedScriptState?.mode === storyboardAddTarget.mode &&
+    (storyboardSubmittedScriptState.afterIndex ?? null) === (storyboardAddTarget.afterIndex ?? null);
+  const shouldShowDeepComposerUploads =
+    (!isStoryboardNaturalLanguageTarget && isDeepComposerExpanded) ||
+    deepUploadMenuOpen ||
+    isDeepUploadDragging ||
+    deepUploadAssets.length > 0;
+  const hasDeepComposerSubmission = Boolean(draft.trim() || deepUploadAssets.length);
+  const getUserMessageAttachments = (content, explicitAttachments) =>
+    explicitAttachments || getReferencedImageAttachments(content, deepUploadAssets);
+  const logoLibraryMyImages = useMemo(
+    () =>
+      deepUploadAssets
+        .filter((item) => item.assetType === "image")
+        .map((item) => ({
+          id: item.id,
+          name: item.rawName || item.name,
+          tokenName: item.name,
+          preview: item.preview,
+          meta: item.rawName ? "本地上传" : item.name,
+        })),
+    [deepUploadAssets],
+  );
+  const logoLibraryStockImages = useMemo(
+    () => [
+      { id: "logo-stock-default", name: "品牌 Logo", preview: logoImage, meta: "默认品牌素材" },
+      { id: "logo-stock-hero", name: "课程主视觉", preview: featureHeroImage, meta: "图片库素材" },
+      { id: "logo-stock-clip", name: "片段海报", preview: featureClipImage, meta: "图片库素材" },
+      { id: "logo-stock-voice", name: "讲解角色", preview: featureVoiceImage, meta: "图片库素材" },
+      { id: "logo-stock-gallery", name: "成片封面", preview: galleryFinishedImage, meta: "图片库素材" },
+    ],
+    [],
+  );
+  const storyboardSlotCount = Math.max(outlines.length, MAX_STORYBOARD_SLOTS);
+  const storyboardSlots = useMemo(
+    () =>
+      Array.from({ length: storyboardSlotCount }, (_, index) => ({
+        index,
+        outline: outlines[index] || null,
+        isEmpty: deletedStoryboardSlots.includes(index) || isEmptyStoryboardOutline(outlines[index]),
+      })).filter((slot) => !(slot.isEmpty && hiddenEmptyStoryboardSlots.includes(slot.index))),
+    [deletedStoryboardSlots, hiddenEmptyStoryboardSlots, outlines, storyboardSlotCount],
+  );
+  const validStoryboardIndexes = useMemo(
+    () => storyboardSlots.filter((slot) => !slot.isEmpty).map((slot) => slot.index),
+    [storyboardSlots],
+  );
+  const validStoryboardCount = validStoryboardIndexes.length;
+  const firstValidStoryboardIndex = validStoryboardIndexes[0] ?? 0;
+  const isStoryboardSlotEmpty = (index) => deletedStoryboardSlots.includes(index) || isEmptyStoryboardOutline(outlines[index]);
+  const storyboardCombinationSummary = useMemo(
+    () => getStoryboardCombinationSummary(validStoryboardIndexes.map((index) => ({ ...outlines[index], slotIndex: index }))),
+    [outlines, validStoryboardIndexes],
+  );
+  const storyboardCombinationCount = storyboardCombinationSummary.count || 0;
+  const storyboardCombinationExpression = storyboardCombinationSummary.expression;
+  const safeFinalCombinationIndex = Math.max(
+    0,
+    Math.min(activeFinalCombinationIndex, Math.max(storyboardCombinationCount - 1, 0)),
+  );
+  const finalCombinationMediaIndexMap = useMemo(
+    () => getStoryboardCombinationMediaIndexMap(outlines, safeFinalCombinationIndex),
+    [outlines, safeFinalCombinationIndex],
+  );
+  const currentFinalSettings = {
+    favoriteMusicOnly,
+    selectedMusicId,
+    musicVolume,
+    subtitleSettings,
+    videoSettings,
+  };
+  const currentFinalMusic = musicTracks.find((item) => item.id === currentFinalSettings.selectedMusicId);
+  const formatHistoryVersionTime = (value) => {
+    if (!value) return "";
+    try {
+      return new Date(value).toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+  const createHistoryAsset = ({ id, name, preview, meta, type = "image" }) => ({
+    id,
+    name: name || "素材",
+    preview: preview || null,
+    meta: meta || "",
+    type,
+  });
+  const buildStepHistorySnapshot = (stepNo) => {
+    const createdAt = Date.now();
+    const base = {
+      step: stepNo,
+      stepTitle: stepTitleMap[stepNo] || "当前步骤",
+      createdAt,
+      sections: [],
+      assets: [],
+    };
+
+    if (stepNo === 1) {
+      return {
+        ...base,
+        sections: [
+          {
+            title: "创意收集",
+            rows: [
+              { label: "业务点", value: businessInfo.businessPoint },
+              { label: "目标受众", value: businessInfo.audience },
+              { label: "转化方式", value: businessInfo.conversionGuidance },
+              { label: "画面风格", value: businessInfo.style },
+              { label: "视频比例", value: businessInfo.videoRatio },
+              { label: "补充信息", value: businessInfo.additionalInfo || "暂无" },
+            ],
+          },
+        ],
+      };
+    }
+
+    if (stepNo === 2) {
+      return {
+        ...base,
+        sections: [
+          {
+            title: "创意主题",
+            rows: [{ label: "主题", value: theme }],
+          },
+          {
+            title: "角色设定",
+            rows: characters.map((item, index) => ({
+              label: item.name || `角色${index + 1}`,
+              value: item.trait || item.description || "已生成角色设定",
+            })),
+          },
+          {
+            title: "剧本大纲",
+            rows: outlines.map((item, index) => ({
+              label: item.title || getStoryboardDisplayName(index),
+              value: item.subtitle || item.desc || "已生成分镜大纲",
+            })),
+          },
+        ],
+        assets: characters
+          .filter((item) => item.avatar)
+          .map((item, index) =>
+            createHistoryAsset({
+              id: `step2-character-${index}`,
+              name: item.name,
+              preview: item.avatar,
+              meta: item.trait || "角色图",
+            }),
+          ),
+      };
+    }
+
+    if (stepNo === 3) {
+      const storyboardAssets = outlines.flatMap((item, outlineIndex) =>
+        getStoryboardMediaAssets(item, outlineIndex).map((asset, mediaIndex) =>
+          createHistoryAsset({
+            id: `step3-${outlineIndex}-${mediaIndex}`,
+            name: `${item.title || getStoryboardDisplayName(outlineIndex)} · 素材${getStoryboardMediaLabel(mediaIndex)}`,
+            preview: asset.preview || asset.thumbnail || item.preview,
+            meta: asset.sourceLabel || asset.type || "分镜素材",
+            type: asset.type === "video" ? "video" : "image",
+          }),
+        ),
+      );
+
+      return {
+        ...base,
+        sections: [
+          {
+            title: "分镜脚本",
+            rows: outlines.map((item, index) => ({
+              label: item.title || getStoryboardDisplayName(index),
+              value: item.subtitle || "暂无口播脚本",
+            })),
+          },
+          {
+            title: "画面描述",
+            rows: outlines.map((item, index) => ({
+              label: item.title || getStoryboardDisplayName(index),
+              value: item.desc || "暂无画面描述",
+            })),
+          },
+        ],
+        assets: storyboardAssets,
+      };
+    }
+
+    return {
+      ...base,
+      sections: [
+        {
+          title: "成片设置",
+          rows: [
+            { label: "素材组合", value: storyboardCombinationExpression || "默认组合" },
+            { label: "字幕", value: subtitleSettings.enabled ? "已开启" : "未开启" },
+            { label: "音乐", value: currentFinalMusic?.name || "无背景音乐" },
+            { label: "音乐音量", value: `${musicVolume}%` },
+            { label: "提示语", value: outlines.some((item) => item.promptText) ? "已添加" : "未添加" },
+            { label: "Logo", value: outlines.some((item) => item.brandLogo) ? "已添加" : "未添加" },
+          ],
+        },
+      ],
+      assets: outlines
+        .map((item, index) => {
+          const activeMedia = getActiveStoryboardMediaAsset(item, index);
+          return createHistoryAsset({
+            id: `step4-preview-${index}`,
+            name: item.title || getStoryboardDisplayName(index),
+            preview: activeMedia?.preview || item.preview,
+            meta: "成片素材",
+            type: activeMedia?.type === "video" ? "video" : "image",
+          });
+        })
+        .filter((item) => item.preview),
+    };
+  };
+  const formatHistorySectionText = (section) => {
+    if (!section) return "";
+    return [
+      `【${section.title}】`,
+      ...(section.rows || []).map((row) => `${row.label}：${row.value || "暂无"}`),
+    ].join("\n");
+  };
+  const formatHistoryAssetsText = (assets = []) =>
+    [
+      "【历史素材】",
+      ...assets.map((asset) => `${asset.name}${asset.meta ? ` · ${asset.meta}` : ""}`),
+    ].join("\n");
+  const copyHistoryModule = async (label, text) => {
+    if (!String(text || "").trim()) return;
+    try {
+      await navigator.clipboard?.writeText(text);
+      onNotify?.({ type: "success", title: `已复制${label}` });
+    } catch {
+      onNotify?.({ type: "info", title: "复制失败", description: "当前浏览器暂不支持自动复制。" });
+    }
+  };
+  const downloadHistoryAssets = (assets = []) => {
+    const downloadableAssets = assets.filter((asset) => asset.preview);
+    if (!downloadableAssets.length) {
+      onNotify?.({ type: "info", title: "暂无可下载素材" });
+      return;
+    }
+
+    downloadableAssets.forEach((asset, index) => {
+      window.setTimeout(() => {
+        const link = document.createElement("a");
+        link.href = asset.preview;
+        link.download = asset.name || `素材-${index + 1}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }, index * 120);
+    });
+    onNotify?.({ type: "success", title: "已开始下载全部素材" });
+  };
+  const openHistoryVersionPreview = (message, messageIndex) => {
+    const step = message.step || message.recordStep || currentStep;
+    const snapshot = message.versionSnapshot || message.stepSnapshot || buildStepHistorySnapshot(step);
+    setHistoryVersionPreview({
+      step,
+      messageIndex,
+      returnStep: currentStep,
+      title: message.title || message.recordTitle || message.content || `${stepTitleMap[step]}历史版本`,
+      snapshot,
+      createdAt: message.versionCreatedAt || snapshot.createdAt || Date.now(),
+    });
+    clearRightFocusCue();
+    setCurrentStep(step);
+    workspaceScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const closeHistoryVersionPreview = () => {
+    const returnStep = historyVersionPreview?.returnStep;
+    setHistoryVersionPreview(null);
+    if (typeof returnStep === "number" && returnStep <= maxStepReached) {
+      setCurrentStep(returnStep);
+    }
+  };
+  const activeOutline = isStoryboardSlotEmpty(activeStoryboard)
+    ? outlines[firstValidStoryboardIndex] || null
+    : outlines[activeStoryboard] || null;
+  const activeStoryboardMediaAssets = getStoryboardMediaAssets(activeOutline, activeStoryboard);
+  const activeStoryboardMediaIndex = getActiveStoryboardMediaIndex(activeOutline, activeStoryboard);
+  const activeStoryboardMediaAsset =
+    activeStoryboardMediaAssets[activeStoryboardMediaIndex] || activeStoryboardMediaAssets[0] || null;
+  const activeStoryboardMediaContent = getStoryboardMediaContent(
+    activeOutline,
+    activeStoryboard,
+    activeStoryboardMediaIndex,
+  );
+  const isActiveStoryboardAiGeneratedMedia = isAiGeneratedStoryboardMediaAsset(activeStoryboardMediaAsset);
+  const activeStoryboardMediaCount = activeStoryboardMediaAssets.length;
+  const isActiveStoryboardMediaFull = activeStoryboardMediaCount >= STORYBOARD_MEDIA_MAX;
+  const pendingStoryboardClipReviews = useMemo(
+    () =>
+      validStoryboardIndexes.flatMap((outlineIndex) =>
+        getStoryboardMediaAssets(outlines[outlineIndex], outlineIndex)
+          .map((media, mediaIndex) => ({ outlineIndex, mediaIndex, media }))
+          .filter(({ media }) => isPendingStoryboardClipReviewMedia(media)),
+      ),
+    [outlines, validStoryboardIndexes],
+  );
+  const pendingStoryboardClipReviewCount = pendingStoryboardClipReviews.length;
+  const firstPendingStoryboardClipReview = pendingStoryboardClipReviews[0] || null;
+  const storyboardTitleDirty =
+    activeOutline !== null && storyboardDraft.title !== (activeOutline.title || "");
+  const storyboardVisualDescriptionDirty =
+    activeOutline !== null &&
+    isActiveStoryboardAiGeneratedMedia &&
+    storyboardDraft.desc !== (activeStoryboardMediaContent.desc || "");
+  const storyboardVisualRoleDirty =
+    activeOutline !== null &&
+    isActiveStoryboardAiGeneratedMedia &&
+    (storyboardDraft.avatars || []).join(",") !== (activeStoryboardMediaContent.avatars || []).join(",");
+  const storyboardVoiceScriptDirty =
+    activeOutline !== null &&
+    normalizeVoiceScriptText(storyboardDraft.subtitle) !== normalizeVoiceScriptText(activeOutline.subtitle || "");
+  const storyboardOverlayDirty =
+    activeOutline !== null &&
+    (Boolean(storyboardDraft.pictureInPictureEnabled) !== Boolean(activeOutline.pictureInPictureEnabled) ||
+      (storyboardDraft.pictureInPictureCharacterIndex ?? 0) !==
+        getStoryboardPictureInPictureCharacterIndex(activeOutline, activeStoryboardMediaContent) ||
+      (storyboardDraft.promptText || "") !== (activeOutline.promptText || "") ||
+      !arePromptTextSettingsEqual(storyboardDraft.promptSettings, activeOutline.promptSettings) ||
+      JSON.stringify(normalizePromptTextPosition(storyboardDraft.promptTextPosition)) !==
+        JSON.stringify(normalizePromptTextPosition(activeOutline.promptTextPosition)) ||
+      (storyboardDraft.brandLogo || null) !== (activeOutline.brandLogo || null));
+  const storyboardNonVoiceScriptDirty =
+    storyboardTitleDirty ||
+    storyboardVisualDescriptionDirty ||
+    storyboardVisualRoleDirty ||
+    storyboardOverlayDirty;
+  const storyboardDraftDirty =
+    activeOutline !== null && (storyboardVoiceScriptDirty || storyboardNonVoiceScriptDirty);
+  const isStoryboardGenerating = Boolean(storyboardGenerationState);
+  const isComposerGenerating = Boolean(composerGenerationState);
+  const getBusyDisabledReason = () =>
+    stepGenerationState
+      ? "正在生成，稍等一下"
+      : isStoryboardGenerating
+        ? "正在更新分镜，稍等一下"
+        : isComposerGenerating
+          ? "AI 正在处理，稍等一下"
+          : "";
+  const getDeepSplitBounds = () => {
+    const shellWidth =
+      deepModeShellRef.current?.getBoundingClientRect().width ||
+      (typeof window !== "undefined" ? getDeepModeInitialShellWidth() : DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH);
+    return getDeepModeSplitBounds(shellWidth);
+  };
+  const updateDeepSplitHover = (source, active) => {
+    if (isDeepSplitDragging) return;
+    setDeepSplitHoverSource((prev) => {
+      if (active) return source;
+      return prev === source ? null : prev;
+    });
+  };
+  const adjustDeepChatRailWidth = (delta) => {
+    const { min, max } = getDeepSplitBounds();
+    deepChatRailUserAdjustedRef.current = true;
+    setDeepChatRailWidth((prev) => clampNumber(prev + delta, min, max));
+  };
+  const beginDeepSplitResize = (event) => {
+    const { min, max } = getDeepSplitBounds();
+
+    event.preventDefault();
+    deepChatRailUserAdjustedRef.current = true;
+    deepSplitDragRef.current = {
+      startX: event.clientX,
+      startWidth: clampNumber(deepChatRailWidth, min, max),
+      min,
+      max,
+    };
+    setDeepSplitHoverSource("divider");
+    setIsDeepSplitDragging(true);
+  };
+  const resetDeepChatRailWidth = () => {
+    const { preferred } = getDeepSplitBounds();
+    deepChatRailUserAdjustedRef.current = false;
+    setDeepChatRailWidth(preferred);
+  };
+  const handleDeepSplitKeyDown = (event) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustDeepChatRailWidth(-24);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustDeepChatRailWidth(24);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      const { min } = getDeepSplitBounds();
+      deepChatRailUserAdjustedRef.current = true;
+      setDeepChatRailWidth(min);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      const { max } = getDeepSplitBounds();
+      deepChatRailUserAdjustedRef.current = true;
+      setDeepChatRailWidth(max);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      resetDeepChatRailWidth();
+    }
+  };
+  const getStoryboardCurrentSplitBounds = () => {
+    const gridWidth =
+      storyboardSplitGridRef.current?.getBoundingClientRect().width ||
+      deepModeShellRef.current?.getBoundingClientRect().width ||
+      (typeof window !== "undefined" ? window.innerWidth : 900);
+    return getStoryboardSplitBounds(gridWidth);
+  };
+  const updateStoryboardSplitHover = (source, active) => {
+    if (isStoryboardSplitDragging) return;
+    setStoryboardSplitHoverSource((prev) => {
+      if (active) return source;
+      return prev === source ? null : prev;
+    });
+  };
+  const adjustStoryboardSettingsPanelWidth = (delta) => {
+    const { min, max } = getStoryboardCurrentSplitBounds();
+    storyboardSplitUserAdjustedRef.current = true;
+    setStoryboardSettingsPanelWidth((prev) => clampNumber(prev + delta, min, max));
+  };
+  const beginStoryboardSplitResize = (event) => {
+    const { min, max } = getStoryboardCurrentSplitBounds();
+
+    event.preventDefault();
+    storyboardSplitUserAdjustedRef.current = true;
+    storyboardSplitDragRef.current = {
+      startX: event.clientX,
+      startWidth: clampNumber(storyboardSettingsPanelWidth, min, max),
+      min,
+      max,
+    };
+    setStoryboardSplitHoverSource("divider");
+    setIsStoryboardSplitDragging(true);
+  };
+  const resetStoryboardSettingsPanelWidth = () => {
+    const { preferred } = getStoryboardCurrentSplitBounds();
+    storyboardSplitUserAdjustedRef.current = false;
+    setStoryboardSettingsPanelWidth(preferred);
+  };
+  const handleStoryboardSplitKeyDown = (event) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustStoryboardSettingsPanelWidth(-24);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustStoryboardSettingsPanelWidth(24);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      const { min } = getStoryboardCurrentSplitBounds();
+      storyboardSplitUserAdjustedRef.current = true;
+      setStoryboardSettingsPanelWidth(min);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      const { max } = getStoryboardCurrentSplitBounds();
+      storyboardSplitUserAdjustedRef.current = true;
+      setStoryboardSettingsPanelWidth(max);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      resetStoryboardSettingsPanelWidth();
+    }
+  };
+
+  useEffect(() => {
+    if (!showChatComposer || typeof window === "undefined") return undefined;
+
+    const clampChatRailWidth = () => {
+      const shellWidth = deepModeShellRef.current?.getBoundingClientRect().width || window.innerWidth;
+      const { min, max, preferred } = getDeepModeSplitBounds(shellWidth);
+      setDeepChatRailWidth((prev) =>
+        deepChatRailUserAdjustedRef.current ? clampNumber(prev, min, max) : preferred,
+      );
+    };
+
+    clampChatRailWidth();
+    window.addEventListener("resize", clampChatRailWidth);
+    return () => window.removeEventListener("resize", clampChatRailWidth);
+  }, [showChatComposer]);
+
+  useEffect(() => {
+    if (currentStep !== 3 || typeof window === "undefined") return undefined;
+
+    const clampStoryboardSplit = () => {
+      const gridWidth =
+        storyboardSplitGridRef.current?.getBoundingClientRect().width ||
+        deepModeShellRef.current?.getBoundingClientRect().width ||
+        window.innerWidth;
+      const { min, max, preferred } = getStoryboardSplitBounds(gridWidth);
+      setStoryboardSettingsPanelWidth((prev) =>
+        storyboardSplitUserAdjustedRef.current ? clampNumber(prev, min, max) : preferred,
+      );
+    };
+
+    clampStoryboardSplit();
+    window.addEventListener("resize", clampStoryboardSplit);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined" && storyboardSplitGridRef.current) {
+      resizeObserver = new ResizeObserver(clampStoryboardSplit);
+      resizeObserver.observe(storyboardSplitGridRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", clampStoryboardSplit);
+      resizeObserver?.disconnect();
+    };
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (!isDeepSplitDragging || typeof window === "undefined") return undefined;
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (event) => {
+      const dragState = deepSplitDragRef.current;
+      if (!dragState) return;
+      const nextWidth = dragState.startWidth + event.clientX - dragState.startX;
+      setDeepChatRailWidth(clampNumber(nextWidth, dragState.min, dragState.max));
+    };
+    const finishPointerDrag = () => {
+      deepSplitDragRef.current = null;
+      setIsDeepSplitDragging(false);
+      setDeepSplitHoverSource(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", finishPointerDrag);
+    window.addEventListener("pointercancel", finishPointerDrag);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishPointerDrag);
+      window.removeEventListener("pointercancel", finishPointerDrag);
+    };
+  }, [isDeepSplitDragging]);
+
+  useEffect(() => {
+    if (!isStoryboardSplitDragging || typeof window === "undefined") return undefined;
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (event) => {
+      const dragState = storyboardSplitDragRef.current;
+      if (!dragState) return;
+      const nextWidth = dragState.startWidth + event.clientX - dragState.startX;
+      setStoryboardSettingsPanelWidth(clampNumber(nextWidth, dragState.min, dragState.max));
+    };
+    const finishPointerDrag = () => {
+      storyboardSplitDragRef.current = null;
+      setIsStoryboardSplitDragging(false);
+      setStoryboardSplitHoverSource(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", finishPointerDrag);
+    window.addEventListener("pointercancel", finishPointerDrag);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishPointerDrag);
+      window.removeEventListener("pointercancel", finishPointerDrag);
+    };
+  }, [isStoryboardSplitDragging]);
+
+  const commitCharacters = (updater) => {
+    setCharacters((prev) => {
+      const nextCharacters = typeof updater === "function" ? updater(prev) : updater;
+      return normalizeSceneCharacters(nextCharacters);
+    });
+  };
+  const summarizeGenerationValue = (value, fallback = "待补充", maxLength = 24) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return fallback;
+    return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+  };
+  const clearStepGenerationTimers = () => {
+    generationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    generationTimersRef.current = [];
+  };
+  const clearRightFocusCue = () => {
+    if (rightFocusCueTimerRef.current) {
+      window.clearTimeout(rightFocusCueTimerRef.current);
+      rightFocusCueTimerRef.current = null;
+    }
+  };
+  const clearStoryboardGenerationTimer = () => {
+    if (storyboardGenerationTimerRef.current) {
+      window.clearTimeout(storyboardGenerationTimerRef.current);
+      storyboardGenerationTimerRef.current = null;
+    }
+  };
+  const clearStoryboardLibraryScriptTimer = () => {
+    if (storyboardLibraryScriptTimerRef.current) {
+      window.clearTimeout(storyboardLibraryScriptTimerRef.current);
+      storyboardLibraryScriptTimerRef.current = null;
+    }
+  };
+  const clearComposerGenerationTimer = () => {
+    if (composerGenerationTimerRef.current) {
+      window.clearTimeout(composerGenerationTimerRef.current);
+      composerGenerationTimerRef.current = null;
+    }
+  };
+  const clearComposerImportFeedbackTimers = () => {
+    if (composerImportCueTimerRef.current) {
+      window.clearTimeout(composerImportCueTimerRef.current);
+      composerImportCueTimerRef.current = null;
+    }
+    if (composerImportHighlightTimerRef.current) {
+      window.clearTimeout(composerImportHighlightTimerRef.current);
+      composerImportHighlightTimerRef.current = null;
+    }
+  };
+  const clearRightUpdateFeedbackTimers = () => {
+    if (rightUpdateCueTimerRef.current) {
+      window.clearTimeout(rightUpdateCueTimerRef.current);
+      rightUpdateCueTimerRef.current = null;
+    }
+    if (rightUpdateHighlightTimerRef.current) {
+      window.clearTimeout(rightUpdateHighlightTimerRef.current);
+      rightUpdateHighlightTimerRef.current = null;
+    }
+  };
+  const triggerComposerImportFeedback = (sourceElement, label = "带入输入框") => {
+    const targetElement = chatMentionAnchorRef.current;
+    if (!targetElement) return;
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const sourceRect = sourceElement?.getBoundingClientRect?.();
+    const fromX = sourceRect
+      ? sourceRect.left + sourceRect.width / 2
+      : Math.min(window.innerWidth - 56, targetRect.right + 160);
+    const fromY = sourceRect
+      ? sourceRect.top + sourceRect.height / 2
+      : Math.max(88, targetRect.top - 72);
+    const toX = targetRect.left + 52;
+    const toY = targetRect.top + 34;
+
+    clearComposerImportFeedbackTimers();
+    setComposerImportCue({
+      id: `composer-import-${Date.now()}`,
+      label,
+      from: { x: fromX, y: fromY },
+      to: { x: toX, y: toY },
+    });
+    setIsComposerImportHighlight(true);
+
+    composerImportCueTimerRef.current = window.setTimeout(() => {
+      setComposerImportCue(null);
+      composerImportCueTimerRef.current = null;
+    }, 820);
+
+    composerImportHighlightTimerRef.current = window.setTimeout(() => {
+      setIsComposerImportHighlight(false);
+      composerImportHighlightTimerRef.current = null;
+    }, 1450);
+  };
+  const getRightUpdateTargetElement = (target = {}) => {
+    const refs = rightUpdateTargetRefs.current;
+    if (target.type === "plan") return refs.plan || refs.theme || refs.outlines;
+    if (target.type === "theme") return refs.theme;
+    if (target.type === "characters") {
+      return typeof target.index === "number" ? refs.characterCards?.[target.index] || refs.characters : refs.characters;
+    }
+    if (target.type === "outlines") {
+      return typeof target.index === "number" ? refs.outlineCards?.[target.index] || refs.outlines : refs.outlines;
+    }
+    if (target.type === "storyboard") return refs.storyboard;
+    if (target.type === "final") return refs.final;
+    return refs.outlines || refs.theme || refs.storyboard || refs.final;
+  };
+  const getRightUpdateTargetForStep = (stepNo) => {
+    if (stepNo === 2) return { type: "outlines" };
+    if (stepNo === 3) return { type: "storyboard" };
+    if (stepNo === 4) return { type: "final" };
+    return { type: "theme" };
+  };
+  const triggerRightUpdateFeedback = (target = {}, label = "右侧内容已更新") => {
+    const sourceElement = chatMentionAnchorRef.current;
+    clearRightUpdateFeedbackTimers();
+    setRightUpdateCue(null);
+    setRightUpdateHighlight(null);
+
+    rightUpdateCueTimerRef.current = window.setTimeout(() => {
+      const targetElement = getRightUpdateTargetElement(target);
+      rightUpdateCueTimerRef.current = null;
+      if (!targetElement) return;
+      targetElement.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      const sourceRect = sourceElement?.getBoundingClientRect?.();
+      const targetRect = targetElement.getBoundingClientRect();
+      const fromX = sourceRect ? sourceRect.right - 54 : Math.max(80, window.innerWidth * 0.32);
+      const fromY = sourceRect ? sourceRect.top + sourceRect.height / 2 : window.innerHeight - 118;
+      const toX = targetRect.left + Math.min(150, Math.max(72, targetRect.width * 0.16));
+      const toY = targetRect.top + Math.min(96, Math.max(46, targetRect.height * 0.22));
+
+      setRightUpdateCue({
+        id: `right-update-${Date.now()}`,
+        label,
+        from: { x: fromX, y: fromY },
+        to: { x: toX, y: toY },
+        targetRect: {
+          left: targetRect.left,
+          top: targetRect.top,
+          width: targetRect.width,
+          height: targetRect.height,
+        },
+      });
+      setRightUpdateHighlight({ type: target.type, index: target.index ?? null, stamp: Date.now() });
+
+      rightUpdateCueTimerRef.current = window.setTimeout(() => {
+        setRightUpdateCue(null);
+        rightUpdateCueTimerRef.current = null;
+      }, 1120);
+
+      rightUpdateHighlightTimerRef.current = window.setTimeout(() => {
+        setRightUpdateHighlight(null);
+        rightUpdateHighlightTimerRef.current = null;
+      }, 2400);
+    }, 120);
+  };
+  const updateDeepAttachmentScrollState = () => {
+    const element = deepAttachmentScrollerRef.current;
+    if (!element) {
+      setDeepAttachmentScrollState({ canScrollLeft: false, canScrollRight: false });
+      return;
+    }
+
+    const maxScrollLeft = element.scrollWidth - element.clientWidth;
+    setDeepAttachmentScrollState({
+      canScrollLeft: element.scrollLeft > 6,
+      canScrollRight: maxScrollLeft - element.scrollLeft > 6,
+    });
+  };
+  const handleDeepAttachmentScroll = (direction) => {
+    const element = deepAttachmentScrollerRef.current;
+    if (!element) return;
+    const distance = Math.max(220, Math.floor(element.clientWidth * 0.55));
+    element.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+  const resetDeepComposerInput = () => {
+    setDraft("");
+    setMentionState(null);
+    setDeepUploadMenuOpen(false);
+    setIsDeepComposerExpanded(false);
+    setDeepComposerAttachments({
+      uploads: [],
+      landingPage: null,
+      voiceScript: null,
+    });
+  };
+  const getDeepComposerSubmitDraft = () => {
+    if (draft.trim()) return draft;
+    if (!deepUploadAssets.length) return "";
+    return deepUploadAssets.reduce(
+      (value, item) => appendMentionTokenToText(value, item.name),
+      "请参考已添加素材继续优化。",
+    );
+  };
+  const handleOpenDeepUpload = (kind) => {
+    setIsDeepComposerExpanded(true);
+    setDeepUploadMenuOpen(false);
+    setDeepUploadAccept(kind === "video" ? "video/*" : "image/*");
+    window.requestAnimationFrame(() => {
+      deepUploadInputRef.current?.click();
+    });
+  };
+  const handleOpenDeepImageLibrary = () => {
+    setIsDeepComposerExpanded(true);
+    setDeepUploadMenuOpen(false);
+    setImageLibraryTarget({
+      index: activeStoryboard,
+      mode: "reference",
+    });
+  };
+  const handleOpenDeepVideoLibrary = () => {
+    setIsDeepComposerExpanded(true);
+    setDeepUploadMenuOpen(false);
+    setVideoLibraryTarget({
+      index: activeStoryboard,
+      mode: "reference",
+    });
+  };
+  const insertTokenIntoDeepDraft = (tokenName) => {
+    setIsDeepComposerExpanded(true);
+    setDraft((prev) => appendMentionTokenToText(prev, tokenName));
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  };
+  const addDeepFiles = (sourceFiles) => {
+    const files = Array.from(sourceFiles || []);
+    if (!files.length) return;
+    const existingUploads = deepUploadAssets || [];
+    const unsupportedCount = getUnsupportedFileCount(files);
+    const remainingSlots = Math.max(0, DEEP_COMPOSER_UPLOAD_MAX - existingUploads.length);
+
+    if (unsupportedCount) {
+      onNotify?.({
+        type: "warning",
+        title: "部分文件未添加",
+        description: "深度创编输入框只支持图片或视频文件。",
+      });
+    }
+
+    if (!remainingSlots) {
+      onNotify?.({
+        type: "warning",
+        title: "素材已达上限",
+        description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+      return;
+    }
+
+    let imageCount = existingUploads.filter((item) => item.assetType === "image").length;
+    let videoCount = existingUploads.filter((item) => item.assetType === "video").length;
+    const nextUploads = files
+      .filter(isSupportedMediaFile)
+      .slice(0, remainingSlots)
+      .map((file, index) => {
+        const assetType = file.type.startsWith("video/") ? "video" : "image";
+        if (assetType === "image") imageCount += 1;
+        if (assetType === "video") videoCount += 1;
+        return {
+          id: `deep-upload-${Date.now()}-${index}`,
+          assetType,
+          name: assetType === "image" ? `图片${imageCount}` : `视频${videoCount}`,
+          rawName: file.name,
+          preview: URL.createObjectURL(file),
+        };
+      });
+    if (!nextUploads.length) return;
+    setIsDeepComposerExpanded(true);
+
+    if (files.filter(isSupportedMediaFile).length > nextUploads.length) {
+      onNotify?.({
+        type: "warning",
+        title: "已截取可添加数量",
+        description: `深度创编输入框最多保留 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+    }
+
+    setDeepComposerAttachments((prev) => ({
+      ...prev,
+      uploads: [...(prev.uploads || []), ...nextUploads],
+    }));
+    setDraft((prev) =>
+      nextUploads.reduce((value, item) => appendMentionTokenToText(value, item.name), prev),
+    );
+    onNotify?.({
+      type: "success",
+      title: "素材已添加",
+      description: `已添加 ${nextUploads.length} 个图片/视频素材，并带入输入框。`,
+    });
+  };
+
+  const handleDeepFilePick = (event) => {
+    addDeepFiles(event.target.files);
+
+    event.target.value = "";
+  };
+  const insertDeepDraftLineBreak = () => {
+    const textarea = inputRef.current;
+    const sourceValue = draft || "";
+    const cursorStart = textarea?.selectionStart ?? sourceValue.length;
+    const cursorEnd = textarea?.selectionEnd ?? cursorStart;
+    const nextValue = `${sourceValue.slice(0, cursorStart)}\n${sourceValue.slice(cursorEnd)}`;
+    const nextCursor = cursorStart + 1;
+
+    setDraft(nextValue);
+    setMentionState(null);
+
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+  const isFileDragEvent = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+  const handleDeepComposerDragEnter = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    setIsDeepComposerExpanded(true);
+    setIsDeepUploadDragging(true);
+  };
+  const handleDeepComposerDragOver = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDeepComposerExpanded(true);
+    setIsDeepUploadDragging(true);
+  };
+  const handleDeepComposerDragLeave = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setIsDeepUploadDragging(false);
+  };
+  const handleDeepComposerDrop = (event) => {
+    if (!isFileDragEvent(event)) return;
+    event.preventDefault();
+    setIsDeepUploadDragging(false);
+    addDeepFiles(event.dataTransfer.files);
+  };
+  const handleDeepComposerKeyDown = (event) => {
+    if (event.key !== "Enter" || event.nativeEvent?.isComposing) return;
+
+    event.preventDefault();
+    if (event.metaKey || event.ctrlKey) {
+      insertDeepDraftLineBreak();
+      return;
+    }
+    deepSubmitButtonRef.current?.click();
+  };
+  const triggerRightFocusCue = (cue) => {
+    if (!cue) return;
+    clearRightFocusCue();
+    setHistoryVersionPreview(null);
+    if (typeof cue.step === "number") {
+      setCurrentStep(cue.step);
+    }
+    setRightFocusCue(cue);
+    workspaceScrollRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+    rightFocusCueTimerRef.current = window.setTimeout(() => {
+      setRightFocusCue(null);
+      rightFocusCueTimerRef.current = null;
+    }, 4200);
+  };
+  const toggleAnalysisCard = (analysisId) => {
+    if (!analysisId) return;
+    setCollapsedAnalysisCards((prev) => {
+      const current = prev[analysisId];
+      return {
+        ...prev,
+        [analysisId]: current === undefined ? true : !current,
+      };
+    });
+  };
+  const getStepCompletionReply = (targetStep, mode) => {
+    const suffix = mode === "regenerate" ? "已更新。" : "已生成。";
+    if (targetStep === 2) return `方案${suffix}`;
+    if (targetStep === 3) return `分镜${suffix}`;
+    if (targetStep === 4) return `成片设置${suffix}`;
+    return `内容${suffix}`;
+  };
+  const getStepGenerationUserRequest = (targetStep, mode) => {
+    const action = mode === "regenerate" ? "重新生成" : "生成";
+    if (targetStep === 2) return `我已确认业务信息，请${action}方案规划。`;
+    if (targetStep === 3) return `我已确认方案规划，请${action}分镜设计。`;
+    if (targetStep === 4) return `我已确认分镜设计，请${action}成片设置。`;
+    return `请${action}下一步内容。`;
+  };
+  const getStepGenerationDefinition = (targetStep, mode = "confirm") => {
+    const regenerationPrefix = mode === "regenerate" ? "重新" : "";
+    const promptSummary = summarizeGenerationValue(job.prompt, "当前任务", 30);
+    const businessPointSummary = summarizeGenerationValue(businessInfo.businessPoint, "待补充业务点", 18);
+    const conversionSummary = summarizeGenerationValue(
+      businessInfo.conversionGuidance,
+      "待确认转化动作",
+      18,
+    );
+    const styleSummary = summarizeGenerationValue(businessInfo.style, "待确认视频风格", 18);
+    const audienceSummary = summarizeGenerationValue(businessInfo.audience, "待确认目标受众", 18);
+    const additionalSummary = summarizeGenerationValue(
+      businessInfo.additionalInfo,
+      "暂无额外限制条件",
+      18,
+    );
+    const characterSummary = characters.length
+      ? summarizeGenerationValue(
+          `${characters.slice(0, 2).map((item) => item.name).join("、")}${characters.length > 2 ? " 等" : ""}`,
+          "待生成角色",
+          18,
+        )
+      : "待生成角色";
+    const outlineSummary = validStoryboardCount
+      ? `${validStoryboardCount} 段分镜，${storyboardCombinationCount} 条素材组合`
+      : "待生成分镜";
+    const themeSummary = summarizeGenerationValue(theme, "待确认创意主题", 18);
+    const pictureInPictureSummary = outlines.some((item) => item.pictureInPictureEnabled)
+      ? `${outlines.filter((item) => item.pictureInPictureEnabled).length} 段开启角色画中画`
+      : "未开启角色画中画";
+
+    if (targetStep === 2) {
+      return {
+        title: `正在${regenerationPrefix}生成方案规划`,
+        subtitle: "AI 正在逐步解析你的任务诉求，把业务目标、风格偏好和受众方向整理成可继续编辑的方案。",
+        highlights: [
+          { label: "任务诉求", value: promptSummary },
+          { label: "业务点", value: businessPointSummary },
+          { label: "目标受众", value: audienceSummary },
+          { label: "转化方式", value: conversionSummary },
+        ],
+        steps: [
+          {
+            title: "读取原始任务与业务目标",
+            detail: `先结合「${promptSummary}」和右侧业务信息、视频信息，确认这条视频到底要解决什么问题。`,
+          },
+          {
+            title: "提炼受众、风格与限制条件",
+            detail: `已识别「${audienceSummary}」「${styleSummary}」，并同步吸收补充要求：${additionalSummary}。`,
+          },
+          {
+            title: "匹配创意主题与角色讲述关系",
+            detail: "根据当前目标，组织更适合的创意主题、角色方向和内容表达方式。",
+          },
+          {
+            title: "生成右侧方案规划结果",
+            detail: "把主题、角色设定和剧本大纲同步到右侧，等你确认后再继续细化。",
+          },
+        ],
+        skeleton: "plan",
+        handoff: {
+          kind: "handoff",
+          display: "card",
+          badge: mode === "regenerate" ? "方案已更新" : "方案已生成",
+          title: mode === "regenerate" ? "右侧方案规划已更新" : "右侧方案规划已生成",
+          description: "我已经把创意方向整理成可编辑的方案。先看右侧的创意主题、角色设定和剧本大纲，再决定是否继续调整。",
+          focusTitle: "现在先看右侧方案规划",
+          focusDetail: "优先确认：创意主题、角色设定、剧本大纲。",
+          checklist: ["主题方向是否对", "角色设定是否准确", "内容结构是否顺"],
+          actions: [
+            { label: "先看右侧方案", type: "focus" },
+            { label: "我想改主题", prompt: "我想调整一下创意主题的方向。" },
+            { label: "换一组角色", prompt: "这组角色还不够准，帮我换一组更合适的角色设定。" },
+          ],
+        },
+        focusCue: {
+          step: 2,
+          title: "方案规划已生成",
+          detail: "先看右侧的创意主题、角色设定和剧本大纲，再决定下一步怎么改。",
+        },
+      };
+    }
+
+    if (targetStep === 3) {
+      return {
+        title: `正在${regenerationPrefix}生成分镜设计`,
+        subtitle: "AI 正在把已确认的方案拆成镜头节奏、角色出场和可执行的口播脚本。",
+        highlights: [
+          { label: "创意主题", value: themeSummary },
+          { label: "角色方向", value: characterSummary },
+          { label: "视频风格", value: styleSummary },
+          { label: "业务目标", value: businessPointSummary },
+        ],
+        steps: [
+          {
+            title: "读取主题与角色设定",
+            detail: `基于「${themeSummary}」和 ${characterSummary}，确认这条视频的讲述视角与出场关系。`,
+          },
+          {
+            title: "拆解叙事节奏与镜头段落",
+            detail: "把当前方案拆成更清晰的镜头层级，让每一段都有明确的叙事目标。",
+          },
+          {
+            title: "匹配画面、角色与口播脚本",
+            detail: "让出场角色、画面描述和口播脚本逐段对应，便于后续直接成片。",
+          },
+          {
+            title: "生成右侧分镜结果",
+            detail: "把分镜结构和口播脚本同步到右侧，方便你逐段确认和修改。",
+          },
+        ],
+        skeleton: "storyboard",
+        handoff: {
+          kind: "handoff",
+          display: "card",
+          badge: mode === "regenerate" ? "分镜已更新" : "分镜已生成",
+          title: mode === "regenerate" ? "右侧口播脚本已更新" : "右侧口播脚本已生成",
+          description: "我已经把方案拆成可执行的镜头结构。先看右侧的口播脚本、镜头节奏和角色出场，再决定哪里要改。",
+          focusTitle: "现在先看右侧分镜设计",
+          focusDetail: "优先确认：镜头节奏、口播脚本、角色出场。",
+          checklist: ["镜头节奏是否顺", "口播脚本是否够清楚", "角色出场是否合理"],
+          actions: [
+            { label: "先看右侧分镜", type: "focus" },
+            { label: "镜头再紧凑些", prompt: "镜头节奏再紧凑一点，信息更快进入重点。" },
+            { label: "调整角色出场", prompt: "我想再调整一下分镜里的角色出场安排。" },
+          ],
+        },
+        focusCue: {
+          step: 3,
+          title: "分镜设计已生成",
+          detail: "先看右侧的镜头节奏、口播脚本和角色出场，再决定是否继续修改。",
+        },
+      };
+    }
+
+    if (targetStep === 4) {
+      return {
+        title: `正在${regenerationPrefix}生成成片设置`,
+        subtitle: "AI 正在汇总分镜与节奏信息，生成更完整的成片参数、表现方式和预览结果。",
+        highlights: [
+          { label: "分镜规模", value: outlineSummary },
+          { label: "讲述角色", value: characterSummary },
+          { label: "角色画中画", value: pictureInPictureSummary },
+          { label: "视频风格", value: styleSummary },
+        ],
+        steps: [
+          {
+            title: "读取分镜结构与节奏重点",
+            detail: `先汇总 ${outlineSummary} 的脚本、角色和镜头节奏，整理成成片层输入。`,
+          },
+          {
+            title: "整理字幕、音乐与画面叠加策略",
+            detail: "结合视频风格和受众气质，整理更适合的字幕样式、音乐氛围、提示语、Logo 和画中画配置。",
+          },
+          {
+            title: "生成预览表达与成片参数",
+            detail: "先把整片表现方式跑通，再给你一版可继续微调的成片设置。",
+          },
+          {
+            title: "同步右侧预览与控制项",
+            detail: "把预览、字幕、音乐、提示语、Logo 和画中画都放到右侧供你确认。",
+          },
+        ],
+        skeleton: "settings",
+        handoff: {
+          kind: "handoff",
+          display: "card",
+          badge: mode === "regenerate" ? "成片已更新" : "成片设置已生成",
+          title: mode === "regenerate" ? "右侧成片设置已更新" : "右侧成片设置已生成",
+          description: "我已经把成片预览、字幕、音乐、提示语、Logo 和画中画都准备好了。先看右侧预览，再决定是否继续调参。",
+          focusTitle: "现在先看右侧成片预览",
+          focusDetail: "优先确认：预览效果、字幕、音乐、提示语、Logo 和画中画。",
+          checklist: ["预览是否顺眼", "字幕是否清楚", "音乐与节奏是否舒服", "画面叠加是否合适"],
+          actions: [
+            { label: "先看右侧预览", type: "focus" },
+            { label: "音乐再克制些", prompt: "背景音乐再弱一点，不要压过旁白。" },
+            { label: "字幕再大一点", prompt: "把字幕再放大一点，移动端更清楚。" },
+          ],
+        },
+        focusCue: {
+          step: 4,
+          title: "成片设置已生成",
+          detail: "先看右侧预览和参数，再决定是否继续调整字幕、音乐、提示语、Logo 和画中画。",
+        },
+      };
+    }
+
+    return {
+      title: "AI 正在处理中",
+      subtitle: "请稍候，系统正在整理当前步骤内容。",
+      steps: [
+        { title: "分析当前输入", detail: "整理诉求与上下文。" },
+        { title: "生成中间结果", detail: "构建下一步可用内容。" },
+        { title: "同步结果", detail: "准备展示到工作台。" },
+      ],
+      skeleton: "generic",
+      highlights: [],
+    };
+  };
+  const clearLeftComposerImmediately = () => {
+    setDraft("");
+    setMentionState(null);
+    setPlanComposerTarget(null);
+    setRegenerateTarget(null);
+    setRewriteTarget(null);
+    setStoryboardAddTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setAddCharacterMenuOpen(false);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setDeepUploadMenuOpen(false);
+    setIsDeepComposerExpanded(false);
+    clearComposerImportFeedbackTimers();
+    clearRightUpdateFeedbackTimers();
+    setComposerImportCue(null);
+    setIsComposerImportHighlight(false);
+    setRightUpdateCue(null);
+    setRightUpdateHighlight(null);
+  };
+
+  const startStepGeneration = ({ targetStep, mode, fromStep, skipFailureDemo = false }) => {
+    const definition = getStepGenerationDefinition(targetStep, mode);
+    const shouldShowStep23FailureDemo =
+      targetStep === 3 &&
+      fromStep === 2 &&
+      mode === "confirm" &&
+      !skipFailureDemo &&
+      !step23FailureDemoShownRef.current;
+    clearStepGenerationTimers();
+    clearRightFocusCue();
+    setHistoryVersionPreview(null);
+    clearComposerGenerationTimer();
+    clearLeftComposerImmediately();
+    setRightFocusCue(null);
+    setComposerGenerationState(null);
+    setStepGenerationFailure(null);
+    appendAgentMessage(getStepGenerationUserRequest(targetStep, mode), { role: "user", kind: "user" });
+    setStepGenerationState({
+      targetStep,
+      mode,
+      fromStep,
+      title: definition.title,
+      subtitle: definition.subtitle,
+      steps: definition.steps,
+      skeleton: definition.skeleton,
+      highlights: definition.highlights || [],
+      visibleCount: 1,
+      completedCount: 0,
+      activeIndex: 0,
+    });
+
+    definition.steps.forEach((_, index) => {
+      const isLast = index === definition.steps.length - 1;
+      const timer = window.setTimeout(() => {
+        setStepGenerationState((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            visibleCount: Math.min(prev.steps.length, isLast ? prev.steps.length : index + 2),
+            completedCount: isLast ? prev.steps.length : index + 1,
+            activeIndex: isLast ? null : index + 1,
+          };
+        });
+      }, STEP_GENERATION_TRACE_INTERVAL_MS * (index + 1));
+      generationTimersRef.current.push(timer);
+    });
+
+    const settleTimer = window.setTimeout(() => {
+      if (shouldShowStep23FailureDemo) {
+        step23FailureDemoShownRef.current = true;
+        clearStepGenerationTimers();
+        setStepGenerationState(null);
+        const failurePayload = {
+          targetStep,
+          mode,
+          fromStep,
+          title: "分镜设计生成失败",
+          description: "当前方案规划已保留，右侧内容没有变化。你可以直接重试生成分镜设计。",
+          detail: "模拟一次服务响应超时，用来查看失败态和重试交互。",
+        };
+        setStepGenerationFailure(failurePayload);
+        appendAgentMessage(failurePayload.title, {
+          kind: "failure",
+          ...failurePayload,
+        });
+        onNotify?.({
+          type: "warning",
+          title: "生成失败",
+          description: "当前结果已保留，点击重试可继续生成分镜设计。",
+        });
+        return;
+      }
+
+      clearStepGenerationTimers();
+      setStepGenerationState(null);
+      if (
+        stepGenerationFailure &&
+        stepGenerationFailure.targetStep === targetStep &&
+        stepGenerationFailure.mode === mode &&
+        stepGenerationFailure.fromStep === fromStep
+      ) {
+        onSendMessage?.(job.id, {
+          action: "hideFailureMessages",
+          targetStep,
+          mode,
+          fromStep,
+        });
+      }
+      setStepGenerationFailure(null);
+      clearDownstreamDirtyStep(targetStep);
+
+      if (mode === "confirm") {
+        setCurrentStep(targetStep);
+        setMaxStepReached(targetStep);
+        onStepFlowAction?.(job.id, { type: "confirm", from: fromStep, to: targetStep });
+      } else {
+        setMaxStepReached(targetStep);
+        setCurrentStep(targetStep);
+        onStepFlowAction?.(job.id, { type: "regenerate", from: fromStep, to: targetStep });
+      }
+
+      const analysisId = `analysis-${job.id}-${targetStep}-${mode}-${Date.now()}`;
+      setCollapsedAnalysisCards((prev) => ({ ...prev, [analysisId]: true }));
+
+      appendAgentMessage(definition.title, {
+        kind: "analysis",
+        analysisId,
+        analysisTitle: definition.title,
+        analysisSummary: definition.subtitle,
+        analysisStatus: mode === "regenerate" ? "本轮已重生成" : "本轮已完成",
+        highlights: definition.highlights || [],
+        steps: definition.steps,
+      });
+
+      if (definition.handoff) {
+        const focusCue =
+          definition.focusCue || {
+            step: targetStep,
+            title: `请先看右侧${getStepCompletionReply(targetStep, mode).replace("。", "")}`,
+            detail: "右侧内容已经同步更新。",
+          };
+
+        appendAgentMessage(definition.handoff.title || getStepCompletionReply(targetStep, mode), {
+          ...definition.handoff,
+          step: targetStep,
+          focusCue,
+          focusTitle: definition.handoff.focusTitle || focusCue.title,
+          focusDetail: definition.handoff.focusDetail || focusCue.detail,
+          versionSnapshot: buildStepHistorySnapshot(targetStep),
+          versionCreatedAt: Date.now(),
+        });
+        if (mode === "regenerate") {
+          triggerRightFocusCue(focusCue);
+          triggerRightUpdateFeedback(
+            getRightUpdateTargetForStep(targetStep),
+            getStepCompletionReply(targetStep, mode).replace("。", ""),
+          );
+        }
+      } else {
+        appendScopedReply(getStepCompletionReply(targetStep, mode));
+        if (mode === "regenerate") {
+          triggerRightUpdateFeedback(
+            getRightUpdateTargetForStep(targetStep),
+            getStepCompletionReply(targetStep, mode).replace("。", ""),
+          );
+        }
+      }
+    }, definition.steps.length * STEP_GENERATION_TRACE_INTERVAL_MS + STEP_GENERATION_SETTLE_DELAY_MS);
+
+    generationTimersRef.current.push(settleTimer);
+  };
+
+  const retryStepGenerationFailure = () => {
+    if (!stepGenerationFailure) return;
+    startStepGeneration({
+      targetStep: stepGenerationFailure.targetStep,
+      mode: stepGenerationFailure.mode,
+      fromStep: stepGenerationFailure.fromStep,
+      skipFailureDemo: true,
+    });
+  };
+
+  const handleRegenerateDirtyStep = (stepNo = downstreamStatus?.actionStep, options = {}) => {
+    if (!stepNo || stepGenerationState) return;
+    if (!options.skipConfirm) {
+      requestOverwriteConfirm({
+        targetStep: stepNo,
+        confirmLabel: `确认，重新生成${stepTitleMap[stepNo] || "内容"}`,
+        onConfirm: () => handleRegenerateDirtyStep(stepNo, { skipConfirm: true }),
+      });
+      return;
+    }
+    startStepGeneration({
+      targetStep: stepNo,
+      mode: "regenerate",
+      fromStep: Math.max(1, stepNo - 1),
+    });
+  };
+
+  const appendAgentMessage = (content, options = {}) => {
+    if (!content) return;
+    const { role: rawRole, kind: rawKind, attachments: explicitAttachments, ...rest } = options;
+    const role = rawRole || "assistant";
+    const kind = rawKind || (role === "user" ? "user" : "event");
+    const attachments = role === "user" ? getUserMessageAttachments(content, explicitAttachments) : explicitAttachments;
+    onSendMessage?.(job.id, {
+      role,
+      kind,
+      content,
+      ...rest,
+      ...(attachments?.length ? { attachments } : {}),
+    });
+  };
+  const appendCreationRecord = ({
+    source = "manual",
+    title,
+    description = "",
+    step = currentStep,
+    target = "",
+    changes = [],
+  } = {}) => {
+    const recordTitle = String(title || description || "").trim();
+    if (!recordTitle) return;
+    appendAgentMessage(recordTitle, {
+      kind: "event",
+      recordSource: source,
+      recordTitle,
+      recordDescription: description,
+      recordStep: step,
+      recordStepTitle: stepTitleMap[step],
+      recordTarget: target,
+      recordChanges: (changes || []).filter(Boolean),
+    });
+  };
+  const appendOperationFeedback = (content, toastOptions = {}) => {
+    if (toastOptions.record === true) {
+      appendCreationRecord({
+        source: toastOptions.source || "system",
+        title: toastOptions.recordTitle || content,
+        description: toastOptions.recordDescription || "",
+        step: toastOptions.step ?? currentStep,
+        target: toastOptions.target || "",
+        changes: toastOptions.changes || [],
+      });
+    }
+    if (toastOptions.toast === false) return;
+    const normalized = String(content || "").trim();
+    if (!normalized) return;
+    const title = toastOptions.title || (normalized.length > 22 ? `${normalized.slice(0, 22)}...` : normalized);
+    const description = toastOptions.description ?? (normalized.length > 22 ? normalized : "");
+    onNotify?.({
+      type: toastOptions.type || "info",
+      title,
+      description,
+    });
+  };
+  const appendScopedReply = (content) => appendAgentMessage(content, { kind: "reply" });
+  const beginManualEditRecord = (key, value) => {
+    manualEditStartRef.current[key] = String(value ?? "");
+  };
+  const finishManualEditRecord = ({ key }) => {
+    const previousValue = manualEditStartRef.current[key];
+    if (previousValue === undefined) return;
+    delete manualEditStartRef.current[key];
+  };
+  const appendManualSelectionRecord = () => {
+    // Manual GUI edits stay in the right workspace; LUI only records AI-related task requests and results.
+  };
+  const businessFieldLabels = {
+    businessPoint: "业务点",
+    audience: "目标受众",
+    conversionGuidance: "转化方式",
+    style: "画面风格",
+    videoType: "视频类型",
+	    narratorType: "视频口播",
+	    materialType: "视频素材",
+    videoRatio: "视频比例",
+    scriptStyle: "脚本风格",
+    additionalInfo: "补充信息",
+  };
+  const businessFieldPlaceholders = {
+    businessPoint: agentBusinessFieldGuides.businessPoint,
+    audience: agentBusinessFieldGuides.audience,
+    scriptStyle: agentBusinessFieldGuides.scriptStyle,
+    additionalInfo: agentBusinessFieldGuides.additionalInfo,
+  };
+  const normalizeFieldValue = (value) => String(value || "").trim();
+	  const getStep1RequiredFields = (info = businessInfo) =>
+	    info?.videoType === "自定义"
+	      ? [...agentBusinessRequiredFields, "narratorType", "materialType"]
+	      : agentBusinessRequiredFields;
+	  const getStep1MissingFields = (info = businessInfo) =>
+	    getStep1RequiredFields(info).filter((field) => !normalizeFieldValue(info?.[field]));
+  const step1MissingFields = getStep1MissingFields();
+  const isStep1Complete = step1MissingFields.length === 0;
+  const shouldShowStep1FieldError = (field) =>
+    !normalizeFieldValue(businessInfo[field]) && (step1TouchedFields[field] || step1ValidationTriggered);
+  const getStep1FieldError = (field) =>
+    shouldShowStep1FieldError(field) ? `请完善${businessFieldLabels[field] || "该项"}后继续` : "";
+  const markStep1FieldTouched = (field) =>
+    setStep1TouchedFields((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  const commitBusinessFieldFeedback = (field, value) => {
+    const nextValue = normalizeFieldValue(value);
+    const previousValue = normalizeFieldValue(businessInfoFeedbackRef.current?.[field]);
+    if (nextValue === previousValue) return;
+    businessInfoFeedbackRef.current = {
+      ...businessInfoFeedbackRef.current,
+      [field]: nextValue,
+    };
+  };
+  const flushBusinessFieldFeedback = () => {
+    Object.entries(businessInfo).forEach(([field, value]) => {
+      if (!businessFieldLabels[field]) return;
+      commitBusinessFieldFeedback(field, value);
+    });
+  };
+  const buildDeepModeStatePayload = (overrides = {}) => ({
+    businessInfo: overrides.businessInfo ?? businessInfo,
+    theme: overrides.theme ?? theme,
+    characters: overrides.characters ?? characters,
+    outlines: overrides.outlines ?? outlines,
+    finalSettings: {
+      favoriteMusicOnly: overrides.favoriteMusicOnly ?? favoriteMusicOnly,
+      selectedVoiceId: voiceoverCharacter?.voiceId || null,
+      selectedMusicId: overrides.selectedMusicId ?? selectedMusicId,
+      musicVolume: overrides.musicVolume ?? musicVolume,
+      combinationSettings: {},
+      subtitleSettings: overrides.subtitleSettings ?? subtitleSettings,
+      videoSettings: overrides.videoSettings ?? videoSettings,
+    },
+    deepComposerAttachments: overrides.deepComposerAttachments ?? deepComposerAttachments,
+  });
+  const handleRequestExitDeepMode = () => {
+    if (hasStep1ExitChanges) {
+      setSaveStep1ExitDialogOpen(true);
+      return;
+    }
+    onExit?.();
+  };
+  const handleSaveStep1ChangesAndExit = () => {
+    const nextBusinessInfo = cloneStep1BusinessInfo(businessInfo);
+    flushBusinessFieldFeedback();
+    businessInfoFeedbackRef.current = nextBusinessInfo;
+    step1ExitBaselineRef.current = cloneStep1BusinessInfo(nextBusinessInfo);
+    onStateChange?.(job.id, buildDeepModeStatePayload({ businessInfo: nextBusinessInfo }));
+    onProgressChange?.(job.id, { currentStep: 1, maxStepReached: 1 });
+    setSaveStep1ExitDialogOpen(false);
+    onNotify?.({
+      type: "success",
+      title: "已保存当前修改",
+      description: "创意收集内容已更新，流程仍停留在第一步。",
+    });
+    onExit?.();
+  };
+  const handleDiscardStep1ChangesAndExit = () => {
+    const restoredBusinessInfo = cloneStep1BusinessInfo(step1ExitBaselineRef.current);
+    businessInfoFeedbackRef.current = restoredBusinessInfo;
+    setBusinessInfo(restoredBusinessInfo);
+    setStep1TouchedFields({});
+    setStep1ValidationTriggered(false);
+    onStateChange?.(job.id, buildDeepModeStatePayload({ businessInfo: restoredBusinessInfo }));
+    onProgressChange?.(job.id, { currentStep: 1, maxStepReached: 1 });
+    setSaveStep1ExitDialogOpen(false);
+    onExit?.();
+  };
+  const commitThemeFeedback = (value) => {
+    const nextValue = normalizeFieldValue(value);
+    const previousValue = normalizeFieldValue(themeFeedbackRef.current);
+    if (nextValue === previousValue) return;
+    themeFeedbackRef.current = nextValue;
+  };
+  function buildSemanticGuidance(targetStep) {
+    if (targetStep === 2) {
+      const missingAudience = !normalizeFieldValue(businessInfo.audience);
+      const missingStyle = !normalizeFieldValue(businessInfo.style);
+      const missingConversion = !normalizeFieldValue(businessInfo.conversionGuidance);
+
+      if (missingAudience) {
+        return {
+          title: "我注意到一个会影响方案准确度的细节",
+          description:
+            "目标受众还没有明确。我可以先给你一版方案，但角色语气和脚本口吻会更偏通用，建议你先看看右侧方案，再决定是否补齐受众。",
+          actions: [
+            { label: "先看当前方案", type: "focus" },
+            { label: "我来补充受众", prompt: "我补充一下目标受众：" },
+          ],
+        };
+      }
+
+      if (missingStyle || missingConversion) {
+        return {
+          title: "我先帮你保留了一个可继续优化的空间",
+          description:
+            "当前方案已经生成，但画面风格或转化方式还不够明确。这会影响角色表达和脚本收口，你可以先看右侧方案，再决定是否继续补充。",
+          actions: [
+            { label: "先看当前方案", type: "focus" },
+            {
+              label: "我再补充要求",
+              prompt: missingStyle ? "我补充一下画面风格要求：" : "我补充一下转化方式要求：",
+            },
+          ],
+        };
+      }
+    }
+
+    return null;
+  }
+  const summarizePromptIntent = (promptText, fallback = "当前修改要求", maxLength = 26) =>
+    summarizeGenerationValue(normalizeMentionText(promptText, { keepAt: false }), fallback, maxLength);
+
+  const appendSemanticNote = (currentValue, nextValue) => {
+    const previous = normalizeFieldValue(currentValue);
+    const incoming = normalizeFieldValue(nextValue);
+    if (!incoming) return previous;
+    if (!previous) return incoming;
+    if (previous.includes(incoming)) return previous;
+    return `${previous}${/[；。！？.!?]$/.test(previous) ? "" : "；"}${incoming}`;
+  };
+
+  const getCurrentTaskScopeText = () => {
+    if (planComposerTarget !== null) {
+      if (planComposerTarget.type === "fullPlan") return "整套方案规划的重新生成";
+      return planComposerTarget.type === "theme" ? "当前创意主题和方案方向的调整" : "整套剧本大纲的重写与同步";
+    }
+
+    if (rewriteTarget !== null) {
+      const labelMap = {
+        title: "当前分镜标题",
+        desc: "当前分镜画面描述",
+        subtitle: "当前分镜口播脚本",
+        roles: "当前分镜出场角色",
+      };
+      return `${labelMap[rewriteTarget.type] || "当前分镜内容"}的修改`;
+    }
+
+    if (regenerateTarget !== null) {
+      return regenerateTarget.type === "add" ? "角色新增与设定" : "当前角色重生成与设定";
+    }
+
+    if (currentStep === 1) return "业务信息、视频信息和补充要求";
+    if (currentStep === 2) return "创意主题、角色设定和剧本大纲";
+    if (currentStep === 3) return "口播脚本、出场角色、素材版本和画面描述";
+    if (currentStep === 4) return "字幕、音乐、提示语、Logo、画中画和成片预览";
+    return "这条视频的当前创编任务";
+  };
+
+  const getStepDisplayLabel = (stepNo) => `步骤${stepNo} · ${stepTitleMap[stepNo] || "当前步骤"}`;
+  const formatStepLabels = (stepNos = []) => stepNos.map((stepNo) => getStepDisplayLabel(stepNo)).join("、");
+
+  const getOverwriteAffectedSteps = (targetStep) =>
+    steps
+      .map((step) => step.no)
+      .filter((stepNo) => stepNo >= targetStep && stepNo <= maxStepReached);
+
+  const closeOverwriteConfirmDialog = () => {
+    overwriteConfirmActionRef.current = null;
+    setOverwriteConfirmDialog(null);
+  };
+
+  const confirmOverwriteRegeneration = () => {
+    const action = overwriteConfirmActionRef.current;
+    closeOverwriteConfirmDialog();
+    action?.();
+  };
+
+  const requestOverwriteConfirm = ({ targetStep, confirmLabel, onConfirm }) => {
+    const affectedSteps = getOverwriteAffectedSteps(targetStep);
+    const targetLabel = getStepDisplayLabel(targetStep);
+    const affectedText = formatStepLabels(affectedSteps);
+    overwriteConfirmActionRef.current = onConfirm;
+    setOverwriteConfirmDialog({
+      title: `确认重新生成${stepTitleMap[targetStep] || "后续内容"}？`,
+      description: `确认后会基于当前修改重新生成${targetLabel}，并把后续流程切到这次新结果上。`,
+      affectedText,
+      confirmLabel: confirmLabel || `确认，重新生成${stepTitleMap[targetStep] || "内容"}`,
+    });
+  };
+
+  const markDownstreamDirty = (sourceStep, options = {}) => {
+    const dirtySteps =
+      options.dirtySteps ||
+      steps
+        .map((step) => step.no)
+        .filter((stepNo) => stepNo > sourceStep && stepNo <= Math.max(maxStepReached, currentStep));
+
+    if (!dirtySteps.length) return;
+
+    setDownstreamStatus({
+      sourceStep,
+      dirtySteps,
+      title: `${getStepDisplayLabel(sourceStep)}已更新，后续结果待同步`,
+      detail: `${formatStepLabels(dirtySteps)}仍基于旧的${getStepDisplayLabel(sourceStep)}。请先重新生成${getStepDisplayLabel(dirtySteps[0])}。`,
+      actionStep: dirtySteps[0],
+      stamp: Date.now(),
+    });
+  };
+
+  const clearDownstreamDirtyStep = (stepNo) => {
+    setDownstreamStatus((prev) => {
+      if (!prev) return null;
+      const remainingSteps = prev.dirtySteps.filter((item) => item !== stepNo);
+      if (!remainingSteps.length) return null;
+
+      return {
+        ...prev,
+        dirtySteps: remainingSteps,
+        detail: `${formatStepLabels(remainingSteps)}仍基于旧的${getStepDisplayLabel(prev.sourceStep)}。请先重新生成${getStepDisplayLabel(remainingSteps[0])}。`,
+        actionStep: remainingSteps[0],
+      };
+    });
+  };
+
+  const getPlanComposerPlaceholder = (target = planComposerTarget) => {
+    if (!target) return "";
+    if (target.type === "fullPlan") return "输入新方案生成要求";
+    return target.type === "theme" ? "输入创意主题调整要求" : "输入整套大纲重写要求";
+  };
+
+  const isClearlyOffTopicPrompt = (promptText) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false }).trim();
+    if (!normalized) return false;
+    if (workflowRelevantPromptPattern.test(normalized)) return false;
+    return offTopicPromptPatterns.some((pattern) => pattern.test(normalized));
+  };
+
+  const buildOffTopicReply = (promptText) => {
+    const promptSummary = summarizePromptIntent(promptText, "这个问题", 18);
+    return `「${promptSummary}」和当前任务无关。直接告诉我要改哪一块就行。`;
+  };
+
+  const isFinalVideoGenerationPrompt = (promptText) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false }).replace(/\s+/g, "").trim();
+    if (!normalized) return false;
+    if (/成片设置|分镜设计|方案规划|剧本|口播脚本/u.test(normalized)) return false;
+    return /(直接|马上|现在|立刻)?(生成|合成|导出|输出|出)\d*(个|条|版)?(视频|成片)|(?:视频|成片).*(生成|合成|导出|输出)/u.test(
+      normalized,
+    );
+  };
+
+  const buildStepJumpReply = () => {
+    if (currentStep === 1) {
+      return "还没到生成视频。先确认右侧创意收集，再生成方案、分镜和成片设置。";
+    }
+    if (currentStep === 2) {
+      return "还没到生成视频。先确认右侧方案规划，生成分镜后再进入成片设置。";
+    }
+    if (currentStep === 3) {
+      return "还没到生成视频。先确认当前分镜，进入成片设置后再生成视频。";
+    }
+    return "先确认右侧成片设置，再开始合成视频；生成数量以右侧成片组合为准。";
+  };
+
+  const handleStepJumpPrompt = (promptText) => {
+    if (!isFinalVideoGenerationPrompt(promptText)) return false;
+    appendAgentMessage(promptText, { role: "user", kind: "user" });
+    appendScopedReply(buildStepJumpReply());
+    triggerRightFocusCue({
+      step: currentStep,
+      title:
+        currentStep === 1
+          ? "先确认创意收集"
+          : currentStep === 2
+            ? "先确认方案规划"
+            : currentStep === 3
+              ? "先确认当前分镜"
+              : "先确认成片设置",
+      detail: currentStep === 4 ? "确认成片设置后再开始合成视频。" : "完成当前步骤后再继续生成后续内容。",
+    });
+    onNotify?.({
+      type: "warning",
+      title: "请先完成当前步骤",
+      description: currentStep === 4 ? "确认成片设置后再开始合成视频。" : "当前还不能直接生成视频。",
+    });
+    resetDeepComposerInput();
+    return true;
+  };
+
+  const buildComposerGenerationState = (stepNo, promptText) => {
+    const promptSummary = summarizePromptIntent(promptText, "这次要求", 22);
+
+    if (stepNo === 1) {
+      return {
+        type: "creative",
+        title: "AI 正在整理创意信息",
+        detail: `我在解析「${promptSummary}」，并同步到右侧创意收集。`,
+      };
+    }
+
+    if (stepNo === 2) {
+      return {
+        type: "plan",
+        title: "AI 正在更新方案规划",
+        detail: `我在解析「${promptSummary}」，并更新创意主题、角色设定和剧本大纲。`,
+      };
+    }
+
+    if (stepNo === 3) {
+      return {
+        type: "storyboard",
+        title: "AI 正在更新分镜内容",
+        detail: `我在解析「${promptSummary}」，并同步当前分镜的画面、脚本和角色关系。`,
+      };
+    }
+
+    if (stepNo === 4) {
+      return {
+        type: "final",
+        title: "AI 正在更新成片设置",
+        detail: `我在解析「${promptSummary}」，并同步预览、字幕、音乐和画面叠加设置。`,
+      };
+    }
+
+    return {
+      type: "general",
+      title: "AI 正在处理这次要求",
+      detail: `我在解析「${promptSummary}」，并整理右侧可编辑结果。`,
+    };
+  };
+
+  const handleOffTopicPrompt = (promptText) => {
+    if (!isClearlyOffTopicPrompt(promptText)) return false;
+    appendAgentMessage(promptText, { role: "user", kind: "user" });
+    appendScopedReply(buildOffTopicReply(promptText));
+    onNotify?.({
+      type: "warning",
+      title: "这条需求暂不适合当前任务",
+      description: "请围绕当前视频创编、分镜或成片设置继续补充。",
+    });
+    setDraft("");
+    return true;
+  };
+
+  const inferCreativeCollectionField = (promptText) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false });
+    if (/受众|人群|家长|学生|老师|用户|宝妈|客群/u.test(normalized)) return "audience";
+    if (/脚本|口播|语气|表达|讲述|文案/u.test(normalized)) return "scriptStyle";
+    if (/比例|横版|竖版|方版|16:9|9:16|1:1/u.test(normalized)) return "videoRatio";
+    if (/视频类型|类型|口播|剧情|案例|混剪|快闪/u.test(normalized)) return "videoType";
+    if (/风格|调性|视觉|节奏|高级|专业|轻松|有趣|年轻|真实|动漫/u.test(normalized)) return "style";
+    if (/转化|咨询|报名|下单|点击|私信|留资|行动/u.test(normalized)) return "conversionGuidance";
+    if (/业务|卖点|亮点|优势|痛点|问题|目标|宣传/u.test(normalized)) return "businessPoint";
+    return "additionalInfo";
+  };
+
+  const deriveThemeFromPrompt = (promptText, fallbackTheme) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false });
+    const baseTheme = normalizeFieldValue(fallbackTheme) || "当前方案";
+    const basePrefix = baseTheme.split("·")[0].trim() || baseTheme;
+    let suffix = "表达优化";
+
+    if (/轻松|有趣|活泼|年轻|明快/u.test(normalized)) suffix = "轻快表达";
+    else if (/专业|权威|方法|拆解|可信/u.test(normalized)) suffix = "专业拆解";
+    else if (/痛点|焦虑|冲突|共鸣|压力/u.test(normalized)) suffix = "痛点共鸣";
+    else if (/真实|案例|见证|学员|反馈/u.test(normalized)) suffix = "真实反馈";
+    else if (/转化|咨询|报名|行动|引导/u.test(normalized)) suffix = "行动引导";
+
+    return `${basePrefix} · ${suffix}`;
+  };
+
+  const deriveCharacterTraitFromPrompt = (promptText, fallbackTrait = "按新要求调整") => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false });
+    if (/专业|权威|理性|可信|稳重/u.test(normalized)) return "专业、可信";
+    if (/亲和|温和|耐心|柔和/u.test(normalized)) return "亲和、耐心";
+    if (/轻松|有趣|活泼|年轻|明快/u.test(normalized)) return "轻快、活泼";
+    if (/真实|共情|真诚|走心/u.test(normalized)) return "真实、共情";
+    return fallbackTrait;
+  };
+
+  const buildPlanCharactersFromPrompt = (promptText) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false });
+    const preferredVoiceId = voiceoverCharacter?.voiceId || null;
+    const leadLibrary =
+      (/男|父亲|爸爸|校长|专家|权威/u.test(normalized)
+        ? findDigitalHumanById("human-1")
+        : null) ||
+      (/年轻|活力|学员|学生/u.test(normalized)
+        ? findDigitalHumanById("human-8")
+        : null) ||
+      findMatchingDigitalHuman(voiceoverCharacter) ||
+      getDefaultLibraryCharacter();
+    let leadName = "资深方案讲师";
+
+    if (/轻松|有趣|活泼|年轻|明快/u.test(normalized)) leadName = "亲和课程讲师";
+    else if (/专业|权威|方法|拆解|可信/u.test(normalized)) leadName = "专业方案讲师";
+    else if (/真实|案例|见证|学员|反馈/u.test(normalized)) leadName = "案例引导讲师";
+    else if (/转化|咨询|报名|行动|引导/u.test(normalized)) leadName = "转化引导老师";
+
+    const leadCharacter = {
+      name: leadName,
+      trait: deriveCharacterTraitFromPrompt(promptText, buildLibraryCharacterTrait(leadLibrary)),
+      avatar: leadLibrary?.avatar || getDefaultLibraryCharacter()?.avatar || featureVoiceImage,
+      sourceType: CHARACTER_SOURCE_LIBRARY,
+      libraryCharacterId: leadLibrary?.id || getDefaultLibraryCharacter()?.id || null,
+      isVoiceover: true,
+      voiceId: preferredVoiceId,
+    };
+    const promptedTemplates = [
+      /家长|父母|妈妈|爸爸/u.test(normalized)
+        ? {
+            name: "决策家长",
+            trait: "真实、谨慎",
+            avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop",
+          }
+        : null,
+      /学生|学员|孩子|备考/u.test(normalized)
+        ? {
+            name: "目标学员",
+            trait: "期待、投入",
+            avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=400&fit=crop",
+          }
+        : null,
+      /真实|案例|反馈|见证/u.test(normalized)
+        ? {
+            name: "真实案例学员",
+            trait: "可信、有变化",
+            avatar: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=400&fit=crop",
+          }
+        : null,
+      /转化|咨询|报名|行动|引导/u.test(normalized)
+        ? {
+            name: "咨询转化顾问",
+            trait: "清晰、促行动",
+            avatar: "https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=400&fit=crop",
+          }
+        : null,
+    ].filter(Boolean);
+    const fallbackTemplates = [
+      {
+        name: "问题提出者",
+        trait: "真实、共情",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
+      },
+      {
+        name: "成功学员",
+        trait: "自信、阳光",
+        avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=400&fit=crop",
+      },
+      {
+        name: "旁观对比角色",
+        trait: "疑问、代入",
+        avatar: "https://images.unsplash.com/photo-1542204625-de293a2f8ff0?w=400&h=400&fit=crop",
+      },
+      {
+        name: "行动提醒角色",
+        trait: "明确、利落",
+        avatar: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=400&h=400&fit=crop",
+      },
+    ];
+    const templatePool = [...promptedTemplates, ...fallbackTemplates].filter(
+      (item, index, array) => array.findIndex((candidate) => candidate.name === item.name) === index,
+    );
+    const targetCount = Math.min(Math.max(characters.length, 3), MAX_SCENE_CHARACTER_COUNT);
+    const aiCharacters = Array.from({ length: Math.max(0, targetCount - 1) }, (_, index) => {
+      const template = templatePool[index % templatePool.length] || fallbackTemplates[index % fallbackTemplates.length];
+      return {
+        ...template,
+        sourceType: CHARACTER_SOURCE_AI,
+        libraryCharacterId: null,
+        isVoiceover: false,
+        voiceId: null,
+      };
+    });
+
+    return withCharacterVoiceList([leadCharacter, ...aiCharacters], preferredVoiceId);
+  };
+
+  const createAnalysisPayload = ({
+    title,
+    summary,
+    status = "本轮已完成",
+    highlights = [],
+    steps = [],
+  }) => ({
+    kind: "analysis",
+    analysisId: `analysis-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    analysisTitle: title,
+    analysisSummary: summary,
+    analysisStatus: status,
+    highlights,
+    steps,
+  });
+
+  const createHandoffPayload = ({
+    step = currentStep,
+    badge = "右侧已同步",
+    display = "inline",
+    title,
+    description,
+    focusTitle,
+    focusDetail,
+    checklist = [],
+    actions = [{ label: "先看右侧", type: "focus" }],
+  }) => {
+    const cue = {
+      step,
+      title: focusTitle || "请先看右侧结果",
+      detail: focusDetail || "右侧内容已经同步更新。",
+    };
+
+    return {
+      kind: "handoff",
+      display,
+      badge,
+      title,
+      description,
+      step,
+      focusTitle: cue.title,
+      focusDetail: cue.detail,
+      focusCue: cue,
+      checklist,
+      actions,
+    };
+  };
+
+  const appendSemanticResult = ({ replyContent, analysisPayload, handoffPayload }) => {
+    if (analysisPayload) {
+      if (analysisPayload.analysisId) {
+        setCollapsedAnalysisCards((prev) => ({ ...prev, [analysisPayload.analysisId]: true }));
+      }
+      appendAgentMessage(analysisPayload.analysisTitle || analysisPayload.content || "Agent 语义理解", {
+        ...analysisPayload,
+        analysisLead: replyContent || analysisPayload.analysisLead,
+      });
+    } else if (replyContent) {
+      appendScopedReply(replyContent);
+    }
+    if (handoffPayload) {
+      const focusCue = {
+        ...(handoffPayload.focusCue || {}),
+        step: handoffPayload.step || handoffPayload.focusCue?.step || currentStep,
+        title: handoffPayload.focusTitle || handoffPayload.focusCue?.title || "请先看右侧结果",
+        detail: handoffPayload.focusDetail || handoffPayload.focusCue?.detail || "右侧内容已经同步更新。",
+      };
+      const normalizedHandoff = {
+        ...handoffPayload,
+        focusTitle: focusCue.title,
+        focusDetail: focusCue.detail,
+        focusCue,
+      };
+      appendAgentMessage(normalizedHandoff.title || normalizedHandoff.content || "右侧结果已更新", {
+        ...normalizedHandoff,
+        ...(normalizedHandoff.display === "card"
+          ? {
+              versionSnapshot: normalizedHandoff.versionSnapshot || buildStepHistorySnapshot(normalizedHandoff.step || currentStep),
+              versionCreatedAt: Date.now(),
+            }
+          : {}),
+      });
+      if (normalizedHandoff.focusCue) {
+        triggerRightFocusCue(normalizedHandoff.focusCue);
+      }
+    }
+  };
+
+  const appendSemanticConversation = ({
+    userContent,
+    replyContent,
+    analysisPayload,
+    handoffPayload,
+  }) => {
+    if (userContent) appendAgentMessage(userContent, { role: "user", kind: "user" });
+    appendSemanticResult({ replyContent, analysisPayload, handoffPayload });
+  };
+
+  const buildCreativeCollectionSemanticFlow = (promptText, fieldLabel) => {
+    const promptSummary = summarizePromptIntent(promptText);
+    return {
+      replyContent: `收到，我先把这条补充要求拆解到「${fieldLabel}」里，再和右侧当前信息一起整理成后续方案输入。`,
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析这次创意补充要求",
+        summary: "我在提炼业务目标、受众线索、风格偏好和补充约束，确保右侧创意信息与后续方案生成保持一致。",
+        highlights: [
+          { label: "新增诉求", value: promptSummary },
+          { label: "纳入字段", value: fieldLabel },
+        ],
+        steps: [
+          { title: "提炼新增语义线索", detail: `先从「${promptSummary}」里提取真正影响视频方向的关键信息。` },
+          { title: "归并到当前创意信息", detail: `把这条要求并入「${fieldLabel}」，避免和右侧现有信息冲突。` },
+          { title: "保留给下一步方案规划", detail: "让这条补充要求继续影响后续角色、结构和脚本生成。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: 1,
+        badge: "要求已记录",
+        title: "右侧创意收集已补充",
+        description: "我已经把这条补充要求并入右侧创意信息。先看右侧业务信息、视频信息和补充信息是否还要继续补充，再进入方案规划。",
+        focusTitle: "现在先看右侧创意收集",
+        focusDetail: "优先确认：业务点、目标受众、转化方式、画面风格、视频类型和脚本风格。",
+        checklist: ["业务点是否完整", "视频方向是否清楚", "目标受众是否明确"],
+        actions: [
+          { label: "先看右侧信息", type: "focus" },
+          { label: "我补充受众", prompt: "我补充一下目标受众：" },
+          { label: "改视频风格", prompt: "画面风格我想调整成：" },
+        ],
+      }),
+    };
+  };
+
+  const buildPlanSemanticFlow = (promptText) => {
+    const promptSummary = summarizePromptIntent(promptText);
+    return {
+      replyContent: "收到，我会先理解这次对主题、角色和结构的调整方向，再把更新后的方案同步到右侧。",
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析这次方案调整要求",
+        summary: "我在提炼新的主题表达、角色气质和讲述结构，确保右侧方案规划会朝着你要的方向收敛。",
+        highlights: [
+          { label: "调整诉求", value: promptSummary },
+          { label: "影响区域", value: "创意主题、角色设定、剧本大纲" },
+        ],
+        steps: [
+          { title: "识别新的表达重点", detail: `先判断「${promptSummary}」更偏主题、角色还是结构调整。` },
+          { title: "重组讲述关系", detail: "把新的要求映射到创意主题、角色设定和脚本结构里。" },
+          { title: "同步右侧方案规划", detail: "让右侧方案和后续分镜生成共享同一条语义方向。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: 2,
+        badge: "方案已更新",
+        title: "右侧方案规划已更新",
+        description: "我已经把这次修改方向并入右侧方案。先看创意主题、角色列表和剧本大纲，再决定要不要继续细化。",
+        focusTitle: "现在先看右侧方案规划",
+        focusDetail: "优先确认：创意主题、角色设定、剧本大纲。",
+        checklist: ["主题方向是否更准", "角色气质是否贴合", "结构是否顺畅"],
+        actions: [
+          { label: "先看右侧方案", type: "focus" },
+          { label: "我想改主题", prompt: "我想调整一下创意主题的方向。" },
+          { label: "换一组角色", prompt: "这组角色还不够准，帮我换一组更合适的角色设定。" },
+        ],
+      }),
+    };
+  };
+
+  const buildStoryboardSemanticFlow = (promptText, targetIndex = activeStoryboard, options = {}) => {
+    const promptSummary = summarizePromptIntent(promptText);
+    const shotLabel = `第 ${targetIndex + 1} 段分镜`;
+    const isAgentStoryboardAdd = options.intent === "add";
+
+    if (isAgentStoryboardAdd) {
+      return {
+        replyContent: "收到，我会根据这次新增分镜要求，一次性补齐新镜头和素材并同步到右侧。",
+        analysisPayload: createAnalysisPayload({
+          title: "正在解析这次新增分镜要求",
+          summary: "我在提炼承接关系、镜头节奏、画面表达和素材方向，让新分镜能自然接上前后内容。",
+          highlights: [
+            { label: "新增位置", value: shotLabel },
+            { label: "新增要求", value: promptSummary },
+          ],
+          steps: [
+            { title: "确认新增位置", detail: "先判断新镜头和前后分镜的承接关系。" },
+            { title: "生成完整分镜内容", detail: `根据「${promptSummary}」生成镜头标题、画面描述、出场角色和素材方向。` },
+            { title: "同步右侧分镜结果", detail: "把新分镜直接放到右侧时间轴和预览中。" },
+          ],
+        }),
+        handoffPayload: createHandoffPayload({
+          step: 3,
+          badge: "分镜已新增",
+          title: `${shotLabel}已新增到右侧`,
+          description: "我已经把新增分镜同步到右侧。先看新增镜头的画面、节奏和角色是否承接顺畅。",
+          focusTitle: `现在先看右侧${shotLabel}`,
+          focusDetail: "优先确认：新增分镜的标题、画面描述、素材方向和角色出场。",
+          checklist: ["承接是否顺畅", "画面是否贴合", "角色出场是否合理"],
+          actions: [
+            { label: "先看右侧分镜", type: "focus" },
+            { label: "镜头再紧凑些", prompt: "这个新增镜头节奏再紧凑一点。" },
+            { label: "调整角色出场", prompt: "我想调整这段分镜里的角色出场。" },
+          ],
+        }),
+      };
+    }
+
+    return {
+      replyContent: `收到，我先理解你对${shotLabel}的修改重点，再把新的镜头内容同步到右侧。`,
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析这次分镜调整要求",
+        summary: "我在提炼镜头节奏、画面表达、脚本口吻和角色关系，让右侧分镜更新更贴近你的要求。",
+        highlights: [
+          { label: "修改范围", value: shotLabel },
+          { label: "修改要求", value: promptSummary },
+        ],
+        steps: [
+          { title: "识别本段保留内容", detail: "先判断这一段原本的信息重点和必须保留的角色关系。" },
+          { title: "生成新的画面与脚本表达", detail: `根据「${promptSummary}」重写更合适的镜头标题、描述和口播。` },
+          { title: "同步右侧分镜结果", detail: "让右侧当前分镜卡片和预览同步进入新的版本。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: 3,
+        badge: "分镜已更新",
+        title: `${shotLabel}已同步更新到右侧`,
+        description: "我已经把这次调整同步到右侧分镜里。先看当前镜头标题、画面描述、口播脚本和预览画面是否一致。",
+        focusTitle: `现在先看右侧${shotLabel}`,
+        focusDetail: "优先确认：镜头标题、画面描述、口播脚本和角色出场。",
+        checklist: ["镜头表达是否更准", "口播脚本是否更顺", "角色关系是否合理"],
+        actions: [
+          { label: "先看右侧分镜", type: "focus" },
+          { label: "镜头再紧凑些", prompt: "这段镜头节奏再紧凑一点，信息更快进入重点。" },
+          { label: "调整角色出场", prompt: "我想调整这段分镜里的角色出场。" },
+        ],
+      }),
+    };
+  };
+
+  const buildFinalSettingsSemanticFlow = (promptText) => {
+    const promptSummary = summarizePromptIntent(promptText);
+    return {
+      replyContent: "收到，我会先理解这次成片要求，再把会影响预览效果的设置同步到右侧成片面板里。",
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析这次成片设置要求",
+        summary: "我在提炼字幕、音乐、提示语、Logo、画中画和整体调性的调整方向，确保右侧成片预览和设置面板保持一致。",
+        highlights: [
+          { label: "调整诉求", value: promptSummary },
+          { label: "影响区域", value: "字幕、音乐、提示语、Logo 与画中画" },
+        ],
+        steps: [
+          { title: "拆解成片层诉求", detail: "先判断这次要求主要影响字幕、音乐、提示语、Logo、画中画还是整体呈现。", },
+          { title: "映射到可调参数", detail: "把自然语言要求转成右侧面板可继续微调的设置项。" },
+          { title: "同步右侧成片预览", detail: "让右侧参数和预览效果一起朝新的方向更新。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: 4,
+        badge: "成片设置已更新",
+        title: "右侧成片设置已更新",
+        description: "我已经把这次要求同步到右侧成片设置里。先看预览效果、字幕、音乐、提示语、Logo 和画中画，再决定是否继续调参。",
+        focusTitle: "现在先看右侧成片预览",
+        focusDetail: "优先确认：预览效果、字幕、音乐、提示语、Logo 和画中画。",
+        checklist: ["预览是否顺眼", "字幕是否清楚", "音乐与节奏是否舒服", "画面叠加是否合适"],
+        actions: [
+          { label: "先看右侧预览", type: "focus" },
+          { label: "音乐再克制些", prompt: "背景音乐再弱一点，不要压过旁白。" },
+          { label: "字幕再大一点", prompt: "把字幕再放大一点，移动端更清楚。" },
+        ],
+      }),
+    };
+  };
+
+  const buildCharacterSemanticFlow = (promptText, label) => {
+    const promptSummary = summarizePromptIntent(promptText);
+    return {
+      replyContent: `收到，我会先提炼角色的身份、气质和出场关系，再把结果同步到右侧角色区。`,
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析角色修改要求",
+        summary: "我在理解这次角色设定更偏身份、语气、形象还是出场关系，再匹配到右侧角色结果里。",
+        highlights: [
+          { label: "角色范围", value: label },
+          { label: "修改要求", value: promptSummary },
+        ],
+        steps: [
+          { title: "提炼角色关键词", detail: `先从「${promptSummary}」里提取身份、气质和讲述方式。` },
+          { title: "匹配更合适的角色形象", detail: "让角色外观、性格和内容定位尽量保持一致。" },
+          { title: "同步右侧角色结果", detail: "把新的角色设定直接更新到右侧角色区和相关内容里。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: currentStep,
+        badge: "角色已更新",
+        title: `${label}已同步更新到右侧`,
+        description: "我已经把角色调整结果同步到右侧。先看角色卡和相关内容是否已经更贴合这条视频。",
+        focusTitle: "现在先看右侧角色设定",
+        focusDetail: "优先确认：角色气质、身份定位和内容匹配度。",
+        checklist: ["角色气质是否准确", "是否和主题匹配", "是否便于后续分镜展开"],
+        actions: [
+          { label: "先看右侧角色", type: "focus" },
+          { label: "换个角色气质", prompt: "这个角色气质还不够贴合，帮我调整得更准确。" },
+        ],
+      }),
+    };
+  };
+
+  const buildStoryboardDraftSemanticFlow = (targetIndex, changedLabels) => {
+    const changeSummary = changedLabels.join("、") || "分镜内容";
+    return {
+      replyContent: `收到，我先理解你对第 ${targetIndex + 1} 段${changeSummary}的修改，再生成新的右侧分镜结果。`,
+      analysisPayload: createAnalysisPayload({
+        title: "正在解析这次分镜编辑内容",
+        summary: "我在对比这次手动编辑与原分镜之间的差异，确保右侧预览和内容区会一起更新。",
+        highlights: [
+          { label: "修改范围", value: `第 ${targetIndex + 1} 段分镜` },
+          { label: "更新字段", value: changeSummary },
+        ],
+        steps: [
+          { title: "识别手动编辑重点", detail: "先比对这次输入里真正发生变化的字段和语义重点。" },
+          { title: "重组右侧镜头内容", detail: "让标题、画面描述、口播脚本和角色关系保持同一版表达。" },
+          { title: "刷新预览与卡片状态", detail: "让右侧预览、当前分镜卡和播放轨道一起切到新版本。" },
+        ],
+      }),
+      handoffPayload: createHandoffPayload({
+        step: 3,
+        badge: "分镜已更新",
+        title: `第 ${targetIndex + 1} 段分镜已更新`,
+        description: "我已经把这次手动编辑生成成右侧新版本。先看当前分镜卡和预览画面，再决定是否继续改。",
+        focusTitle: `现在先看右侧第 ${targetIndex + 1} 段分镜`,
+        focusDetail: "优先确认：标题、画面描述、口播脚本和预览是否一致。",
+        checklist: ["内容是否更新到位", "预览是否同步", "表达是否更符合要求"],
+        actions: [
+          { label: "先看右侧分镜", type: "focus" },
+          { label: "再改口播", prompt: "这段口播脚本我想再调整一下。" },
+          { label: "换画面表达", prompt: "这段画面描述我想换一种表达。" },
+        ],
+      }),
+    };
+  };
+
+  const applyCreativeCollectionPrompt = (promptText) => {
+    const field = inferCreativeCollectionField(promptText);
+    const fieldLabel = businessFieldLabels[field] || "补充信息";
+    setBusinessInfo((prev) => ({
+      ...prev,
+      [field]: appendSemanticNote(prev[field], normalizeMentionText(promptText, { keepAt: false })),
+    }));
+    return fieldLabel;
+  };
+
+  const buildPlanOutlinesFromPrompt = (promptText, { syncRoles = false, characterSet = characters } = {}) =>
+    outlines.map((item, index) => {
+      const nextAvatars = syncRoles
+        ? buildOutlineAvatarAllocation(index, outlines.length, characterSet.length)
+        : item.avatars?.length
+          ? [...item.avatars]
+          : buildOutlineAvatarAllocation(index, outlines.length, characterSet.length);
+      const baseOutline = syncRoles
+        ? personalizeOutlineVariant(
+            buildOutlineVariant(index, { ...item, avatars: nextAvatars }, "all"),
+            characterSet,
+            nextAvatars,
+          )
+        : { ...item, avatars: nextAvatars };
+      const rewritten = buildOutlineRewriteFromPrompt(
+        index,
+        {
+          ...baseOutline,
+          avatars: nextAvatars,
+          duration: item.duration,
+        },
+        promptText,
+      );
+
+      return {
+        ...item,
+        ...baseOutline,
+        ...rewritten,
+        avatars: nextAvatars,
+        duration: item.duration,
+      };
+    });
+
+  const applyPlanPrompt = (promptText, options = {}) => {
+    const {
+      syncRoles = Boolean(outlineSyncState),
+      refreshTheme = true,
+      refreshCharacters = false,
+      updateTarget = "outlines",
+    } = options;
+    const nextTheme = deriveThemeFromPrompt(promptText, theme);
+    const nextCharacters = normalizeSceneCharacters(
+      refreshCharacters ? buildPlanCharactersFromPrompt(promptText) : characters,
+    );
+    const shouldSyncRoles = syncRoles || refreshCharacters;
+
+    if (refreshTheme) setTheme(nextTheme);
+    if (refreshCharacters) {
+      commitCharacters(nextCharacters);
+      setRecentCharacterChange({ type: "all", label: "整套角色", mode: "regenerate", stamp: Date.now() });
+    } else {
+      commitCharacters((prev) =>
+        prev.map((item, index) =>
+          index === 0 ? { ...item, trait: deriveCharacterTraitFromPrompt(promptText, item.trait) } : item,
+        ),
+      );
+    }
+
+    const nextOutlines = buildPlanOutlinesFromPrompt(promptText, {
+      syncRoles: shouldSyncRoles,
+      characterSet: nextCharacters,
+    });
+    setOutlines(normalizeStoryboardDurations(nextOutlines));
+    setDeletedStoryboardSlots([]);
+    setHiddenEmptyStoryboardSlots([]);
+    setRecentOutlineChange({ type: "all", stamp: Date.now() });
+    if (shouldSyncRoles) {
+      setSyncedOutlineCharacters(nextCharacters);
+      setOutlineSyncState(null);
+    }
+    triggerRightUpdateFeedback(
+      { type: updateTarget },
+      updateTarget === "theme" ? "主题已更新" : updateTarget === "plan" ? "方案已更新" : "大纲已更新",
+    );
+  };
+
+  const applyStoryboardChatPrompt = (promptText) => {
+    const targetIndex = activeStoryboard ?? 0;
+    const currentOutline = outlines[targetIndex];
+    if (!currentOutline) return targetIndex;
+    let nextOutline = buildOutlineRewriteFromPrompt(targetIndex, currentOutline, promptText);
+    const isVoiceScriptRewrite = /口播|脚本|台词|文案|旁白/u.test(promptText);
+    if (isVoiceScriptRewrite) {
+      const activeMediaIndex = getActiveStoryboardMediaIndex(currentOutline, targetIndex);
+      const previousDurationSeconds = getStoryboardDurationSeconds(currentOutline, 6, targetIndex, activeMediaIndex);
+      const nextSubtitle = normalizeVoiceScriptText(nextOutline.subtitle || "");
+      const nextDurationSeconds =
+        estimateStoryboardVoiceScriptDurationSeconds(nextSubtitle, previousDurationSeconds) || previousDurationSeconds;
+      const durationSync = syncStoryboardMediaAssetsToVoiceDuration(
+        getStoryboardMediaAssets(currentOutline, targetIndex),
+        previousDurationSeconds,
+        nextDurationSeconds,
+      );
+      const nextMediaAssets = durationSync.mediaAssets.map((media, mediaIndex) =>
+        regenerateAiStoryboardMediaForVoiceScript(media, targetIndex, mediaIndex, nextSubtitle),
+      );
+      nextOutline = {
+        ...nextOutline,
+        mediaAssets: nextMediaAssets,
+        activeMediaIndex,
+        sourceVideo: nextMediaAssets[activeMediaIndex] || nextMediaAssets[0] || null,
+      };
+    }
+    const applyStoryboardPatch = () => {
+      updateOutline(targetIndex, nextOutline);
+      setStoryboardDraft(createStoryboardDraft(nextOutline));
+      setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+      markDownstreamDirty(3);
+      jumpPreviewToShot(targetIndex, { play: false });
+      triggerRightUpdateFeedback(
+        { type: "storyboard" },
+        isVoiceScriptRewrite ? "AI 素材已重生" : "分镜已更新",
+      );
+    };
+
+    if (isVoiceScriptRewrite) {
+      clearStoryboardGenerationTimer();
+      setStoryboardGenerationState({ shotIndex: targetIndex, mode: "media" });
+      storyboardGenerationTimerRef.current = window.setTimeout(() => {
+        applyStoryboardPatch();
+        setStoryboardGenerationState(null);
+        storyboardGenerationTimerRef.current = null;
+      }, 850);
+    } else {
+      applyStoryboardPatch();
+    }
+    return targetIndex;
+  };
+
+  const applyFinalSettingsPrompt = (promptText) => {
+    const normalized = normalizeMentionText(promptText, { keepAt: false });
+    const updateFinalVideoSettings = (updater) => {
+      setVideoSettings(updater);
+    };
+    const updateFinalSubtitleSettings = (updater) => {
+      setSubtitleSettings(updater);
+    };
+    const updateFinalMusicSettings = (patch) => {
+      if (Object.prototype.hasOwnProperty.call(patch, "selectedMusicId")) setSelectedMusicId(patch.selectedMusicId);
+      if (Object.prototype.hasOwnProperty.call(patch, "musicVolume")) setMusicVolume(patch.musicVolume);
+      if (Object.prototype.hasOwnProperty.call(patch, "favoriteMusicOnly")) setFavoriteMusicOnly(patch.favoriteMusicOnly);
+    };
+
+    updateFinalVideoSettings((prev) => ({
+      ...prev,
+      promptText: appendSemanticNote(prev.promptText, normalized),
+    }));
+
+    let nextVoiceId = null;
+    if (/稳重|专业|权威/u.test(normalized)) nextVoiceId = "voice-1";
+    else if (/青年|男声|知识|科普/u.test(normalized)) nextVoiceId = "voice-2";
+    else if (/温暖|亲和|品牌|柔和/u.test(normalized)) nextVoiceId = "voice-3";
+
+    if (nextVoiceId && voiceoverCharacterIndex !== -1) {
+      commitCharacters((prev) =>
+        prev.map((item, index) =>
+          index === voiceoverCharacterIndex ? { ...item, voiceId: nextVoiceId } : item,
+        ),
+      );
+    }
+
+    if (/字幕.*大|放大|更大/u.test(normalized)) {
+      updateFinalSubtitleSettings((prev) => ({ ...prev, enabled: true, size: Math.min((prev.size || 80) + 8, 120) }));
+      setGlobalStoryboardSettings((prev) => ({ ...prev, subtitles: true }));
+    }
+    if (/字幕.*小|缩小/u.test(normalized)) {
+      updateFinalSubtitleSettings((prev) => ({ ...prev, enabled: true, size: Math.max((prev.size || 80) - 8, 48) }));
+      setGlobalStoryboardSettings((prev) => ({ ...prev, subtitles: true }));
+    }
+    if (/关闭字幕|不要字幕/u.test(normalized)) {
+      updateFinalSubtitleSettings((prev) => ({ ...prev, enabled: false }));
+      setGlobalStoryboardSettings((prev) => ({ ...prev, subtitles: false }));
+    }
+    if (/打开字幕|保留字幕/u.test(normalized)) {
+      updateFinalSubtitleSettings((prev) => ({ ...prev, enabled: true }));
+      setGlobalStoryboardSettings((prev) => ({ ...prev, subtitles: true }));
+    }
+    if (/关闭音乐|不要音乐|去掉音乐/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "none" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: false }));
+    }
+    if (/打开音乐|保留音乐|加音乐/u.test(normalized)) {
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+      if (currentFinalSettings.selectedMusicId === "none") {
+        updateFinalMusicSettings({ selectedMusicId: defaultFinalVideoSettings.selectedMusicId });
+      }
+    }
+    if (/欢快|轻快|活泼|明亮|愉快/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "track-2" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+    }
+    if (/清新|自然|夏天|轻盈/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "track-6" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+    }
+    if (/动感|节奏|快节奏|燃|更有冲击/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "track-5" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+    }
+    if (/温暖|柔和|亲和|治愈/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "track-4" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+    }
+    if (/舒缓|抒情|安静|慢一点|平稳/u.test(normalized)) {
+      updateFinalMusicSettings({ selectedMusicId: "track-1" });
+      setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: true }));
+    }
+    if (/音乐.*弱|音量.*低|音乐小一点/u.test(normalized)) {
+      updateFinalMusicSettings({ musicVolume: Math.max((currentFinalSettings.musicVolume || 0) - 5, 0) });
+    }
+    if (/音乐.*强|音量.*高|音乐大一点/u.test(normalized)) {
+      updateFinalMusicSettings({ musicVolume: Math.min((currentFinalSettings.musicVolume || 0) + 5, 100) });
+    }
+    triggerRightUpdateFeedback({ type: "final" }, "成片设置已更新");
+  };
+
+  const submitPlanComposerPrompt = (inputValue, target) => {
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    if (!normalizedDraft || !target) return false;
+    if (handleOffTopicPrompt(normalizedDraft)) return false;
+
+    const prefix = getPlanComposerDraftPrefix(target);
+    const cleanPrompt = normalizedDraft
+      .replace(/^生成新方案，?要求[:：]?\s*/u, "")
+      .replace(/^调整创意主题，?要求[:：]?\s*/u, "")
+      .replace(/^(?:根据最新角色变化，)?重写整套剧本大纲，?要求[:：]?\s*/u, "")
+      .trim();
+    const effectivePrompt =
+      cleanPrompt ||
+      (target.type === "fullPlan"
+        ? "请重新生成一版更贴合当前目标的完整方案。"
+        : target.type === "theme"
+        ? "请让整体主题更聚焦、表达更清楚。"
+        : target.sync
+          ? "请结合最新角色变化同步重写整套剧本大纲。"
+          : "请把整套剧本大纲重写得更贴合当前目标。");
+    const userContent = `${prefix}${effectivePrompt}`;
+
+    appendAgentMessage(userContent, { role: "user", kind: "user" });
+    setDraft("");
+    setPlanComposerTarget(null);
+    clearComposerGenerationTimer();
+    setComposerGenerationState({
+      type: target.type,
+      title:
+        target.type === "fullPlan"
+          ? "AI 正在生成新方案"
+          : target.type === "theme"
+            ? "AI 正在重组创意主题"
+            : "AI 正在重写整套剧本大纲",
+      detail:
+        target.type === "fullPlan"
+          ? "我在重新组织创意主题、出场角色和剧本大纲。"
+          : target.type === "theme"
+          ? "我在同步新的主题方向、角色关系和剧本表达。"
+          : target.sync
+            ? "我在先同步最新角色变化，再重写整套剧本大纲。"
+            : "我在结合你的诉求重写整套剧本大纲。",
+    });
+    onNotify?.({
+      type: "info",
+      title: "修改请求已提交",
+      description: "正在根据你的要求更新右侧内容。",
+    });
+
+    composerGenerationTimerRef.current = window.setTimeout(() => {
+      if (target.type === "fullPlan") {
+        applyPlanPrompt(effectivePrompt, {
+          syncRoles: true,
+          refreshTheme: true,
+          refreshCharacters: true,
+          updateTarget: "plan",
+        });
+      } else if (target.type === "theme") {
+        applyPlanPrompt(effectivePrompt, {
+          syncRoles: Boolean(outlineSyncState),
+          refreshTheme: true,
+          updateTarget: "theme",
+        });
+      } else {
+        applyPlanPrompt(effectivePrompt, {
+          syncRoles: Boolean(target.sync),
+          refreshTheme: false,
+          updateTarget: "outlines",
+        });
+      }
+      if (target.type === "fullPlan" && maxStepReached >= 3) {
+        markDownstreamDirty(2);
+      } else if (maxStepReached >= 4) {
+        markDownstreamDirty(3, { dirtySteps: [4] });
+      }
+
+      const flow = buildPlanSemanticFlow(effectivePrompt);
+      if (target.type === "fullPlan" && flow.handoffPayload) {
+        flow.handoffPayload = {
+          ...flow.handoffPayload,
+          badge: "新方案已生成",
+          title: "右侧新方案已生成",
+          description: "我已经重新生成创意主题、出场角色和剧本大纲。先看右侧整套方案是否更贴近你的要求。",
+          focusDetail: "优先确认：主题方向、角色设定、剧本大纲。",
+        };
+      }
+      if (target.type === "theme" && flow.handoffPayload) {
+        flow.handoffPayload = {
+          ...flow.handoffPayload,
+          badge: "主题已更新",
+          title: "右侧创意主题与方案已更新",
+          description: "我已经把新的主题方向同步到右侧主题、角色关系和剧本大纲里。先看右侧方案是否更贴近你的预期。",
+          focusDetail: "优先确认：主题表达、角色关系、剧本承接。",
+        };
+      }
+      if (target.type === "allOutlines" && flow.handoffPayload) {
+        flow.handoffPayload = {
+          ...flow.handoffPayload,
+          badge: target.sync ? "大纲已同步" : "大纲已重写",
+          title: target.sync ? "右侧剧本大纲已同步重写" : "右侧剧本大纲已整套重写",
+          description: target.sync
+            ? "我已经结合最新角色变化，把右侧剧本大纲整套同步重写了。先看角色和剧情关系是否顺了。"
+            : "我已经按你的诉求把右侧剧本大纲整套重写了。先看整体结构和讲述节奏是否更贴合。",
+          focusDetail: target.sync
+            ? "优先确认：每段出场角色、剧情承接和表达是否已经跟最新角色一致。"
+            : "优先确认：整体结构、讲述节奏、每段出场角色。",
+        };
+      }
+
+      appendSemanticResult(flow);
+      setComposerGenerationState(null);
+      composerGenerationTimerRef.current = null;
+      onNotify?.({
+        type: "success",
+        title: "右侧内容已更新",
+        description: "已完成本次方案/剧本调整。",
+      });
+    }, LUI_GENERATION_DELAY_MS);
+    return true;
+  };
+
+  const handleOneClickOutlineSync = () => {
+    if (isComposerGenerating) return;
+
+    const effectivePrompt =
+      "请结合最新角色变化，重新整理整套剧本大纲，确保每段出场角色、剧情关系和表达都匹配当前角色设定。";
+
+    setPlanComposerTarget(null);
+    clearComposerGenerationTimer();
+    appendAgentMessage("请根据最新角色变化，同步更新剧本大纲。", { role: "user", kind: "user" });
+    setComposerGenerationState({
+      type: "allOutlines",
+      title: "AI 正在一键更新剧本",
+      detail: "我在根据最新角色变化，重新整理每段大纲的出场角色和剧情表达。",
+    });
+    onNotify?.({
+      type: "info",
+      title: "同步剧本已提交",
+      description: "正在根据最新角色变化更新剧本大纲。",
+    });
+
+    composerGenerationTimerRef.current = window.setTimeout(() => {
+      applyPlanPrompt(effectivePrompt, {
+        syncRoles: true,
+        refreshTheme: false,
+        updateTarget: "outlines",
+      });
+      if (maxStepReached >= 4) {
+        markDownstreamDirty(3, { dirtySteps: [4] });
+      }
+
+      const flow = buildPlanSemanticFlow(effectivePrompt);
+      appendSemanticResult({
+        replyContent: "已根据最新角色变化完成剧本同步，右侧大纲已更新。",
+        analysisPayload: flow.analysisPayload,
+        handoffPayload: flow.handoffPayload
+          ? {
+          ...flow.handoffPayload,
+          badge: "剧本已更新",
+          title: "右侧剧本大纲已一键更新",
+          description: "我已经根据最新角色变化，把右侧剧本大纲整套同步好了。先看角色出场和剧情关系是否顺了。",
+          focusTitle: "现在先看右侧剧本大纲",
+          focusDetail: "优先确认：每段出场角色、剧情承接和表达是否已经跟最新角色一致。",
+          checklist: ["出场角色是否一致", "剧情承接是否顺", "表达是否贴合新角色"],
+          actions: [
+            { label: "先看右侧大纲", type: "focus" },
+            { label: "我想改主题", prompt: "我想调整一下创意主题的方向。" },
+            { label: "换一组角色", prompt: "这组角色还不够准，帮我换一组更合适的角色设定。" },
+          ],
+        }
+          : null,
+      });
+      setComposerGenerationState(null);
+      composerGenerationTimerRef.current = null;
+      onNotify?.({
+        type: "success",
+        title: "剧本已同步",
+        description: "角色变化和剧本大纲已一起更新。",
+      });
+    }, LUI_GENERATION_DELAY_MS);
+  };
+
+  const submitAgentPrompt = (inputValue) => {
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    if (!normalizedDraft) return;
+    if (isComposerGenerating) return;
+    if (handleOffTopicPrompt(normalizedDraft)) return;
+    if (handleStepJumpPrompt(normalizedDraft)) return;
+    const stepAtSubmit = currentStep;
+    appendAgentMessage(normalizedDraft, { role: "user", kind: "user" });
+    clearComposerGenerationTimer();
+    setComposerGenerationState(buildComposerGenerationState(stepAtSubmit, normalizedDraft));
+    resetDeepComposerInput();
+    onNotify?.({
+      type: "info",
+      title: "要求已提交",
+      description: "AI 正在解析并生成右侧结果。",
+    });
+
+    composerGenerationTimerRef.current = window.setTimeout(() => {
+      if (stepAtSubmit === 1) {
+        const fieldLabel = applyCreativeCollectionPrompt(normalizedDraft);
+        markDownstreamDirty(1);
+        appendSemanticResult(buildCreativeCollectionSemanticFlow(normalizedDraft, fieldLabel));
+      } else if (stepAtSubmit === 4) {
+        applyFinalSettingsPrompt(normalizedDraft);
+        appendSemanticResult(buildFinalSettingsSemanticFlow(normalizedDraft));
+      } else if (stepAtSubmit === 2) {
+        applyPlanPrompt(normalizedDraft);
+        if (maxStepReached >= 4) {
+          markDownstreamDirty(3, { dirtySteps: [4] });
+        }
+        appendSemanticResult(buildPlanSemanticFlow(normalizedDraft));
+      } else if (stepAtSubmit === 3) {
+        const targetIndex = applyStoryboardChatPrompt(normalizedDraft);
+        appendSemanticResult(buildStoryboardSemanticFlow(normalizedDraft, targetIndex));
+      } else {
+        appendScopedReply("已收到，我会结合当前任务继续处理。");
+      }
+      setComposerGenerationState(null);
+      composerGenerationTimerRef.current = null;
+      onNotify?.({
+        type: "success",
+        title: "右侧内容已更新",
+        description: "已完成本次调整。",
+      });
+    }, LUI_GENERATION_DELAY_MS);
+  };
+  const handleChatSubmit = (inputValue = draft) => {
+    submitAgentPrompt(inputValue);
+  };
+  const handleHandoffAction = (action, fallbackCue, targetStep) => {
+    if (!action) return;
+    if (action.type === "focus") {
+      triggerRightFocusCue(action.focusCue || fallbackCue);
+      return;
+    }
+    if (action.prompt) {
+      if (typeof targetStep === "number" && targetStep !== currentStep) {
+        setCurrentStep(targetStep);
+        triggerRightFocusCue(
+          action.focusCue || fallbackCue || { step: targetStep, title: "请先看右侧结果", detail: "右侧内容已经同步更新。" },
+        );
+        setDraft(action.prompt);
+        focusPromptComposer();
+        return;
+      }
+      submitAgentPrompt(action.prompt);
+    }
+  };
+  const handleToggleSmartPost = () => {
+    const nextValue = !currentFinalSettings.videoSettings.smartPostEnabled;
+    setVideoSettings((prev) => ({
+      ...prev,
+      smartPostEnabled: nextValue,
+    }));
+    appendManualSelectionRecord({
+      title: `${nextValue ? "开启" : "关闭"}智能发布`,
+      step: 4,
+      target: "成片设置",
+    });
+  };
+  const handleConfirmCharacterVoice = (nextVoiceId) => {
+    if (voiceBindingTargetIndex === null) return;
+    if (!canCharacterBeVoiceover(characters[voiceBindingTargetIndex])) {
+      setVoiceBindingTargetIndex(null);
+      return;
+    }
+    commitCharacters((prev) =>
+      prev.map((item, index) =>
+        index === voiceBindingTargetIndex ? { ...item, voiceId: nextVoiceId } : item,
+      ),
+    );
+    appendOperationFeedback("已更新口播角色音色。", {
+      source: "manual",
+      step: currentStep,
+      target: currentStep >= 4 ? "成片设置" : "角色设定",
+      toast: false,
+    });
+    setVoiceBindingTargetIndex(null);
+  };
+  const handleConfirmMusicSettings = ({ selectedTrackId: nextTrackId, volume: nextVolume, favoriteOnly: nextFavoriteOnly }) => {
+    setSelectedMusicId(nextTrackId);
+    setMusicVolume(nextVolume);
+    setFavoriteMusicOnly(nextFavoriteOnly);
+    setGlobalStoryboardSettings((prev) => ({ ...prev, bgm: nextTrackId !== "none" }));
+    setMusicModalOpen(false);
+    appendManualSelectionRecord({
+      title: "手动更新了背景音乐",
+      description: `${musicTracks.find((item) => item.id === nextTrackId)?.name || "无音乐"} · 音量 ${nextVolume}%`,
+      step: 4,
+      target: "成片设置",
+      changes: nextFavoriteOnly ? ["仅用收藏音乐"] : [],
+    });
+    onNotify?.({
+      type: "success",
+      title: "音乐设置已更新",
+      description: "背景音乐配置已经生效。",
+    });
+  };
+  const handleConfirmSubtitleSettings = (nextSettings) => {
+    setSubtitleSettings(nextSettings);
+    setGlobalStoryboardSettings((prev) => ({ ...prev, subtitles: nextSettings.enabled }));
+    setSubtitleModalOpen(false);
+    appendManualSelectionRecord({
+      title: "手动更新了字幕设置",
+      description: nextSettings.enabled ? `字幕已开启 · ${nextSettings.position || "默认位置"}` : "字幕已关闭",
+      step: 4,
+      target: "成片设置",
+    });
+    onNotify?.({
+      type: "success",
+      title: "字幕设置已更新",
+      description: "字幕样式已经同步到预览。",
+    });
+  };
+  const handleConfirmPromptText = ({ value: nextValue, settings: nextSettings, position: nextPosition }) => {
+    syncStoryboardQuickSetting({
+      promptText: nextValue,
+      promptSettings: normalizePromptTextSettings(nextSettings),
+      promptTextPosition: normalizePromptTextPosition(nextPosition),
+    });
+    setPromptModalOpen(false);
+    appendManualSelectionRecord({
+      title: "手动更新了提示语",
+      description: summarizeRecordText(nextValue, "已清空提示语", 36),
+      step: 4,
+      target: "成片设置",
+    });
+    onNotify?.({
+      type: "success",
+      title: "提示语已更新",
+      description: "可在预览画面中继续拖动位置。",
+    });
+  };
+  const handleOpenLogoPicker = () => {
+    setLogoPickerOpen(true);
+  };
+  const handleConfirmBrandLogo = (selectedImage) => {
+    if (!selectedImage?.preview) return;
+    syncStoryboardQuickSetting({
+      brandLogo: selectedImage.preview,
+      brandLogoPosition: storyboardDraft.brandLogoPosition || defaultBrandLogoPosition,
+    });
+    setLogoPickerOpen(false);
+    appendManualSelectionRecord({
+      title: "手动添加了品牌 Logo",
+      description: selectedImage.name || "图片素材",
+      step: 4,
+      target: "成片设置",
+    });
+    onNotify?.({
+      type: "success",
+      title: "Logo 已添加",
+      description: "可在预览画面中拖动位置。",
+    });
+  };
+  const handleLogoLibraryUpload = (files) => {
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) return [];
+
+    const baseImageCount = deepUploadAssets.filter((item) => item.assetType === "image").length;
+    const remainingSlots = Math.max(0, DEEP_COMPOSER_UPLOAD_MAX - deepUploadAssets.length);
+    if (!remainingSlots) {
+      onNotify?.({
+        type: "warning",
+        title: "素材已达上限",
+        description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+      return [];
+    }
+
+    const nextUploads = imageFiles.slice(0, remainingSlots).map((file, index) => ({
+      id: `logo-library-${Date.now()}-${index}`,
+      assetType: "image",
+      name: `图片${baseImageCount + index + 1}`,
+      rawName: file.name,
+      preview: URL.createObjectURL(file),
+    }));
+
+    if (imageFiles.length > nextUploads.length) {
+      onNotify?.({
+        type: "warning",
+        title: "已截取可添加数量",
+        description: `深度创编输入框最多保留 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+    }
+
+    setDeepComposerAttachments((prev) => ({
+      ...prev,
+      uploads: [...(prev.uploads || []), ...nextUploads],
+    }));
+
+    return nextUploads.map((item) => ({
+      id: item.id,
+      name: item.rawName || item.name,
+      tokenName: item.name,
+      preview: item.preview,
+      meta: "本地上传",
+    }));
+  };
+  const handleRemoveBrandLogo = () => {
+    if (!storyboardDraft.brandLogo) return;
+    setDeleteBrandLogoDialog({
+      index: activeStoryboard,
+      name: getStoryboardDisplayName(activeStoryboard),
+    });
+  };
+  const confirmRemoveBrandLogo = () => {
+    if (!deleteBrandLogoDialog) return;
+    const { index } = deleteBrandLogoDialog;
+    setDeleteBrandLogoDialog(null);
+    if (index !== activeStoryboard) {
+      syncStoryboardQuickSettingAt(index, { brandLogo: null });
+      appendManualSelectionRecord({
+        title: `手动移除了${getStoryboardDisplayName(index)}品牌 Logo`,
+        step: 4,
+        target: getStoryboardDisplayName(index),
+      });
+      return;
+    }
+    syncStoryboardQuickSetting({ brandLogo: null });
+    appendManualSelectionRecord({
+      title: `手动移除了${getStoryboardDisplayName(index)}品牌 Logo`,
+      step: 4,
+      target: getStoryboardDisplayName(index),
+    });
+  };
+  const handleClosePreviewBrandLogo = (index) => {
+    setDeleteBrandLogoDialog({
+      index,
+      name: getStoryboardDisplayName(index),
+    });
+  };
+  const storyboardTimeline = useMemo(() => {
+    let cursor = 0;
+    const mediaIndexMap = currentStep === 4 ? finalCombinationMediaIndexMap : {};
+
+    return storyboardSlots.map(({ index, outline, isEmpty }) => {
+      if (isEmpty || !outline) {
+        return {
+          index,
+          isEmpty: true,
+          startSeconds: cursor,
+          endSeconds: cursor,
+          durationSeconds: 0,
+          mediaIndex: 0,
+        };
+      }
+
+      const mediaIndex = mediaIndexMap[index] ?? getActiveStoryboardMediaIndex(outline, index);
+      const durationSeconds = getStoryboardDurationSeconds(outline, 6, index, mediaIndex);
+      const startSeconds = cursor;
+      const endSeconds = startSeconds + durationSeconds;
+      cursor = endSeconds;
+
+      return {
+        index,
+        isEmpty: false,
+        startSeconds,
+        endSeconds,
+        durationSeconds,
+        mediaIndex,
+      };
+    });
+  }, [currentStep, finalCombinationMediaIndexMap, storyboardSlots]);
+  const activeStoryboardTimeline = useMemo(
+    () => storyboardTimeline.filter((item) => !item.isEmpty),
+    [storyboardTimeline],
+  );
+  const totalStoryboardDuration =
+    activeStoryboardTimeline[activeStoryboardTimeline.length - 1]?.endSeconds ||
+    activeStoryboardTimeline.reduce((sum, item) => sum + item.durationSeconds, 0);
+  const previewStoryboardIndex = useMemo(() => {
+    if (!activeStoryboardTimeline.length) return firstValidStoryboardIndex;
+    const currentTimelineItem = activeStoryboardTimeline.find(
+      (item) => previewCurrentTime >= item.startSeconds && previewCurrentTime < item.endSeconds,
+    );
+    return currentTimelineItem?.index ?? activeStoryboardTimeline[activeStoryboardTimeline.length - 1]?.index ?? firstValidStoryboardIndex;
+  }, [activeStoryboardTimeline, firstValidStoryboardIndex, previewCurrentTime]);
+  const mentionAssets = useMemo(
+    () =>
+      characters.map((item, index) => ({
+      id: `role-${index}`,
+      kind: "role",
+      characterIndex: index,
+      name: item.name,
+      description: item.trait || "已生成角色",
+      typeLabel: "角色",
+      preview: item.avatar,
+      tokenLabel: `角色：${item.name}`,
+      searchText: `${item.name} ${item.trait || ""} 角色`,
+    })),
+    [characters],
+  );
+  const selectedStoryboardRoleIndexes = useMemo(
+    () => (storyboardDraft.avatars || []).filter((avatarIndex) => characters[avatarIndex]),
+    [characters, storyboardDraft.avatars],
+  );
+  const storyboardMentionAssets = useMemo(() => {
+    const selectedRoleSet = new Set(selectedStoryboardRoleIndexes);
+    return mentionAssets.filter((item) => item.kind !== "role" || selectedRoleSet.has(item.characterIndex));
+  }, [mentionAssets, selectedStoryboardRoleIndexes]);
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionState) return [];
+    const normalized = mentionState.query.trim().toLowerCase();
+    const sourceAssets = mentionState.field === "desc" ? storyboardMentionAssets : mentionAssets;
+
+    return sourceAssets
+      .filter((item) =>
+        !normalized
+          ? true
+          : item.name.toLowerCase().includes(normalized) ||
+            item.description.toLowerCase().includes(normalized) ||
+            item.searchText.toLowerCase().includes(normalized),
+      )
+      .slice(0, 6);
+  }, [mentionAssets, mentionState, storyboardMentionAssets]);
+  const mentionRegistry = useMemo(
+    () =>
+      mentionAssets.reduce((acc, item) => {
+        acc[item.tokenLabel] = {
+          assetType: "asset",
+          preview: item.preview || null,
+        };
+        return acc;
+      }, {}),
+    [mentionAssets],
+  );
+  const storyboardMentionRegistry = useMemo(
+    () =>
+      storyboardMentionAssets.reduce((acc, item) => {
+        acc[item.tokenLabel] = {
+          assetType: "asset",
+          preview: item.preview || null,
+        };
+        return acc;
+      }, {}),
+    [storyboardMentionAssets],
+  );
+
+  useLayoutEffect(() => {
+    const rafId = window.requestAnimationFrame(updateDeepAttachmentScrollState);
+    const handleResize = () => updateDeepAttachmentScrollState();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [deepUploadAssets.length]);
+
+  useEffect(() => {
+    if (!deepUploadMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = deepUploadTriggerRef.current;
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-upload-source-menu="true"]')) return;
+      setDeepUploadMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, [deepUploadMenuOpen]);
+
+  useEffect(() => {
+    if (!storyboardMediaAddMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = storyboardMediaAddTriggerRef.current;
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-storyboard-media-add-menu="true"]')) return;
+      setStoryboardMediaAddMenuOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setStoryboardMediaAddMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [storyboardMediaAddMenuOpen]);
+
+  useEffect(() => {
+    if (!storyboardScriptMaterialMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = storyboardScriptMaterialTriggerRef.current;
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-storyboard-script-material-menu="true"]')) return;
+      setStoryboardScriptMaterialMenuOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setStoryboardScriptMaterialMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [storyboardScriptMaterialMenuOpen]);
+
+  useEffect(() => {
+    if (storyboardSlotAddMenuTarget === null) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = storyboardSlotAddTriggerRefs.current[storyboardSlotAddMenuTarget];
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-storyboard-slot-add-menu="true"]')) return;
+      setStoryboardSlotAddMenuTarget(null);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setStoryboardSlotAddMenuTarget(null);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [storyboardSlotAddMenuTarget]);
+
+  useEffect(() => {
+    if (storyboardInsertMenuTarget === null) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = storyboardInsertTriggerRefs.current[storyboardInsertMenuTarget];
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-storyboard-insert-menu="true"]')) return;
+      setStoryboardInsertMenuTarget(null);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setStoryboardInsertMenuTarget(null);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [storyboardInsertMenuTarget]);
+
+  useEffect(() => {
+    if (!addCharacterMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      const trigger = addCharacterTriggerRef.current;
+      if (trigger?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-add-character-menu="true"]')) return;
+      setAddCharacterMenuOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setAddCharacterMenuOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [addCharacterMenuOpen]);
+
+  const previousStepRef = useRef(currentStep);
+  useEffect(() => {
+    const previousStep = previousStepRef.current;
+    previousStepRef.current = currentStep;
+    if (currentStep <= previousStep) return;
+
+    setDraft("");
+    setMentionState(null);
+    setPlanComposerTarget(null);
+    setRegenerateTarget(null);
+    setRewriteTarget(null);
+    setStoryboardAddTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardInsertMenuTarget(null);
+    setAddCharacterMenuOpen(false);
+    setDeepUploadMenuOpen(false);
+    setIsDeepComposerExpanded(false);
+  }, [currentStep]);
+
+  useEffect(() => {
+    setDownstreamStatus((prev) => {
+      if (!prev) return null;
+      const reachableDirtySteps = prev.dirtySteps.filter((stepNo) => stepNo <= maxStepReached);
+      if (!reachableDirtySteps.length) return null;
+
+      return {
+        ...prev,
+        dirtySteps: reachableDirtySteps,
+        detail: `${formatStepLabels(reachableDirtySteps)}仍基于旧的${getStepDisplayLabel(prev.sourceStep)}。请先重新生成${getStepDisplayLabel(reachableDirtySteps[0])}。`,
+        actionStep: reachableDirtySteps[0],
+      };
+    });
+  }, [maxStepReached]);
+
+  useEffect(() => {
+    if (deepUploadAssets.length < 10) return;
+    setDeepUploadMenuOpen(false);
+  }, [deepUploadAssets.length]);
+
+  useEffect(() => {
+    if (!shouldShowDeepComposerUploads) return undefined;
+    const scrollToBottom = () => {
+      const node = conversationScrollRef.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+    };
+    const rafId = window.requestAnimationFrame(scrollToBottom);
+    const timer = window.setTimeout(scrollToBottom, 220);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timer);
+    };
+  }, [shouldShowDeepComposerUploads]);
+
+  const isEditingPreviousStep = currentStep < maxStepReached;
+  const cloneEditSessionValue = (value) => JSON.parse(JSON.stringify(value || null));
+  const buildEditSessionSnapshot = (stepNo) => {
+    if (stepNo === 1) return { businessInfo, downstreamStatus };
+    if (stepNo === 2) return { theme, characters, syncedOutlineCharacters, outlines, outlineSyncState, downstreamStatus };
+    if (stepNo === 3) return { outlines, deletedStoryboardSlots, hiddenEmptyStoryboardSlots, activeStoryboard, downstreamStatus };
+    return null;
+  };
+  const serializeEditSessionSnapshot = (snapshot) => JSON.stringify(snapshot || null);
+
+  useEffect(() => {
+    if (!isEditingPreviousStep) {
+      editSessionSnapshotRef.current = { key: null, step: null, snapshot: null };
+      return;
+    }
+
+    const nextKey = `${maxStepReached}-${currentStep}`;
+    if (editSessionSnapshotRef.current.key === nextKey) return;
+
+    editSessionSnapshotRef.current = {
+      key: nextKey,
+      step: currentStep,
+      snapshot: cloneEditSessionValue(buildEditSessionSnapshot(currentStep)),
+    };
+  }, [currentStep, isEditingPreviousStep, maxStepReached]);
+
+  const hasEditSessionChanges = useMemo(() => {
+    if (!isEditingPreviousStep) return false;
+
+    const baseline = editSessionSnapshotRef.current;
+    if (!baseline?.snapshot || baseline.step !== currentStep) return false;
+
+    const snapshotChanged =
+      serializeEditSessionSnapshot(buildEditSessionSnapshot(currentStep)) !==
+      serializeEditSessionSnapshot(baseline.snapshot);
+
+    if (currentStep === 3) return snapshotChanged || storyboardDraftDirty;
+    return snapshotChanged;
+  }, [
+    activeStoryboard,
+    businessInfo,
+    characters,
+    currentStep,
+    deletedStoryboardSlots,
+    downstreamStatus,
+    hiddenEmptyStoryboardSlots,
+    isEditingPreviousStep,
+    outlines,
+    outlineSyncState,
+    storyboardDraftDirty,
+    syncedOutlineCharacters,
+    theme,
+  ]);
+
+  const restoreEditSessionSnapshot = () => {
+    const baseline = editSessionSnapshotRef.current;
+    const snapshot = cloneEditSessionValue(baseline?.snapshot);
+    if (!snapshot || baseline.step !== currentStep) return;
+
+    if (currentStep === 1) {
+      setBusinessInfo(snapshot.businessInfo || initialAgentState.businessInfo);
+      setStep1TouchedFields({});
+      setStep1ValidationTriggered(false);
+    }
+
+    if (currentStep === 2) {
+      setTheme(snapshot.theme || initialAgentState.theme);
+      setCharacters(snapshot.characters || initialAgentState.characters);
+      setSyncedOutlineCharacters(snapshot.syncedOutlineCharacters || snapshot.characters || initialAgentState.characters);
+      setOutlines(snapshot.outlines || initialAgentState.outlines);
+      setOutlineSyncState(snapshot.outlineSyncState || null);
+      setRecentCharacterChange(null);
+      setRecentOutlineChange(null);
+      setRegenerateTarget(null);
+      setRewriteTarget(null);
+      setPlanComposerTarget(null);
+    }
+
+    if (currentStep === 3) {
+      const restoredOutlines = snapshot.outlines || initialAgentState.outlines;
+      const restoredDeletedSlots = snapshot.deletedStoryboardSlots || [];
+      const restoredHiddenSlots = snapshot.hiddenEmptyStoryboardSlots || [];
+      const restoredActiveStoryboard = Number.isInteger(snapshot.activeStoryboard) ? snapshot.activeStoryboard : activeStoryboard;
+
+      setOutlines(restoredOutlines);
+      setDeletedStoryboardSlots(restoredDeletedSlots);
+      setHiddenEmptyStoryboardSlots(restoredHiddenSlots);
+      setActiveStoryboard(restoredActiveStoryboard);
+      setStoryboardDraft(createStoryboardDraft(restoredOutlines[restoredActiveStoryboard] || restoredOutlines[0]));
+      storyboardDraftOverrideRef.current = null;
+      setStoryboardAddTarget(null);
+      setStoryboardSlotAddMenuTarget(null);
+      setStoryboardMediaAddMenuOpen(false);
+      setVideoLibraryTarget(null);
+      setImageLibraryTarget(null);
+      setRecentOutlineChange(null);
+      jumpPreviewToShot(restoredActiveStoryboard, { play: false });
+    }
+
+    setDownstreamStatus(snapshot.downstreamStatus || null);
+    editSessionSnapshotRef.current = { key: null, step: null, snapshot: null };
+    setCurrentStep(maxStepReached);
+    onNotify?.({
+      type: "info",
+      title: "已取消本次修改",
+      description: "内容已恢复到回改前的版本。",
+    });
+  };
+
+  const markOutlineSyncRequired = ({ type, label }) => {
+    const titleMap = {
+      add: `已新增角色「${label}」`,
+      replace: `已更新角色「${label}」`,
+      remove: `已删除角色「${label}」`,
+    };
+    const detailMap = {
+      add: "请按新角色重排出场和讲述关系。",
+      replace: "请按新角色重排形象和剧情表达。",
+      remove: "请按最新角色重排出场和剧情。",
+    };
+
+    setOutlineSyncState({
+      type,
+      label,
+      title: titleMap[type] || "角色已更新",
+      detail: detailMap[type] || "下方剧本大纲需要同步更新。",
+      stamp: Date.now(),
+    });
+    markDownstreamDirty(2);
+  };
+
+  const handleReplaceCharacter = (index, nextCharacter) => {
+    commitCharacters((prev) =>
+      prev.map((item, itemIndex) => (itemIndex === index ? { ...item, ...nextCharacter } : item)),
+    );
+  };
+
+  const removeCharacterByIndex = (index) => {
+    const targetName = characters[index]?.name || `角色 ${index + 1}`;
+    commitCharacters((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    setRecentCharacterChange(null);
+    setLibraryTarget((prev) => {
+      if (prev === null) return null;
+      if (prev === index) return null;
+      return prev > index ? prev - 1 : prev;
+    });
+    setRegenerateTarget((prev) => {
+      if (!prev || prev.type !== "replace") return prev;
+      if (prev.index === index) return null;
+      return prev.index > index ? { ...prev, index: prev.index - 1 } : prev;
+    });
+    setVoiceBindingTargetIndex((prev) => {
+      if (prev === null) return null;
+      if (prev === index) return null;
+      return prev > index ? prev - 1 : prev;
+    });
+    markOutlineSyncRequired({ type: "remove", label: targetName });
+  };
+
+  const handleRemoveCharacter = (index) => {
+    if (characters.length <= 1) return;
+    const targetCharacter = characters[index];
+    const remainingSystemCharacters = characters.filter(
+      (item, itemIndex) => itemIndex !== index && isLibraryCharacter(item),
+    );
+
+    if (isLibraryCharacter(targetCharacter) && remainingSystemCharacters.length === 0) {
+      return;
+    }
+
+    const targetName = characters[index]?.name || `角色 ${index + 1}`;
+    setDeleteRoleDialog({
+      index,
+      name: targetName,
+      isVoiceover: Boolean(targetCharacter?.isVoiceover),
+      fallbackVoiceoverName: remainingSystemCharacters[0]?.name || "",
+    });
+  };
+
+  const handleSetVoiceoverCharacter = (index) => {
+    const nextCharacter = characters[index];
+    if (!canCharacterBeVoiceover(nextCharacter)) {
+      appendOperationFeedback("AI 生成角色只能出场，不能设置为口播角色。");
+      return;
+    }
+    if (index === voiceoverCharacterIndex) {
+      setVoiceBindingTargetIndex(index);
+      return;
+    }
+
+    commitCharacters((prev) =>
+      prev.map((item, itemIndex) => ({
+        ...item,
+        isVoiceover: itemIndex === index,
+        voiceId:
+          itemIndex === index
+            ? item.voiceId || suggestCharacterVoiceId(item, itemIndex)
+            : null,
+      })),
+    );
+    setVoiceBindingTargetIndex(index);
+    appendOperationFeedback(`已将角色「${nextCharacter.name}」设为口播角色，请继续选择音色。`, {
+      source: "manual",
+      step: 2,
+      target: "角色设定",
+      toast: false,
+    });
+  };
+
+  const handleConfirmRemoveCharacter = () => {
+    if (!deleteRoleDialog) return;
+    const { index } = deleteRoleDialog;
+    setDeleteRoleDialog(null);
+    if (!characters[index]) return;
+    removeCharacterByIndex(index);
+  };
+
+  const updateOutline = (index, patch) => {
+    setOutlines((prev) =>
+      normalizeStoryboardDurations(
+        prev.map((item, itemIndex) => {
+          if (itemIndex !== index) return item;
+          const merged = {
+            ...item,
+            ...patch,
+            pictureInPicturePosition: normalizePictureInPicturePosition(
+              patch.pictureInPicturePosition ?? item.pictureInPicturePosition,
+            ),
+            brandLogoPosition: normalizeBrandLogoPosition(patch.brandLogoPosition ?? item.brandLogoPosition),
+            promptSettings: normalizePromptTextSettings(patch.promptSettings ?? item.promptSettings),
+          };
+          if (Object.prototype.hasOwnProperty.call(patch, "subtitle")) {
+            merged.subtitle = normalizeVoiceScriptText(patch.subtitle);
+          }
+          const shouldSyncActiveMediaContent =
+            !Object.prototype.hasOwnProperty.call(patch, "mediaAssets") &&
+            (Object.prototype.hasOwnProperty.call(patch, "avatars") ||
+              Object.prototype.hasOwnProperty.call(patch, "desc") ||
+              Object.prototype.hasOwnProperty.call(patch, "subtitle"));
+
+          if (shouldSyncActiveMediaContent) {
+            const mediaAssets = getStoryboardMediaAssets(merged, itemIndex);
+            const activeMediaIndex = getActiveStoryboardMediaIndex({ ...merged, mediaAssets }, itemIndex);
+            const syncVoiceScript = Object.prototype.hasOwnProperty.call(patch, "subtitle");
+            const syncVisualDescription =
+              Object.prototype.hasOwnProperty.call(patch, "avatars") ||
+              Object.prototype.hasOwnProperty.call(patch, "desc");
+            merged.mediaAssets = mediaAssets.map((asset, assetIndex) => {
+              if (!syncVoiceScript && assetIndex !== activeMediaIndex) return asset;
+
+              const nextAsset = {
+                ...asset,
+                ...(syncVoiceScript ? { subtitle: merged.subtitle || "" } : {}),
+                ...(assetIndex === activeMediaIndex
+                  ? {
+                      ...(Object.prototype.hasOwnProperty.call(patch, "avatars") ? { avatars: merged.avatars || [] } : {}),
+                      ...(Object.prototype.hasOwnProperty.call(patch, "desc") ? { desc: merged.desc || "" } : {}),
+                    }
+                  : {}),
+              };
+
+              return syncVisualDescription && assetIndex === activeMediaIndex
+                ? clearAiStoryboardMediaVisualSync(nextAsset)
+                : nextAsset;
+            });
+            merged.activeMediaIndex = activeMediaIndex;
+            merged.sourceVideo = merged.mediaAssets[activeMediaIndex] || merged.mediaAssets[0] || null;
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, "subtitle")) {
+            const activeMediaIndex = getActiveStoryboardMediaIndex(merged, itemIndex);
+            const previousDurationSeconds = getStoryboardDurationSeconds(item, 6, itemIndex, activeMediaIndex);
+            const nextDurationSeconds =
+              estimateStoryboardVoiceScriptDurationSeconds(merged.subtitle, previousDurationSeconds) ||
+              previousDurationSeconds;
+            const durationSync = syncStoryboardMediaAssetsToVoiceDuration(
+              getStoryboardMediaAssets(merged, itemIndex),
+              previousDurationSeconds,
+              nextDurationSeconds,
+            );
+            const shouldSuggestAiVisualSync =
+              !Object.prototype.hasOwnProperty.call(patch, "desc") &&
+              !Object.prototype.hasOwnProperty.call(patch, "avatars");
+            merged.mediaAssets = shouldSuggestAiVisualSync
+              ? durationSync.mediaAssets.map((asset, assetIndex) =>
+                  regenerateAiStoryboardMediaForVoiceScript(asset, itemIndex, assetIndex, merged.subtitle),
+                )
+              : durationSync.mediaAssets;
+            merged.activeMediaIndex = activeMediaIndex;
+            merged.sourceVideo = merged.mediaAssets[activeMediaIndex] || merged.mediaAssets[0] || null;
+          }
+          const mediaState = normalizeStoryboardMediaState(merged, itemIndex);
+
+          return {
+            ...merged,
+            ...mediaState,
+          };
+        }),
+      ),
+    );
+  };
+  const updateStoryboardDraft = (patch) => {
+    setStoryboardDraft((prev) => {
+      const merged = {
+        ...prev,
+        ...patch,
+        pictureInPicturePosition: normalizePictureInPicturePosition(
+          patch.pictureInPicturePosition ?? prev.pictureInPicturePosition,
+        ),
+        brandLogoPosition: normalizeBrandLogoPosition(patch.brandLogoPosition ?? prev.brandLogoPosition),
+        promptSettings: normalizePromptTextSettings(patch.promptSettings ?? prev.promptSettings),
+      };
+      if (Object.prototype.hasOwnProperty.call(patch, "subtitle")) {
+        merged.subtitle = normalizeVoiceScriptText(patch.subtitle);
+      }
+      const shouldNormalizeMedia =
+        Object.prototype.hasOwnProperty.call(patch, "mediaAssets") ||
+        Object.prototype.hasOwnProperty.call(patch, "activeMediaIndex") ||
+        Object.prototype.hasOwnProperty.call(patch, "sourceVideo");
+
+      return shouldNormalizeMedia
+        ? {
+            ...merged,
+            ...normalizeStoryboardMediaState(merged, activeStoryboard),
+          }
+        : merged;
+    });
+  };
+  const syncStoryboardQuickSettingAt = (index, patch) => {
+    const targetOutline = outlines[index];
+    if (!targetOutline) return;
+    const normalizedPatch = {
+      ...patch,
+      pictureInPicturePosition: normalizePictureInPicturePosition(
+        patch.pictureInPicturePosition ?? targetOutline.pictureInPicturePosition,
+      ),
+      brandLogoPosition: normalizeBrandLogoPosition(patch.brandLogoPosition ?? targetOutline.brandLogoPosition),
+      promptSettings: normalizePromptTextSettings(patch.promptSettings ?? targetOutline.promptSettings),
+    };
+    updateOutline(index, normalizedPatch);
+
+    if (index === activeStoryboard) {
+      storyboardDraftOverrideRef.current = {
+        ...storyboardDraft,
+        ...normalizedPatch,
+      };
+      setStoryboardDraft(storyboardDraftOverrideRef.current);
+    }
+  };
+  const syncStoryboardQuickSetting = (patch) => {
+    syncStoryboardQuickSettingAt(activeStoryboard, patch);
+  };
+  const focusStoryboardQuickSettingTarget = (index) => {
+    const fallbackIndex = firstValidStoryboardIndex;
+    const safeIndex = outlines[index] && !isStoryboardSlotEmpty(index) ? index : fallbackIndex;
+    const targetOutline = outlines[safeIndex];
+    if (!targetOutline) return null;
+
+    const nextDraft = createStoryboardDraft(targetOutline);
+    storyboardDraftOverrideRef.current = nextDraft;
+    setActiveStoryboard(safeIndex);
+    setStoryboardDraft(nextDraft);
+    return { index: safeIndex, outline: targetOutline, draft: nextDraft };
+  };
+  const openPromptEditorForStoryboard = (index) => {
+    if (!focusStoryboardQuickSettingTarget(index)) return;
+    setPromptModalOpen(true);
+  };
+  const openLogoPickerForStoryboard = (index) => {
+    if (!focusStoryboardQuickSettingTarget(index)) return;
+    setLogoPickerOpen(true);
+  };
+  const updateOutlineField = (index, field, value) => {
+    updateOutline(index, { [field]: value });
+  };
+  const toggleStoryboardDraftAvatar = (avatarIndex) => {
+    const currentSelected = storyboardDraft.avatars || [];
+    const wasSelected = currentSelected.includes(avatarIndex);
+    setStoryboardDraft((prev) => {
+      const selected = prev.avatars || [];
+      const alreadySelected = selected.includes(avatarIndex);
+      const nextAvatars = alreadySelected
+        ? selected.filter((id) => id !== avatarIndex)
+        : [...selected, avatarIndex];
+      const safeAvatars = nextAvatars.length ? nextAvatars : selected;
+
+      return {
+        ...prev,
+        avatars: safeAvatars,
+        desc: filterRoleMentionTokens(prev.desc, safeAvatars, characters),
+        subtitle: normalizeVoiceScriptText(prev.subtitle),
+      };
+    });
+    appendManualSelectionRecord({
+      title: `${wasSelected ? "移除" : "添加"}了${getStoryboardDisplayName(activeStoryboard)}出场角色`,
+      description: characters[avatarIndex]?.name || `角色 ${avatarIndex + 1}`,
+      step: 3,
+      target: getStoryboardDisplayName(activeStoryboard),
+    });
+  };
+  const toggleStoryboardPictureInPictureAt = (index) => {
+    const targetOutline = outlines[index];
+    if (!targetOutline || isStoryboardSlotEmpty(index)) return;
+    const mediaIndex =
+      currentStep === 4
+        ? finalCombinationMediaIndexMap[index] ?? getActiveStoryboardMediaIndex(targetOutline, index)
+        : getActiveStoryboardMediaIndex(targetOutline, index);
+    const mediaContent = getStoryboardMediaContent(targetOutline, index, mediaIndex);
+    const nextEnabled = !targetOutline.pictureInPictureEnabled;
+    syncStoryboardQuickSettingAt(index, {
+      pictureInPictureEnabled: nextEnabled,
+      ...(nextEnabled
+        ? {
+            pictureInPictureCharacterIndex:
+              targetOutline.pictureInPictureCharacterIndex ??
+              mediaContent.avatars?.[0] ??
+              targetOutline.avatars?.[0] ??
+              0,
+          }
+        : {}),
+    });
+    appendManualSelectionRecord({
+      title: `${nextEnabled ? "开启" : "关闭"}了${getStoryboardDisplayName(index)}角色画中画`,
+      step: currentStep,
+      target: getStoryboardDisplayName(index),
+    });
+  };
+  const toggleStoryboardPictureInPicture = () => {
+    toggleStoryboardPictureInPictureAt(activeStoryboard);
+  };
+  const handleClosePreviewPictureInPicture = (index) => {
+    syncStoryboardQuickSettingAt(index, {
+      pictureInPictureEnabled: false,
+    });
+    appendManualSelectionRecord({
+      title: `关闭了${getStoryboardDisplayName(index)}角色画中画`,
+      step: currentStep,
+      target: getStoryboardDisplayName(index),
+    });
+  };
+  const beginPictureInPictureDrag = (event, index) => {
+    const overlayBounds = event.currentTarget.getBoundingClientRect();
+    if (!overlayBounds) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    pipDragStateRef.current = {
+      type: "pip",
+      index,
+      pointerOffsetX: event.clientX - overlayBounds.left,
+      pointerOffsetY: event.clientY - overlayBounds.top,
+    };
+    setIsPipDragging(true);
+  };
+  const beginBrandLogoDrag = (event, index) => {
+    const overlayBounds = event.currentTarget.getBoundingClientRect();
+    if (!overlayBounds) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    pipDragStateRef.current = {
+      type: "logo",
+      index,
+      pointerOffsetX: event.clientX - overlayBounds.left,
+      pointerOffsetY: event.clientY - overlayBounds.top,
+    };
+    setIsPipDragging(true);
+  };
+  const applyStoryboardDraft = () => {
+    if (!activeOutline || !storyboardDraftDirty || isStoryboardGenerating) return;
+
+    const targetIndex = activeStoryboard;
+    const changedLabels = [];
+    if ((storyboardDraft.title || "").trim() !== (activeOutline.title || "")) changedLabels.push("镜头标题");
+    const subtitleChanged =
+      normalizeVoiceScriptText(storyboardDraft.subtitle).trim() !== normalizeVoiceScriptText(activeOutline.subtitle).trim();
+    const visualDescriptionChanged =
+      isActiveStoryboardAiGeneratedMedia &&
+      (storyboardDraft.desc || "").trim() !== (activeStoryboardMediaContent.desc || "");
+    const visualRoleChanged =
+      isActiveStoryboardAiGeneratedMedia &&
+      storyboardDraft.avatars.join(",") !== (activeStoryboardMediaContent.avatars || []).join(",");
+    if (
+      visualDescriptionChanged
+    ) {
+      changedLabels.push("画面描述");
+    }
+    if (subtitleChanged) {
+      changedLabels.push("口播脚本");
+    }
+    if (visualRoleChanged) {
+      changedLabels.push("出场角色");
+    }
+    if (Boolean(storyboardDraft.pictureInPictureEnabled) !== Boolean(activeOutline.pictureInPictureEnabled)) changedLabels.push("角色画中画");
+    if ((storyboardDraft.promptText || "") !== (activeOutline.promptText || "")) changedLabels.push("分镜提示语");
+    if (!arePromptTextSettingsEqual(storyboardDraft.promptSettings, activeOutline.promptSettings)) changedLabels.push("提示语样式");
+    if ((storyboardDraft.brandLogo || null) !== (activeOutline.brandLogo || null)) changedLabels.push("分镜 logo");
+    const nextAvatars = isActiveStoryboardAiGeneratedMedia
+      ? storyboardDraft.avatars.length
+        ? [...storyboardDraft.avatars]
+        : [...(activeOutline.avatars || [])]
+      : [...(activeStoryboardMediaContent.avatars || activeOutline.avatars || [])];
+    const nextDesc = isActiveStoryboardAiGeneratedMedia
+      ? filterRoleMentionTokens(storyboardDraft.desc.trim(), nextAvatars, characters)
+      : activeStoryboardMediaContent.desc || activeOutline.desc || "";
+    const nextSubtitle = normalizeVoiceScriptText(storyboardDraft.subtitle.trim());
+    const currentMediaAssets = storyboardDraft.mediaAssets?.length
+      ? storyboardDraft.mediaAssets
+      : getStoryboardMediaAssets(activeOutline, targetIndex);
+    const activeMediaIndex =
+      storyboardDraft.activeMediaIndex ?? getActiveStoryboardMediaIndex(activeOutline, targetIndex);
+    let nextMediaAssets = currentMediaAssets.map((media, mediaIndex) => {
+      const nextMedia = {
+        ...media,
+        subtitle: nextSubtitle,
+        ...(mediaIndex === activeMediaIndex
+          ? {
+              avatars: nextAvatars,
+              desc: nextDesc,
+            }
+          : {}),
+      };
+
+      return mediaIndex === activeMediaIndex && (visualDescriptionChanged || visualRoleChanged)
+        ? clearAiStoryboardMediaVisualSync(nextMedia)
+        : nextMedia;
+    });
+    const previousDurationSeconds = getStoryboardDurationSeconds(activeOutline, 6, targetIndex, activeMediaIndex);
+    const nextDurationSeconds = estimateStoryboardVoiceScriptDurationSeconds(nextSubtitle, previousDurationSeconds) || previousDurationSeconds;
+    const voiceScriptDurationSync = syncStoryboardMediaAssetsToVoiceDuration(
+      nextMediaAssets,
+      previousDurationSeconds,
+      nextDurationSeconds,
+    );
+    nextMediaAssets =
+      subtitleChanged && !visualDescriptionChanged && !visualRoleChanged
+        ? voiceScriptDurationSync.mediaAssets.map((media, mediaIndex) =>
+            regenerateAiStoryboardMediaForVoiceScript(media, targetIndex, mediaIndex, nextSubtitle),
+          )
+        : voiceScriptDurationSync.mediaAssets;
+    const nextSourceMedia =
+      nextMediaAssets[activeMediaIndex] ||
+      storyboardDraft.sourceVideo ||
+      getActiveStoryboardMediaAsset(activeOutline, targetIndex) ||
+      activeOutline.sourceVideo ||
+      null;
+    const nextOutline = {
+      ...activeOutline,
+      title: storyboardDraft.title.trim() || activeOutline.title,
+      desc: nextDesc,
+      subtitle: nextSubtitle,
+      avatars: nextAvatars,
+      pictureInPictureEnabled: Boolean(storyboardDraft.pictureInPictureEnabled),
+      pictureInPictureCharacterIndex:
+        storyboardDraft.pictureInPictureCharacterIndex ??
+        getStoryboardPictureInPictureCharacterIndex(activeOutline, activeStoryboardMediaContent),
+      pictureInPicturePosition: normalizePictureInPicturePosition(storyboardDraft.pictureInPicturePosition),
+      promptText: storyboardDraft.promptText || "",
+      promptSettings: normalizePromptTextSettings(storyboardDraft.promptSettings),
+      brandLogo: storyboardDraft.brandLogo || null,
+      brandLogoPosition: normalizeBrandLogoPosition(storyboardDraft.brandLogoPosition),
+      mediaAssets: nextMediaAssets,
+      activeMediaIndex,
+      sourceVideo: nextSourceMedia,
+    };
+
+    clearStoryboardGenerationTimer();
+    jumpPreviewToShot(targetIndex, {
+      play: previewPlayback.isPlaying,
+      mode: previewPlayback.mode === "shot" ? "shot" : "sequence",
+    });
+    setStoryboardGenerationState({ shotIndex: targetIndex });
+    const storyboardDraftFlow = buildStoryboardDraftSemanticFlow(targetIndex, changedLabels);
+    appendAgentMessage(`请同步我对${getStoryboardDisplayName(targetIndex)}的修改，并刷新右侧预览。`, {
+      role: "user",
+      kind: "user",
+    });
+    appendSemanticResult({
+      replyContent: storyboardDraftFlow.replyContent,
+      analysisPayload: storyboardDraftFlow.analysisPayload,
+      handoffPayload: null,
+    });
+    onNotify?.({
+      type: "info",
+      title: "分镜修改已提交",
+      description: "正在同步到预览和分镜卡片。",
+    });
+
+    storyboardGenerationTimerRef.current = window.setTimeout(() => {
+      updateOutline(targetIndex, nextOutline);
+      setStoryboardDraft(createStoryboardDraft(nextOutline));
+      setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+      triggerRightUpdateFeedback({ type: "storyboard" }, "分镜已更新");
+      markDownstreamDirty(3);
+      setStoryboardGenerationState(null);
+      storyboardGenerationTimerRef.current = null;
+      if (storyboardDraftFlow.handoffPayload) {
+        appendSemanticResult({ handoffPayload: storyboardDraftFlow.handoffPayload });
+      }
+      jumpPreviewToShot(targetIndex, { play: false });
+      onNotify?.({
+        type: "success",
+        title: "分镜已更新",
+        description: voiceScriptDurationSync.changed
+          ? voiceScriptDurationSync.needsReviewCount
+            ? `口播时长变为 ${formatPreviewClock(nextDurationSeconds)}，有 ${voiceScriptDurationSync.needsReviewCount} 个视频素材需要重新节选。`
+            : `口播时长变为 ${formatPreviewClock(nextDurationSeconds)}，视频素材已按新时长同步。`
+          : `${getStoryboardDisplayName(targetIndex)}的修改已经生效。`,
+      });
+    }, 950);
+  };
+  const applyStoryboardVoiceScriptDraft = () => {
+    if (!activeOutline || !storyboardVoiceScriptDirty || isStoryboardGenerating || isComposerGenerating) return;
+
+    const targetIndex = activeStoryboard;
+    const nextSubtitle = normalizeVoiceScriptText(storyboardDraft.subtitle.trim());
+    const currentMediaAssets = storyboardDraft.mediaAssets?.length
+      ? storyboardDraft.mediaAssets
+      : getStoryboardMediaAssets(activeOutline, targetIndex);
+    const activeMediaIndex =
+      storyboardDraft.activeMediaIndex ?? getActiveStoryboardMediaIndex(activeOutline, targetIndex);
+    const previousDurationSeconds = getStoryboardDurationSeconds(activeOutline, 6, targetIndex, activeMediaIndex);
+    const nextDurationSeconds =
+      estimateStoryboardVoiceScriptDurationSeconds(nextSubtitle, previousDurationSeconds) || previousDurationSeconds;
+    const voiceScriptDurationSync = syncStoryboardMediaAssetsToVoiceDuration(
+      currentMediaAssets.map((media) => ({
+        ...media,
+        subtitle: nextSubtitle,
+      })),
+      previousDurationSeconds,
+      nextDurationSeconds,
+    );
+    const nextMediaAssets = voiceScriptDurationSync.mediaAssets.map((media, mediaIndex) =>
+      regenerateAiStoryboardMediaForVoiceScript(media, targetIndex, mediaIndex, nextSubtitle),
+    );
+    const nextSourceVideo =
+      nextMediaAssets[activeMediaIndex] ||
+      nextMediaAssets[0] ||
+      storyboardDraft.sourceVideo ||
+      activeOutline.sourceVideo ||
+      null;
+    const nextDraft = {
+      ...storyboardDraft,
+      subtitle: nextSubtitle,
+      mediaAssets: nextMediaAssets,
+      activeMediaIndex,
+      sourceVideo: nextSourceVideo,
+    };
+    const storyboardDraftFlow = buildStoryboardDraftSemanticFlow(targetIndex, ["口播脚本"]);
+
+    clearStoryboardGenerationTimer();
+    jumpPreviewToShot(targetIndex, {
+      play: previewPlayback.isPlaying,
+      mode: previewPlayback.mode === "shot" ? "shot" : "sequence",
+    });
+    setStoryboardGenerationState({ shotIndex: targetIndex, mode: "subtitle" });
+    appendAgentMessage(`请根据新的口播脚本，同步${getStoryboardDisplayName(targetIndex)}预览和素材时长。`, {
+      role: "user",
+      kind: "user",
+    });
+    appendSemanticResult({
+      replyContent: storyboardDraftFlow.replyContent,
+      analysisPayload: storyboardDraftFlow.analysisPayload,
+      handoffPayload: null,
+    });
+    onNotify?.({
+      type: "info",
+      title: "新脚本已提交",
+      description: "正在同步到预览和素材时长。",
+    });
+
+    storyboardGenerationTimerRef.current = window.setTimeout(() => {
+      storyboardDraftOverrideRef.current = nextDraft;
+      updateOutline(targetIndex, { subtitle: nextSubtitle });
+      setStoryboardDraft(nextDraft);
+      setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+      triggerRightUpdateFeedback({ type: "storyboard" }, "脚本已更新");
+      markDownstreamDirty(3);
+      setStoryboardGenerationState(null);
+      storyboardGenerationTimerRef.current = null;
+      if (storyboardDraftFlow.handoffPayload) {
+        appendSemanticResult({ handoffPayload: storyboardDraftFlow.handoffPayload });
+      }
+      jumpPreviewToShot(targetIndex, { play: false });
+      onNotify?.({
+        type: "success",
+        title: "新脚本已生效",
+        description: voiceScriptDurationSync.changed
+          ? voiceScriptDurationSync.needsReviewCount
+            ? `口播时长变为 ${formatPreviewClock(nextDurationSeconds)}，有 ${voiceScriptDurationSync.needsReviewCount} 个视频素材需要重新节选。`
+            : `口播时长变为 ${formatPreviewClock(nextDurationSeconds)}，视频素材已按新时长同步。`
+          : `${getStoryboardDisplayName(targetIndex)}的脚本已经更新。`,
+      });
+    }, 650);
+  };
+
+  const buildOutlineVariant = (index, currentOutline, mode = "single") => {
+    const offset = mode === "all" ? index + 1 : index + 2;
+    let cursor =
+      (index + offset + currentOutline.title.length + characters.length) % outlineVariantPool.length;
+    let variant = outlineVariantPool[cursor];
+    let guard = 0;
+
+    while (
+      guard < outlineVariantPool.length &&
+      variant.title === currentOutline.title &&
+      variant.desc === currentOutline.desc
+    ) {
+      cursor = (cursor + 1) % outlineVariantPool.length;
+      variant = outlineVariantPool[cursor];
+      guard += 1;
+    }
+
+    return {
+      ...variant,
+      avatars: currentOutline.avatars?.length ? [...currentOutline.avatars] : [...(variant.avatars || [0])],
+      duration: currentOutline.duration,
+      subtitle: normalizeVoiceScriptText(variant.subtitle || ""),
+    };
+  };
+
+  const buildOutlineRewriteFromPrompt = (index, currentOutline, promptText) => {
+    const base = buildOutlineVariant(index, currentOutline, "single");
+    const normalized = (promptText || "").trim();
+    const titlePrefix = currentOutline.title.split("：")[0] || currentOutline.title;
+
+    let title = base.title;
+    let desc = base.desc;
+    let subtitle = base.subtitle || base.desc;
+
+    if (/痛点|焦虑|压力|共鸣|冲突/u.test(normalized)) {
+      title = `${titlePrefix}：痛点加深`;
+      desc = "强化用户在问题出现时的真实压力感，用更直观的处境和情绪把痛点推到前台，让共鸣更快建立。";
+      subtitle = "问题拖得越久，焦虑只会越来越重。";
+    } else if (/专业|方案|拆解|老师|权威|方法/u.test(normalized)) {
+      title = `${titlePrefix}：专业拆解`;
+      desc = "让核心角色更明确地站出来拆解问题，用更专业、有说服力的表达建立信任感，再自然承接解决路径。";
+      subtitle = "先把问题讲清楚，再谈解决方案。";
+    } else if (/转化|报名|咨询|福利|行动|引导/u.test(normalized)) {
+      title = `${titlePrefix}：行动引导`;
+      desc = "强化这一段的行动号召，让价值点、限时信息和咨询入口更自然地落到画面里，形成明确转化闭环。";
+      subtitle = "现在咨询，尽快进入提分节奏。";
+    } else if (/有趣|轻松|活泼|年轻|节奏|明快/u.test(normalized)) {
+      title = `${titlePrefix}：轻快表达`;
+      desc = "保持原本的信息重点，但改成更轻快、更年轻化的表达，让这一段节奏更鲜明、语气更有活力。";
+      subtitle = "换一种更轻松的表达，信息会更容易被记住。";
+    } else if (/真实|案例|反馈|见证|学员/u.test(normalized)) {
+      title = `${titlePrefix}：真实反馈`;
+      desc = "加入更真实的案例视角，用前后变化和用户感受增强说服力，让这一段更像可信见证。";
+      subtitle = "真实变化，才最能让人信服。";
+    }
+
+    return {
+      ...currentOutline,
+      ...base,
+      title,
+      desc,
+      subtitle: normalizeVoiceScriptText(subtitle),
+      avatars: [...(currentOutline.avatars || [])],
+      duration: currentOutline.duration,
+    };
+  };
+
+  const focusPromptComposer = () => {
+    setIsDeepComposerExpanded(true);
+    window.setTimeout(() => inputRef.current?.focus(), 30);
+  };
+  const applyImportedDraft = ({ draftText, step, sourceElement, label }) => {
+    if (typeof step === "number") {
+      setCurrentStep(step);
+    }
+    setDraft(draftText);
+    triggerComposerImportFeedback(sourceElement, label);
+    focusPromptComposer();
+  };
+
+  const buildStoryboardSlotFromPrompt = (index, promptText, options = {}) => {
+    const existingOutline = options.useEmptySeed ? null : outlines[index];
+    const seedOutline = isEmptyStoryboardOutline(existingOutline)
+      ? defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0]
+      : existingOutline || defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0];
+    const normalizedSeed = {
+      ...seedOutline,
+      isEmptySlot: false,
+      avatars: seedOutline.avatars?.length
+        ? [...seedOutline.avatars]
+        : buildOutlineAvatarAllocation(index, Math.max(storyboardSlotCount, index + 1), characters.length),
+      pictureInPicturePosition: normalizePictureInPicturePosition(seedOutline.pictureInPicturePosition),
+      promptSettings: normalizePromptTextSettings(seedOutline.promptSettings),
+    };
+    const rewritten = buildOutlineRewriteFromPrompt(index, normalizedSeed, promptText);
+
+    const sourceMedia = {
+      ...createDefaultStoryboardMediaAsset(index, 0),
+      avatars: rewritten.avatars?.length ? rewritten.avatars : normalizedSeed.avatars,
+      desc: rewritten.desc || "",
+      subtitle: normalizeVoiceScriptText(rewritten.subtitle || ""),
+    };
+
+    return {
+      ...rewritten,
+      isEmptySlot: false,
+      title: rewritten.title || `${getStoryboardDisplayName(index)}：新增段落`,
+      avatars: rewritten.avatars?.length ? rewritten.avatars : normalizedSeed.avatars,
+      duration: normalizedSeed.duration,
+      mediaAssets: [sourceMedia],
+      activeMediaIndex: 0,
+      sourceVideo: sourceMedia,
+    };
+  };
+
+  const buildStoryboardMediaAsset = (index, media, assetType = "video", mediaIndex = 0) => {
+    const isImageAsset = assetType === "image";
+    return normalizeStoryboardMediaAsset(
+      {
+        id: media?.id || `storyboard-${assetType}-${Date.now()}`,
+        name: media?.name || (isImageAsset ? "图片素材" : "视频素材"),
+        preview: media?.preview || storyboardPreviewPool[(index + mediaIndex) % storyboardPreviewPool.length],
+        duration: isImageAsset ? media?.duration || "00:03" : media?.duration || "00:06",
+        origin: media?.origin || media?.meta || (isImageAsset ? "图片库" : "视频库"),
+        rawName: media?.rawName || "",
+        assetType,
+        sourceType: media?.sourceType || (isImageAsset ? "image" : "video"),
+        sourceDuration: media?.sourceDuration || media?.duration || "",
+        clipStartSeconds: media?.clipStartSeconds,
+        clipDurationSeconds: media?.clipDurationSeconds,
+        clipEndSeconds: media?.clipEndSeconds,
+      },
+      index,
+      mediaIndex,
+    );
+  };
+
+  const buildStoryboardSlotFromVideo = (index, video, options = {}) => {
+    const existingOutline = options.useEmptySeed ? null : outlines[index];
+    const seedOutline = isEmptyStoryboardOutline(existingOutline)
+      ? defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0]
+      : existingOutline || defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0];
+    const scriptText = normalizeVoiceScriptText(options.scriptText ?? video?.scriptText ?? "");
+    const scriptDurationSeconds = estimateStoryboardVoiceScriptDurationSeconds(scriptText, 6);
+    const normalizedSeed = {
+      ...seedOutline,
+      isEmptySlot: false,
+      avatars: seedOutline.avatars?.length
+        ? [...seedOutline.avatars]
+        : buildOutlineAvatarAllocation(index, Math.max(storyboardSlotCount, index + 1), characters.length),
+      pictureInPicturePosition: normalizePictureInPicturePosition(seedOutline.pictureInPicturePosition),
+      promptSettings: normalizePromptTextSettings(seedOutline.promptSettings),
+    };
+    const sourceMedia = {
+      ...buildStoryboardMediaAsset(index, video, "video", 0),
+      subtitle: scriptText,
+    };
+
+    return {
+      ...normalizedSeed,
+      title: `${getStoryboardDisplayName(index)}：自有片段`,
+      desc: "",
+      subtitle: scriptText,
+      avatars: [],
+      duration: scriptText
+        ? formatStoryboardDurationRange(0, scriptDurationSeconds)
+        : normalizedSeed.duration || "0:00-0:06",
+      mediaAssets: [sourceMedia],
+      activeMediaIndex: 0,
+      sourceVideo: sourceMedia,
+    };
+  };
+
+  const buildStoryboardSlotFromImage = (index, image, options = {}) => {
+    const existingOutline = options.useEmptySeed ? null : outlines[index];
+    const seedOutline = isEmptyStoryboardOutline(existingOutline)
+      ? defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0]
+      : existingOutline || defaultAgentOutlines[index % defaultAgentOutlines.length] || defaultAgentOutlines[0];
+    const scriptText = normalizeVoiceScriptText(options.scriptText ?? image?.scriptText ?? "");
+    const scriptDurationSeconds = estimateStoryboardVoiceScriptDurationSeconds(scriptText, 3);
+    const normalizedSeed = {
+      ...seedOutline,
+      isEmptySlot: false,
+      avatars: seedOutline.avatars?.length
+        ? [...seedOutline.avatars]
+        : buildOutlineAvatarAllocation(index, Math.max(storyboardSlotCount, index + 1), characters.length),
+      pictureInPicturePosition: normalizePictureInPicturePosition(seedOutline.pictureInPicturePosition),
+      promptSettings: normalizePromptTextSettings(seedOutline.promptSettings),
+    };
+    const sourceMedia = {
+      ...buildStoryboardMediaAsset(
+        index,
+        scriptText ? { ...image, duration: formatPreviewClock(scriptDurationSeconds) } : image,
+        "image",
+        0,
+      ),
+      subtitle: scriptText,
+    };
+
+    return {
+      ...normalizedSeed,
+      title: `${getStoryboardDisplayName(index)}：图片片段`,
+      desc: "",
+      subtitle: scriptText,
+      avatars: [],
+      duration: scriptText ? formatStoryboardDurationRange(0, scriptDurationSeconds) : "0:00-0:03",
+      mediaAssets: [sourceMedia],
+      activeMediaIndex: 0,
+      sourceVideo: sourceMedia,
+    };
+  };
+
+  const insertStoryboardOutlineAt = (insertIndex, outline) => {
+    if (!Number.isInteger(insertIndex) || insertIndex < 0 || !outline) return false;
+
+    setOutlines((prev) => {
+      const next = [...prev];
+      while (next.length < insertIndex) {
+        next.push(createEmptyStoryboardSlot(next.length));
+      }
+      next.splice(insertIndex, 0, {
+        ...outline,
+        slotIndex: insertIndex,
+        isEmptySlot: false,
+      });
+      return normalizeStoryboardDurations(
+        next.map((item, itemIndex) =>
+          isEmptyStoryboardOutline(item) ? createEmptyStoryboardSlot(itemIndex) : { ...item, slotIndex: itemIndex },
+        ),
+      );
+    });
+    setDeletedStoryboardSlots((prev) =>
+      prev
+        .map((slotIndex) => (slotIndex >= insertIndex ? slotIndex + 1 : slotIndex))
+        .filter((slotIndex, itemIndex, list) => list.indexOf(slotIndex) === itemIndex),
+    );
+    setHiddenEmptyStoryboardSlots((prev) =>
+      prev
+        .map((slotIndex) => (slotIndex >= insertIndex ? slotIndex + 1 : slotIndex))
+        .filter((slotIndex, itemIndex, list) => list.indexOf(slotIndex) === itemIndex),
+    );
+    return true;
+  };
+
+  const submitStoryboardMediaPrompt = (inputValue, target) => {
+    const targetIndex = target?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || isStoryboardSlotEmpty(targetIndex)) return;
+
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    if (!normalizedDraft) return;
+    if (handleOffTopicPrompt(normalizedDraft)) return;
+
+    const targetOutline = outlines[targetIndex];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (currentAssets.length >= STORYBOARD_MEDIA_MAX) {
+      appendOperationFeedback(`${getStoryboardDisplayName(targetIndex)}最多添加 ${STORYBOARD_MEDIA_MAX} 个素材版本。`, { type: "warning" });
+      return;
+    }
+
+    const cleanPrompt = normalizedDraft
+      .replace(/^新增(?:第\s*\d+\s*段)?(?:分镜[一二三四五六七八九十\d]+)?素材[A-C]?，?要求[:：]?\s*/u, "")
+      .trim();
+    const effectivePrompt = cleanPrompt || "请基于当前分镜生成一个可替换的素材版本。";
+    const nextIndex = currentAssets.length;
+    const mediaLabel = getStoryboardMediaLabel(nextIndex);
+    const userPrompt = `新增${getStoryboardDisplayName(targetIndex)}素材${mediaLabel}，要求：${effectivePrompt}`;
+
+    appendAgentMessage(userPrompt, { role: "user", kind: "user" });
+    setDraft("");
+    setStoryboardAddTarget(null);
+    clearStoryboardGenerationTimer();
+    setStoryboardGenerationState({ shotIndex: targetIndex, mode: "media" });
+
+    storyboardGenerationTimerRef.current = window.setTimeout(() => {
+      addStoryboardMediaVariant(
+        targetIndex,
+        {
+          id: `storyboard-ai-${targetIndex}-${Date.now()}`,
+          name: `AI素材${mediaLabel}`,
+          preview:
+            storyboardPreviewPool[(targetIndex + nextIndex + effectivePrompt.length) % storyboardPreviewPool.length] ||
+            storyboardPreviewPool[0],
+          duration: "00:06",
+          origin: "AI生成",
+          assetType: "video",
+          sourceType: "ai",
+          desc: `根据「${effectivePrompt}」生成这一版画面素材，可继续调整出场角色、画面描述和口播脚本。`,
+          subtitle: normalizeVoiceScriptText(targetOutline.subtitle || ""),
+          avatars: targetOutline.avatars || [],
+        },
+        "video",
+      );
+      setStoryboardGenerationState(null);
+      storyboardGenerationTimerRef.current = null;
+    }, 720);
+  };
+
+  const buildStoryboardSlotFromScriptPrompt = (targetIndex, scriptText, options = {}) => {
+    const durationSeconds = estimateStoryboardVoiceScriptDurationSeconds(scriptText, 6);
+    const nextOutline = buildStoryboardSlotFromPrompt(targetIndex, scriptText, options);
+    const sourceMedia = {
+      ...(nextOutline.sourceVideo || createDefaultStoryboardMediaAsset(targetIndex, 0)),
+      name: "AI素材A",
+      origin: "AI生成",
+      assetType: "video",
+      sourceType: "ai",
+      duration: formatPreviewClock(durationSeconds),
+      subtitle: scriptText,
+      desc: nextOutline.desc || "",
+      avatars: nextOutline.avatars || [],
+    };
+
+    return {
+      ...nextOutline,
+      subtitle: scriptText,
+      duration: formatStoryboardDurationRange(0, durationSeconds),
+      mediaAssets: [sourceMedia],
+      activeMediaIndex: 0,
+      sourceVideo: sourceMedia,
+    };
+  };
+
+  const submitStoryboardAiScriptPrompt = (inputValue, target) => {
+    const isInsertTarget = target?.mode === "insert-library-script" && Number.isInteger(target.afterIndex);
+    const targetIndex = isInsertTarget ? target.afterIndex + 1 : target?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0) return false;
+
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    const scriptText = stripStoryboardLibraryScriptPrefix(normalizedDraft);
+    if (!scriptText) {
+      onNotify?.({
+        type: "warning",
+        title: "先输入脚本",
+        description: "新增分镜需要先有口播或旁白脚本，再添加素材。",
+      });
+      return false;
+    }
+    if (handleOffTopicPrompt(scriptText)) return false;
+
+    const nextOutline = buildStoryboardSlotFromScriptPrompt(targetIndex, scriptText, { useEmptySeed: isInsertTarget });
+    const userPrompt = isInsertTarget
+      ? `在${getStoryboardDisplayName(target.afterIndex)}和${getStoryboardDisplayName(targetIndex)}之间新增分镜，脚本：${scriptText}`
+      : `新增${getStoryboardDisplayName(targetIndex)}，脚本：${scriptText}`;
+    const storyboardFlow = buildStoryboardSemanticFlow(scriptText, targetIndex, { intent: "add" });
+
+    appendAgentMessage(userPrompt, { role: "user", kind: "user" });
+    setDraft("");
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    clearStoryboardGenerationTimer();
+    setStoryboardGenerationState(
+      isInsertTarget
+        ? { shotIndex: targetIndex, mode: "insert", afterIndex: target.afterIndex }
+        : { shotIndex: targetIndex, mode: "add" },
+    );
+    appendSemanticResult({
+      replyContent: storyboardFlow.replyContent,
+      analysisPayload: storyboardFlow.analysisPayload,
+      handoffPayload: null,
+    });
+
+    storyboardGenerationTimerRef.current = window.setTimeout(() => {
+      if (isInsertTarget) {
+        insertStoryboardOutlineAt(targetIndex, nextOutline);
+      } else {
+        setOutlines((prev) => {
+          const next = [...prev];
+          while (next.length <= targetIndex) {
+            next.push(createEmptyStoryboardSlot(next.length));
+          }
+          next[targetIndex] = nextOutline;
+          return normalizeStoryboardDurations(next);
+        });
+        setDeletedStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+        setHiddenEmptyStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+      }
+      setStoryboardAddTarget(null);
+      setStoryboardLibraryScriptDraft("");
+      setActiveStoryboard(targetIndex);
+      setStoryboardDraft(createStoryboardDraft(nextOutline));
+      setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+      markDownstreamDirty(3);
+      appendSemanticResult({
+        handoffPayload: storyboardFlow.handoffPayload || createHandoffPayload({
+          step: 3,
+          badge: "分镜已新增",
+          title: `${getStoryboardDisplayName(targetIndex)}已新增到右侧`,
+          description: "我已经把新增分镜同步到右侧。先看新增镜头的画面、节奏和角色出场是否合适。",
+          focusTitle: `现在先看右侧${getStoryboardDisplayName(targetIndex)}`,
+          focusDetail: "优先确认：新增分镜的脚本、画面描述、素材方向和角色出场。",
+        }),
+      });
+      setStoryboardGenerationState(null);
+      storyboardGenerationTimerRef.current = null;
+      setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+      setPreviewCurrentTime(storyboardTimeline[targetIndex]?.startSeconds || 0);
+      triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已新增`);
+    }, 880);
+    return true;
+  };
+
+  const submitStoryboardLibraryScriptDraft = (inputValue, target) => {
+    const targetIndex = target?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0) return false;
+
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    const scriptText = stripStoryboardLibraryScriptPrefix(normalizedDraft);
+    if (!scriptText) {
+      onNotify?.({
+        type: "warning",
+        title: "先输入脚本",
+        description: "系统会自动测算时长后再选择素材。",
+      });
+      return false;
+    }
+    const durationSeconds = estimateStoryboardVoiceScriptDurationSeconds(scriptText, 6);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardScriptMaterialMenuOpen(false);
+    clearStoryboardLibraryScriptTimer();
+    setStoryboardSubmittedScriptState(null);
+    setStoryboardLibraryScriptMeasureState({
+      index: targetIndex,
+      sourceType: "script",
+      sourceLabel: "脚本",
+      durationSeconds,
+      startedAt: Date.now(),
+    });
+    storyboardLibraryScriptTimerRef.current = window.setTimeout(() => {
+      setStoryboardSubmittedScriptState({
+        index: targetIndex,
+        mode: target.mode,
+        afterIndex: Number.isInteger(target.afterIndex) ? target.afterIndex : null,
+        scriptText,
+        durationSeconds,
+        stamp: Date.now(),
+      });
+      setStoryboardLibraryScriptMeasureState(null);
+      storyboardLibraryScriptTimerRef.current = null;
+    }, 700);
+    return true;
+  };
+
+  const openSubmittedStoryboardMaterial = (sourceType, target, submittedScript) => {
+    const targetIndex = target?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !submittedScript?.scriptText) return false;
+
+    const scriptText = submittedScript.scriptText;
+    const durationSeconds =
+      submittedScript.durationSeconds || estimateStoryboardVoiceScriptDurationSeconds(scriptText, 6);
+
+    if (sourceType === "ai") {
+      return submitStoryboardAiScriptPrompt(scriptText, target);
+    }
+
+    const isInsertTarget = target.mode === "insert-library-script" && Number.isInteger(target.afterIndex);
+    const nextTarget = {
+      index: targetIndex,
+      mode: isInsertTarget ? "insert" : "storyboard",
+      pendingScript: scriptText,
+      scriptDurationSeconds: durationSeconds,
+      ...(isInsertTarget ? { afterIndex: target.afterIndex } : {}),
+    };
+
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    if (sourceType === "image") {
+      setVideoLibraryTarget(null);
+      setImageLibraryTarget(nextTarget);
+    } else {
+      setImageLibraryTarget(null);
+      setVideoLibraryTarget(nextTarget);
+    }
+    return true;
+  };
+
+  const submitStoryboardSlotPrompt = (inputValue, target) => {
+    if (target?.mode === "media") {
+      submitStoryboardMediaPrompt(inputValue, target);
+      return true;
+    }
+    if (isStoryboardLibraryScriptTarget(target)) {
+      return submitStoryboardLibraryScriptDraft(inputValue, target);
+    }
+
+    const isInsertTarget = target?.mode === "insert" && Number.isInteger(target.afterIndex);
+    const targetIndex = isInsertTarget ? target.afterIndex + 1 : target?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0) return false;
+
+    const normalizedDraft = normalizeMentionText(inputValue, { keepAt: true }).trim();
+    if (!normalizedDraft) return false;
+    if (handleOffTopicPrompt(normalizedDraft)) return false;
+
+    const cleanPrompt = normalizedDraft
+      .replace(/^在(?:当前)?分镜[一二三四五六七八九十\d]+和分镜[一二三四五六七八九十\d]+之间新增分镜，?要求[:：]?\s*/u, "")
+      .replace(/^新增分镜[一二三四五六七八九十\d]+，?要求[:：]?\s*/u, "")
+      .trim();
+    const effectivePrompt = cleanPrompt || "请补充一个承接前后内容、节奏清楚的新分镜。";
+    const nextOutline = buildStoryboardSlotFromPrompt(targetIndex, effectivePrompt, { useEmptySeed: isInsertTarget });
+    const userPrompt = isInsertTarget
+      ? `在${getStoryboardDisplayName(target.afterIndex)}和${getStoryboardDisplayName(targetIndex)}之间新增分镜，要求：${effectivePrompt}`
+      : `新增${getStoryboardDisplayName(targetIndex)}，要求：${effectivePrompt}`;
+    const storyboardFlow = buildStoryboardSemanticFlow(effectivePrompt, targetIndex, { intent: "add" });
+
+    appendAgentMessage(userPrompt, { role: "user", kind: "user" });
+    setDraft("");
+    setStoryboardAddTarget(null);
+    clearStoryboardGenerationTimer();
+    setStoryboardGenerationState(
+      isInsertTarget
+        ? { shotIndex: targetIndex, mode: "insert", afterIndex: target.afterIndex }
+        : { shotIndex: targetIndex, mode: "add" },
+    );
+    appendSemanticResult({
+      replyContent: storyboardFlow.replyContent,
+      analysisPayload: storyboardFlow.analysisPayload,
+      handoffPayload: null,
+    });
+
+    storyboardGenerationTimerRef.current = window.setTimeout(() => {
+      if (isInsertTarget) {
+        insertStoryboardOutlineAt(targetIndex, nextOutline);
+      } else {
+        setOutlines((prev) => {
+          const next = [...prev];
+          while (next.length <= targetIndex) {
+            next.push(createEmptyStoryboardSlot(next.length));
+          }
+          next[targetIndex] = nextOutline;
+          return normalizeStoryboardDurations(next);
+        });
+        setDeletedStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+        setHiddenEmptyStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+      }
+      setActiveStoryboard(targetIndex);
+      setStoryboardDraft(createStoryboardDraft(nextOutline));
+      setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+      markDownstreamDirty(3);
+      appendSemanticResult({
+        handoffPayload: storyboardFlow.handoffPayload || createHandoffPayload({
+          step: 3,
+          badge: "分镜已新增",
+          title: `${getStoryboardDisplayName(targetIndex)}已新增到右侧`,
+          description: "我已经把新增分镜同步到右侧。先看新增镜头的画面、节奏和角色是否承接顺畅。",
+          focusTitle: `现在先看右侧${getStoryboardDisplayName(targetIndex)}`,
+          focusDetail: "优先确认：新增分镜的标题、画面描述、素材方向和角色出场。",
+        }),
+      });
+      setStoryboardGenerationState(null);
+      storyboardGenerationTimerRef.current = null;
+      setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+      setPreviewCurrentTime(storyboardTimeline[targetIndex]?.startSeconds || 0);
+      triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已新增`);
+    }, 880);
+    return true;
+  };
+
+  const confirmStoryboardVideoSegment = (video) => {
+    const targetIndex = videoLibraryTarget?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !video) return;
+    const pendingScript = videoLibraryTarget?.pendingScript || "";
+    const nextOutline = buildStoryboardSlotFromVideo(targetIndex, video, { scriptText: pendingScript });
+
+    setOutlines((prev) => {
+      const next = [...prev];
+      while (next.length <= targetIndex) {
+        next.push(createEmptyStoryboardSlot(next.length));
+      }
+      next[targetIndex] = nextOutline;
+      return normalizeStoryboardDurations(next);
+    });
+    setDeletedStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+    setHiddenEmptyStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+    setStoryboardAddTarget(null);
+    setVideoLibraryTarget(null);
+    setActiveStoryboard(targetIndex);
+    setStoryboardDraft(createStoryboardDraft(nextOutline));
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动选择视频创建${getStoryboardDisplayName(targetIndex)}`,
+      description: pendingScript ? `「${video.name}」 · 时长按脚本测算` : `「${video.name}」`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+    setPreviewCurrentTime(storyboardTimeline[targetIndex]?.startSeconds || 0);
+    triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已上传`);
+  };
+
+  const confirmInsertedStoryboardSlotFromVideo = (video) => {
+    const targetIndex = videoLibraryTarget?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !video) return;
+    const pendingScript = videoLibraryTarget?.pendingScript || "";
+    const nextOutline = buildStoryboardSlotFromVideo(targetIndex, video, { useEmptySeed: true, scriptText: pendingScript });
+
+    insertStoryboardOutlineAt(targetIndex, nextOutline);
+    setStoryboardAddTarget(null);
+    setVideoLibraryTarget(null);
+    setActiveStoryboard(targetIndex);
+    setStoryboardDraft(createStoryboardDraft(nextOutline));
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动插入${getStoryboardDisplayName(targetIndex)}`,
+      description: pendingScript ? `视频「${video.name}」 · 时长按脚本测算` : `视频「${video.name}」`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+    setPreviewCurrentTime(storyboardTimeline[targetIndex]?.startSeconds || 0);
+    triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已新增`);
+  };
+
+  const confirmInsertedStoryboardSlotFromImage = (image) => {
+    const targetIndex = imageLibraryTarget?.index;
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !image) return;
+    const pendingScript = imageLibraryTarget?.pendingScript || "";
+    const nextOutline = buildStoryboardSlotFromImage(targetIndex, image, { useEmptySeed: true, scriptText: pendingScript });
+
+    insertStoryboardOutlineAt(targetIndex, nextOutline);
+    setStoryboardAddTarget(null);
+    setImageLibraryTarget(null);
+    setActiveStoryboard(targetIndex);
+    setStoryboardDraft(createStoryboardDraft(nextOutline));
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动插入${getStoryboardDisplayName(targetIndex)}`,
+      description: pendingScript ? `图片「${image.name}」 · 时长按脚本测算` : `图片「${image.name}」`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+    setPreviewCurrentTime(storyboardTimeline[targetIndex]?.startSeconds || 0);
+    triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已新增`);
+  };
+
+  const selectStoryboardMediaVariant = (targetIndex, mediaIndex) => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || isStoryboardSlotEmpty(targetIndex)) return;
+
+    const targetOutline = outlines[targetIndex];
+    const mediaAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (!mediaAssets[mediaIndex]) return;
+    const sourceMedia = mediaAssets[mediaIndex];
+    const mediaContent = getStoryboardMediaContent(targetOutline, targetIndex, mediaIndex);
+
+    setOutlines((prev) =>
+      normalizeStoryboardDurations(
+        prev.map((item, itemIndex) =>
+          itemIndex === targetIndex
+            ? {
+                ...item,
+                avatars: mediaContent.avatars,
+                desc: mediaContent.desc,
+                subtitle: mediaContent.subtitle,
+                mediaAssets,
+                activeMediaIndex: mediaIndex,
+                sourceVideo: sourceMedia,
+              }
+            : item,
+        ),
+      ),
+    );
+    setActiveStoryboard(targetIndex);
+    setStoryboardDraft((prev) =>
+      targetIndex === activeStoryboard
+        ? {
+            ...prev,
+            mediaAssets,
+            activeMediaIndex: mediaIndex,
+            sourceVideo: sourceMedia,
+          }
+        : createStoryboardDraft({
+            ...targetOutline,
+            avatars: mediaContent.avatars,
+            desc: mediaContent.desc,
+            subtitle: mediaContent.subtitle,
+            mediaAssets,
+            activeMediaIndex: mediaIndex,
+            sourceVideo: sourceMedia,
+            slotIndex: targetIndex,
+          }),
+    );
+    jumpPreviewToShot(targetIndex, { play: false });
+  };
+
+  const addStoryboardMediaVariant = (targetIndex, media, assetType = "video") => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !media?.preview) return;
+
+    if (isStoryboardSlotEmpty(targetIndex)) {
+      if (assetType === "image") {
+        const nextOutline = buildStoryboardSlotFromImage(targetIndex, media, { scriptText: media.scriptText });
+        setOutlines((prev) => {
+          const next = [...prev];
+          while (next.length <= targetIndex) next.push(createEmptyStoryboardSlot(next.length));
+          next[targetIndex] = nextOutline;
+          return normalizeStoryboardDurations(next);
+        });
+        setDeletedStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+        setHiddenEmptyStoryboardSlots((prev) => prev.filter((slotIndex) => slotIndex !== targetIndex));
+        setStoryboardAddTarget(null);
+        setActiveStoryboard(targetIndex);
+        setStoryboardDraft(createStoryboardDraft(nextOutline));
+        markDownstreamDirty(3);
+        appendManualSelectionRecord({
+          title: `手动选择图片创建${getStoryboardDisplayName(targetIndex)}`,
+          description: media.scriptText ? `「${media.name}」 · 时长按脚本测算` : `「${media.name}」`,
+          step: 3,
+          target: getStoryboardDisplayName(targetIndex),
+        });
+        jumpPreviewToShot(targetIndex, { play: false });
+        triggerRightUpdateFeedback({ type: "storyboard" }, `${getStoryboardDisplayName(targetIndex)}已新增`);
+      }
+      return;
+    }
+
+    const targetOutline = outlines[targetIndex];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (currentAssets.length >= STORYBOARD_MEDIA_MAX) {
+      appendOperationFeedback(`${getStoryboardDisplayName(targetIndex)}最多添加 ${STORYBOARD_MEDIA_MAX} 个素材版本。`, { type: "warning" });
+      return;
+    }
+
+    const normalizedMedia = buildStoryboardMediaAsset(targetIndex, media, assetType, currentAssets.length);
+    const sourceMedia = isEditableStoryboardMediaAsset(normalizedMedia)
+      ? {
+          ...normalizedMedia,
+          avatars: media.avatars || targetOutline.avatars || [],
+          desc: media.desc ?? targetOutline.desc ?? "",
+          subtitle: normalizeVoiceScriptText(media.subtitle ?? targetOutline.subtitle ?? ""),
+        }
+      : normalizedMedia;
+    const nextAssets = [...currentAssets, sourceMedia].slice(0, STORYBOARD_MEDIA_MAX);
+    const nextActiveIndex = nextAssets.length - 1;
+    const nextOutline = {
+      ...targetOutline,
+      mediaAssets: nextAssets,
+      activeMediaIndex: nextActiveIndex,
+      sourceVideo: sourceMedia,
+    };
+
+    setOutlines((prev) =>
+      normalizeStoryboardDurations(
+        prev.map((item, itemIndex) => (itemIndex === targetIndex ? nextOutline : item)),
+      ),
+    );
+    if (targetIndex === activeStoryboard) {
+      setStoryboardDraft(createStoryboardDraft({ ...nextOutline, slotIndex: targetIndex }));
+    }
+    setActiveStoryboard(targetIndex);
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动添加${getStoryboardDisplayName(targetIndex)}素材${getStoryboardMediaLabel(nextActiveIndex)}`,
+      description: `「${sourceMedia.name}」 · 当前 ${nextAssets.length}/${STORYBOARD_MEDIA_MAX} 个素材版本`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    jumpPreviewToShot(targetIndex, { play: false });
+    triggerRightUpdateFeedback({ type: "storyboard" }, "素材版本已添加");
+  };
+
+  const addStoryboardAiMediaVariant = (targetIndex, options = {}) => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || isStoryboardSlotEmpty(targetIndex)) {
+      openStoryboardSlotComposer(targetIndex, options);
+      return;
+    }
+
+    const targetOutline = outlines[targetIndex];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (currentAssets.length >= STORYBOARD_MEDIA_MAX) {
+      appendOperationFeedback(`${getStoryboardDisplayName(targetIndex)}最多添加 ${STORYBOARD_MEDIA_MAX} 个素材版本。`, { type: "warning" });
+      return;
+    }
+
+    openStoryboardMediaComposer(targetIndex, options);
+  };
+
+  const requestRemoveStoryboardMediaVariant = (targetIndex, mediaIndex) => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || isStoryboardSlotEmpty(targetIndex)) return;
+
+    const targetOutline = outlines[targetIndex];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (currentAssets.length <= 1) {
+      appendOperationFeedback("每个分镜至少需要保留 1 个素材版本。", { type: "warning" });
+      return;
+    }
+
+    const targetMedia = currentAssets[mediaIndex];
+    setDeleteStoryboardMediaDialog({
+      index: targetIndex,
+      mediaIndex,
+      storyboardName: getStoryboardDisplayName(targetIndex),
+      mediaLabel: getStoryboardMediaLabel(mediaIndex),
+      mediaName: targetMedia?.name || `素材${getStoryboardMediaLabel(mediaIndex)}`,
+    });
+  };
+
+  const removeStoryboardMediaVariant = (targetIndex, mediaIndex) => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || isStoryboardSlotEmpty(targetIndex)) return;
+
+    const targetOutline = outlines[targetIndex];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, targetIndex);
+    if (currentAssets.length <= 1) {
+      appendOperationFeedback("每个分镜至少需要保留 1 个素材版本。", { type: "warning" });
+      return;
+    }
+
+    const nextAssets = currentAssets.filter((_, index) => index !== mediaIndex);
+    const currentActiveIndex = getActiveStoryboardMediaIndex(targetOutline, targetIndex);
+    const safeActiveIndex =
+      currentActiveIndex === mediaIndex
+        ? Math.min(mediaIndex, nextAssets.length - 1)
+        : currentActiveIndex > mediaIndex
+          ? currentActiveIndex - 1
+          : currentActiveIndex;
+    const sourceMedia = nextAssets[safeActiveIndex] || nextAssets[0] || null;
+    const mediaContent = getStoryboardMediaContent(
+      { ...targetOutline, mediaAssets: nextAssets, activeMediaIndex: safeActiveIndex, sourceVideo: sourceMedia },
+      targetIndex,
+      safeActiveIndex,
+    );
+    const nextOutline = {
+      ...targetOutline,
+      avatars: mediaContent.avatars,
+      desc: mediaContent.desc,
+      subtitle: mediaContent.subtitle,
+      mediaAssets: nextAssets,
+      activeMediaIndex: safeActiveIndex,
+      sourceVideo: sourceMedia,
+    };
+
+    setOutlines((prev) =>
+      normalizeStoryboardDurations(
+        prev.map((item, itemIndex) => (itemIndex === targetIndex ? nextOutline : item)),
+      ),
+    );
+    if (targetIndex === activeStoryboard) {
+    setStoryboardDraft(createStoryboardDraft({ ...nextOutline, slotIndex: targetIndex }));
+    }
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动移除${getStoryboardDisplayName(targetIndex)}素材${getStoryboardMediaLabel(mediaIndex)}`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    jumpPreviewToShot(targetIndex, { play: false });
+    triggerRightUpdateFeedback({ type: "storyboard" }, "素材版本已移除");
+  };
+
+  const confirmRemoveStoryboardMediaVariant = () => {
+    if (!deleteStoryboardMediaDialog) return;
+    const { index, mediaIndex } = deleteStoryboardMediaDialog;
+    setDeleteStoryboardMediaDialog(null);
+    removeStoryboardMediaVariant(index, mediaIndex);
+  };
+
+  const replaceStoryboardMedia = (targetIndex, media, assetType = "video", preferredMediaIndex = null) => {
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || !media?.preview || isStoryboardSlotEmpty(targetIndex)) return;
+
+    const isImageAsset = assetType === "image";
+    const sourceMedia = {
+      id: media.id || `storyboard-${assetType}-${Date.now()}`,
+      name: media.name || (isImageAsset ? "图片素材" : "视频素材"),
+      preview: media.preview,
+      duration: isImageAsset ? "00:03" : media.duration || "自有片段",
+      origin: media.origin || media.meta || (isImageAsset ? "图片库" : "视频库"),
+      rawName: media.rawName || "",
+      assetType,
+      sourceType: isImageAsset ? "image" : "video",
+      sourceDuration: media.sourceDuration || media.duration || "",
+      clipStartSeconds: media.clipStartSeconds,
+      clipDurationSeconds: media.clipDurationSeconds,
+      clipEndSeconds: media.clipEndSeconds,
+    };
+
+    setOutlines((prev) =>
+      normalizeStoryboardDurations(
+        prev.map((item, itemIndex) => {
+          if (itemIndex !== targetIndex) return item;
+          const currentAssets = getStoryboardMediaAssets(item, targetIndex);
+          const currentActiveIndex = getActiveStoryboardMediaIndex(item, targetIndex);
+          const replaceIndex = Number.isInteger(preferredMediaIndex)
+            ? Math.max(0, Math.min(preferredMediaIndex, currentAssets.length - 1))
+            : currentActiveIndex;
+          const currentMedia = currentAssets[replaceIndex] || {};
+          const nextSourceMedia = {
+            ...sourceMedia,
+            avatars: currentMedia.avatars || item.avatars || [],
+            desc: currentMedia.desc ?? item.desc ?? "",
+            subtitle: normalizeVoiceScriptText(currentMedia.subtitle ?? item.subtitle ?? ""),
+          };
+          const nextAssets = currentAssets.length
+            ? currentAssets.map((asset, assetIndex) => (assetIndex === replaceIndex ? nextSourceMedia : asset))
+            : [nextSourceMedia];
+
+          return {
+            ...item,
+            isEmptySlot: false,
+            mediaAssets: nextAssets,
+            activeMediaIndex: Math.min(replaceIndex, nextAssets.length - 1),
+            sourceVideo: nextSourceMedia,
+          };
+        }),
+      ),
+    );
+
+    if (targetIndex === activeStoryboard) {
+      const currentAssets = getStoryboardMediaAssets(outlines[targetIndex], targetIndex);
+      const currentActiveIndex = getActiveStoryboardMediaIndex(outlines[targetIndex], targetIndex);
+      const replaceIndex = Number.isInteger(preferredMediaIndex)
+        ? Math.max(0, Math.min(preferredMediaIndex, currentAssets.length - 1))
+        : currentActiveIndex;
+      const currentMedia = currentAssets[replaceIndex] || {};
+      const nextSourceMedia = {
+        ...sourceMedia,
+        avatars: currentMedia.avatars || storyboardDraft.avatars || [],
+        desc: currentMedia.desc ?? storyboardDraft.desc ?? "",
+        subtitle: normalizeVoiceScriptText(currentMedia.subtitle ?? storyboardDraft.subtitle ?? ""),
+      };
+      const nextAssets = currentAssets.length
+        ? currentAssets.map((asset, assetIndex) => (assetIndex === replaceIndex ? nextSourceMedia : asset))
+        : [nextSourceMedia];
+      storyboardDraftOverrideRef.current = {
+        ...storyboardDraft,
+        mediaAssets: nextAssets,
+        activeMediaIndex: Math.min(replaceIndex, nextAssets.length - 1),
+        sourceVideo: nextSourceMedia,
+      };
+      setStoryboardDraft(storyboardDraftOverrideRef.current);
+    }
+
+    setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+    markDownstreamDirty(3);
+    appendManualSelectionRecord({
+      title: `手动替换${getStoryboardDisplayName(targetIndex)}画面素材`,
+      description: `「${sourceMedia.name}」 · 口播脚本和角色保持不变`,
+      step: 3,
+      target: getStoryboardDisplayName(targetIndex),
+    });
+    jumpPreviewToShot(targetIndex, { play: false });
+    triggerRightUpdateFeedback({ type: "storyboard" }, isImageAsset ? "图片已替换" : "视频已替换");
+  };
+
+  const confirmVideoLibrarySelection = (video) => {
+    if (videoLibraryTarget?.mode === "add") {
+      addStoryboardMediaVariant(videoLibraryTarget.index, video, "video");
+      setVideoLibraryTarget(null);
+      return;
+    }
+    if (videoLibraryTarget?.mode === "insert") {
+      confirmInsertedStoryboardSlotFromVideo(video);
+      return;
+    }
+    if (videoLibraryTarget?.mode === "replace") {
+      replaceStoryboardMedia(videoLibraryTarget.index, video, "video", videoLibraryTarget.mediaIndex);
+      setVideoLibraryTarget(null);
+      return;
+    }
+    if (videoLibraryTarget?.mode !== "reference") {
+      confirmStoryboardVideoSegment(video);
+      return;
+    }
+    if (!video?.preview) {
+      onNotify?.({
+        type: "warning",
+        title: "请选择视频",
+        description: "从左侧视频列表选择后再添加。",
+      });
+      return;
+    }
+    if (deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX) {
+      onNotify?.({
+        type: "warning",
+        title: "素材已达上限",
+        description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+      return;
+    }
+    const videoCount = deepUploadAssets.filter((item) => item.assetType === "video").length;
+    const tokenName = `视频${videoCount + 1}`;
+    setDeepComposerAttachments((prev) => ({
+      ...prev,
+      uploads: [
+        ...(prev.uploads || []),
+        {
+          id: `deep-video-library-${Date.now()}`,
+          assetType: "video",
+          name: tokenName,
+          rawName: video.name,
+          preview: video.preview,
+        },
+      ],
+    }));
+    setDraft((prev) => {
+      return appendMentionTokenToText(prev, tokenName);
+    });
+    setVideoLibraryTarget(null);
+    focusPromptComposer();
+    appendManualSelectionRecord({
+      title: "手动添加视频到对话输入框",
+      description: `「${video.name}」已作为 @${tokenName} 带入`,
+      step: currentStep,
+      target: "对话输入",
+    });
+    onNotify?.({
+      type: "success",
+      title: "视频已添加",
+      description: "已带入深度创编输入框。",
+    });
+  };
+
+  const confirmImageLibrarySelection = (image) => {
+    if (imageLibraryTarget?.mode === "reference") {
+      if (!image?.preview) {
+        onNotify?.({
+          type: "warning",
+          title: "请选择图片",
+          description: "从左侧图片列表选择后再添加。",
+        });
+        return;
+      }
+      const existingUpload = deepUploadAssets.find(
+        (item) => item.id === image.id || item.preview === image.preview,
+      );
+      let tokenName = existingUpload?.name || image.tokenName;
+
+      if (!tokenName) {
+        if (deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX) {
+          onNotify?.({
+            type: "warning",
+            title: "素材已达上限",
+            description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+          });
+          return;
+        }
+        const imageCount = deepUploadAssets.filter((item) => item.assetType === "image").length;
+        tokenName = `图片${imageCount + 1}`;
+        setDeepComposerAttachments((prev) => ({
+          ...prev,
+          uploads: [
+            ...(prev.uploads || []),
+            {
+              id: `deep-image-library-${Date.now()}`,
+              assetType: "image",
+              name: tokenName,
+              rawName: image.name,
+              preview: image.preview,
+            },
+          ],
+        }));
+      }
+
+      insertTokenIntoDeepDraft(tokenName);
+      setImageLibraryTarget(null);
+      focusPromptComposer();
+      appendManualSelectionRecord({
+        title: "手动添加图片到对话输入框",
+        description: `「${image.name}」已作为 @${tokenName} 带入`,
+        step: currentStep,
+        target: "对话输入",
+      });
+      onNotify?.({
+        type: "success",
+        title: "图片已添加",
+        description: "已带入深度创编输入框。",
+      });
+      return;
+    }
+    if (imageLibraryTarget?.mode === "storyboard") {
+      const pendingScript = imageLibraryTarget.pendingScript || "";
+      const scriptDurationSeconds =
+        imageLibraryTarget.scriptDurationSeconds ||
+        estimateStoryboardVoiceScriptDurationSeconds(pendingScript, 3);
+      addStoryboardMediaVariant(
+        imageLibraryTarget.index,
+        pendingScript
+          ? { ...image, scriptText: pendingScript, duration: formatPreviewClock(scriptDurationSeconds) }
+          : image,
+        "image",
+      );
+      setImageLibraryTarget(null);
+      return;
+    }
+    if (imageLibraryTarget?.mode === "insert") {
+      confirmInsertedStoryboardSlotFromImage(image);
+      return;
+    }
+    if (imageLibraryTarget?.mode === "add") {
+      addStoryboardMediaVariant(imageLibraryTarget.index, image, "image");
+      setImageLibraryTarget(null);
+      return;
+    }
+    if (imageLibraryTarget?.mode !== "replace") return;
+    replaceStoryboardMedia(imageLibraryTarget.index, image, "image");
+    setImageLibraryTarget(null);
+  };
+
+  const handleDeleteStoryboardSlot = (index) => {
+    if (isStoryboardGenerating || isComposerGenerating || isStoryboardSlotEmpty(index)) return;
+    if (validStoryboardCount <= 1) {
+      appendOperationFeedback("至少需要保留 1 个分镜，才能继续成片设置。", { type: "warning" });
+      return;
+    }
+    setDeleteStoryboardDialog({
+      index,
+      name: getStoryboardDisplayName(index),
+    });
+  };
+
+  const confirmDeleteStoryboardSlot = () => {
+    if (!deleteStoryboardDialog) return;
+    const { index } = deleteStoryboardDialog;
+    setDeleteStoryboardDialog(null);
+    if (isStoryboardSlotEmpty(index)) return;
+
+    const nextActiveIndex =
+      validStoryboardIndexes.find((slotIndex) => slotIndex !== index && slotIndex > index) ??
+      validStoryboardIndexes.find((slotIndex) => slotIndex !== index) ??
+      0;
+
+    setDeletedStoryboardSlots((prev) => (prev.includes(index) ? prev : [...prev, index]));
+    setStoryboardAddTarget(null);
+    setStoryboardSlotAddMenuTarget(null);
+    setRecentOutlineChange(null);
+    setActiveStoryboard(nextActiveIndex);
+    setStoryboardDraft(createStoryboardDraft(outlines[nextActiveIndex]));
+    jumpPreviewToShot(nextActiveIndex, { play: false });
+    markDownstreamDirty(3);
+    appendOperationFeedback(`已删除${getStoryboardDisplayName(index)}，该槽位可继续新增分镜。`, {
+      source: "manual",
+      step: 3,
+      target: getStoryboardDisplayName(index),
+      toast: false,
+    });
+  };
+
+  const handleDismissEmptyStoryboardSlot = (index) => {
+    if (isStoryboardGenerating || isComposerGenerating || !Number.isInteger(index) || index < 0) return;
+    if (!isStoryboardSlotEmpty(index)) return;
+
+    const fallbackIndexBeforeShift =
+      validStoryboardIndexes.find((slotIndex) => slotIndex > index) ??
+      validStoryboardIndexes.find((slotIndex) => slotIndex < index) ??
+      0;
+
+    setStoryboardAddTarget((prev) => (prev?.index === index ? null : prev));
+    setStoryboardSlotAddMenuTarget((prev) => (prev === index ? null : prev));
+    setVideoLibraryTarget((prev) => (prev?.index === index ? null : prev));
+    setImageLibraryTarget((prev) => (prev?.index === index ? null : prev));
+
+    if (index < outlines.length || deletedStoryboardSlots.includes(index)) {
+      setOutlines((prev) =>
+        normalizeStoryboardDurations(
+          prev
+            .filter((_, itemIndex) => itemIndex !== index)
+            .map((item, itemIndex) =>
+              isEmptyStoryboardOutline(item)
+                ? createEmptyStoryboardSlot(itemIndex)
+                : { ...item, slotIndex: itemIndex },
+            ),
+        ),
+      );
+      setDeletedStoryboardSlots((prev) =>
+        prev
+          .filter((slotIndex) => slotIndex !== index)
+          .map((slotIndex) => (slotIndex > index ? slotIndex - 1 : slotIndex)),
+      );
+      setHiddenEmptyStoryboardSlots((prev) =>
+        prev
+          .filter((slotIndex) => slotIndex !== index)
+          .map((slotIndex) => (slotIndex > index ? slotIndex - 1 : slotIndex)),
+      );
+      setActiveStoryboard((prev) => {
+        if (prev === index) return fallbackIndexBeforeShift > index ? fallbackIndexBeforeShift - 1 : fallbackIndexBeforeShift;
+        return prev > index ? prev - 1 : prev;
+      });
+    } else {
+      setHiddenEmptyStoryboardSlots((prev) =>
+        prev.includes(index) ? prev : [...prev, index],
+      );
+    }
+
+    appendOperationFeedback(`已取消${getStoryboardDisplayName(index)}空槽位。`, {
+      source: "manual",
+      step: 3,
+      target: getStoryboardDisplayName(index),
+      toast: false,
+    });
+  };
+
+  const getPlanComposerDraftPrefix = (target) => {
+    if (!target) return "";
+    if (target.type === "fullPlan") return "生成新方案，要求：";
+    if (target.type === "theme") return "调整创意主题，要求：";
+    if (target.type === "allOutlines") {
+      return target.sync ? "根据最新角色变化，重写整套剧本大纲，要求：" : "重写整套剧本大纲，要求：";
+    }
+    return "";
+  };
+
+  const openPlanComposer = (target, options = {}) => {
+    if (!target) return;
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setStoryboardAddTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setPlanComposerTarget(target);
+    applyImportedDraft({
+      draftText: getPlanComposerDraftPrefix(target),
+      step: 2,
+      sourceElement: options.sourceElement,
+      label: "已带入到输入框",
+    });
+  };
+
+  const getRewriteDraftPrefix = (target, outline) => {
+    if (!target || !outline) return "";
+    if (target.type === "outline") return `重写第 ${target.index + 1} 段「${outline.title}」，要求：`;
+    if (target.type === "title") return `重写第 ${target.index + 1} 段的镜头标题，要求：`;
+    if (target.type === "desc") return `重写第 ${target.index + 1} 段的画面描述，要求：`;
+    if (target.type === "subtitle") return `重写第 ${target.index + 1} 段的口播脚本，要求：`;
+    if (target.type === "roles") return `重设第 ${target.index + 1} 段的出场角色，要求：`;
+    return "";
+  };
+
+  const openRewriteComposer = (target, options = {}) => {
+    const outline = outlines[target.index];
+    if (!outline) return;
+    setRewriteTarget(target);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setStoryboardAddTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setActiveStoryboard(target.index);
+    applyImportedDraft({
+      draftText: getRewriteDraftPrefix(target, outline),
+      sourceElement: options.sourceElement,
+      label: "重写要求已带入",
+    });
+  };
+
+  const openMusicOptimizeComposer = (options = {}) => {
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setStoryboardAddTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    applyImportedDraft({
+      draftText: "调整音乐风格，要求：",
+      step: 4,
+      sourceElement: options.sourceElement,
+      label: "音乐优化要求已带入",
+    });
+  };
+
+  const openStoryboardSlotComposer = (index, options = {}) => {
+    if (!Number.isInteger(index) || index < 0) return;
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardAddTarget({ index, mode: "library-script" });
+    setStoryboardLibraryScriptDraft("");
+    setStoryboardSubmittedScriptState(null);
+    setCurrentStep(3);
+    setIsDeepComposerExpanded(false);
+    triggerComposerImportFeedback(options.sourceElement, "先填写分镜脚本");
+  };
+
+  const openStoryboardLibraryScriptComposer = (index, libraryType = "video", options = {}) => {
+    if (!Number.isInteger(index) || index < 0) return;
+    const sourceType = libraryType === "image" ? "image" : "video";
+    const sourceLabel = getStoryboardLibrarySourceLabel(sourceType);
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardAddTarget({ index, mode: "library-script", libraryType: sourceType });
+    setStoryboardLibraryScriptDraft("");
+    setStoryboardSubmittedScriptState(null);
+    setCurrentStep(3);
+    setIsDeepComposerExpanded(false);
+    onNotify?.({
+      type: "info",
+      title: "先填写分镜脚本",
+      description: `确认脚本后再进入${sourceLabel}选择素材。`,
+    });
+  };
+
+  const openStoryboardInsertComposer = (afterIndex, options = {}) => {
+    if (!Number.isInteger(afterIndex) || afterIndex < 0) return;
+    const insertIndex = afterIndex + 1;
+    const insertContextText = `在${getStoryboardDisplayName(afterIndex)}和${getStoryboardDisplayName(insertIndex)}之间新增分镜`;
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardAddTarget({ index: insertIndex, afterIndex, mode: "insert-library-script" });
+    setStoryboardLibraryScriptDraft("");
+    setStoryboardSubmittedScriptState(null);
+    setCurrentStep(3);
+    setIsDeepComposerExpanded(false);
+    triggerComposerImportFeedback(options.sourceElement, "先填写分镜脚本");
+  };
+
+  const openStoryboardInsertLibraryScriptComposer = (afterIndex, libraryType = "video", options = {}) => {
+    if (!Number.isInteger(afterIndex) || afterIndex < 0) return;
+    const insertIndex = afterIndex + 1;
+    const sourceType = libraryType === "image" ? "image" : "video";
+    const sourceLabel = getStoryboardLibrarySourceLabel(sourceType);
+    const insertContextText = `在${getStoryboardDisplayName(afterIndex)}和${getStoryboardDisplayName(insertIndex)}之间新增分镜`;
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setStoryboardScriptMaterialMenuOpen(false);
+    setStoryboardAddTarget({ index: insertIndex, afterIndex, mode: "insert-library-script", libraryType: sourceType });
+    setStoryboardLibraryScriptDraft("");
+    setStoryboardSubmittedScriptState(null);
+    setCurrentStep(3);
+    setIsDeepComposerExpanded(false);
+    onNotify?.({
+      type: "info",
+      title: "先填写分镜脚本",
+      description: `确认脚本后再进入${sourceLabel}选择素材。`,
+    });
+  };
+
+  const openStoryboardMediaComposer = (index, options = {}) => {
+    if (!Number.isInteger(index) || index < 0 || isStoryboardSlotEmpty(index)) return;
+    const targetOutline = outlines[index];
+    const currentAssets = getStoryboardMediaAssets(targetOutline, index);
+    if (currentAssets.length >= STORYBOARD_MEDIA_MAX) {
+      appendOperationFeedback(`${getStoryboardDisplayName(index)}最多添加 ${STORYBOARD_MEDIA_MAX} 个素材版本。`, { type: "warning" });
+      return;
+    }
+
+    clearRightFocusCue();
+    setRightFocusCue(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardAddTarget({ index, mode: "media" });
+    setActiveStoryboard(index);
+    applyImportedDraft({
+      draftText: `新增${getStoryboardDisplayName(index)}素材${getStoryboardMediaLabel(currentAssets.length)}，要求：`,
+      step: 3,
+      sourceElement: options.sourceElement,
+      label: "新增素材要求已带入",
+    });
+  };
+
+  const openStoryboardVideoLibrary = (index) => {
+    if (!Number.isInteger(index) || index < 0) return;
+    setStoryboardAddTarget(null);
+    setStoryboardSlotAddMenuTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setImageLibraryTarget(null);
+    setVideoLibraryTarget({ index, mode: "storyboard" });
+  };
+
+  const openStoryboardInsertVideoLibrary = (afterIndex) => {
+    if (!Number.isInteger(afterIndex) || afterIndex < 0) return;
+    setStoryboardAddTarget(null);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setImageLibraryTarget(null);
+    setVideoLibraryTarget({ index: afterIndex + 1, afterIndex, mode: "insert" });
+  };
+
+  const openStoryboardImageLibrary = (index) => {
+    if (!Number.isInteger(index) || index < 0) return;
+    setStoryboardAddTarget(null);
+    setStoryboardSlotAddMenuTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget({ index, mode: "storyboard" });
+  };
+
+  const openStoryboardInsertImageLibrary = (afterIndex) => {
+    if (!Number.isInteger(afterIndex) || afterIndex < 0) return;
+    setStoryboardAddTarget(null);
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget({ index: afterIndex + 1, afterIndex, mode: "insert" });
+  };
+
+  const openStoryboardAddVideoLibrary = (index) => {
+    if (!Number.isInteger(index) || index < 0 || isStoryboardSlotEmpty(index)) return;
+    setStoryboardAddTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setImageLibraryTarget(null);
+    setVideoLibraryTarget({ index, mode: "add" });
+  };
+
+  const openStoryboardAddImageLibrary = (index) => {
+    if (!Number.isInteger(index) || index < 0 || isStoryboardSlotEmpty(index)) return;
+    setStoryboardAddTarget(null);
+    setStoryboardMediaAddMenuOpen(false);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget({ index, mode: "add" });
+  };
+
+  const openStoryboardReplaceVideoLibrary = (index, mediaIndex = null) => {
+    if (!Number.isInteger(index) || index < 0 || isStoryboardSlotEmpty(index)) return;
+    setStoryboardAddTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setImageLibraryTarget(null);
+    setVideoLibraryTarget({
+      index,
+      mode: "replace",
+      mediaIndex: Number.isInteger(mediaIndex) ? mediaIndex : null,
+    });
+  };
+
+  const openStoryboardReplaceImageLibrary = (index) => {
+    if (!Number.isInteger(index) || index < 0 || isStoryboardSlotEmpty(index)) return;
+    setStoryboardAddTarget(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setPlanComposerTarget(null);
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget({ index, mode: "replace" });
+  };
+
+  const handleInsertStoryboardSlotAfter = (index) => {
+    if (isStoryboardGenerating || isComposerGenerating || !Number.isInteger(index) || index < 0) return;
+    setStoryboardSlotAddMenuTarget(null);
+    setStoryboardInsertMenuTarget(null);
+    openStoryboardInsertComposer(index, {
+      sourceElement: storyboardInsertTriggerRefs.current[index],
+    });
+  };
+
+  const chooseStoryboardInsertMode = (index, mode, sourceElement = null) => {
+    if (isStoryboardGenerating || isComposerGenerating) return;
+
+    if (mode === "ai") {
+      openStoryboardInsertComposer(index, { sourceElement });
+      return;
+    }
+    if (mode === "image") {
+      openStoryboardInsertLibraryScriptComposer(index, "image", { sourceElement });
+      return;
+    }
+    if (mode === "video") {
+      openStoryboardInsertLibraryScriptComposer(index, "video", { sourceElement });
+    }
+  };
+
+  const setMentionFieldValue = (field, value) => {
+    if (field === "desc") updateStoryboardDraft({ desc: value });
+    if (field === "subtitle") updateStoryboardDraft({ subtitle: value });
+    if (field === "chat") setDraft(value);
+  };
+
+  const getMentionFieldValue = (field) => {
+    if (field === "desc") return storyboardDraft.desc || "";
+    if (field === "subtitle") return storyboardDraft.subtitle || "";
+    if (field === "chat") return draft;
+    return "";
+  };
+
+  const getMentionFieldRef = (field) => {
+    if (field === "desc") return descTextareaRef.current;
+    if (field === "subtitle") return subtitleTextareaRef.current;
+    if (field === "chat") return inputRef.current;
+    return null;
+  };
+
+  const syncMentionState = (field, value, selectionStart) => {
+    if (!["desc", "chat"].includes(field)) {
+      setMentionState(null);
+      return;
+    }
+
+    const match = getActiveMentionMatch(value, selectionStart);
+
+    if (!match) {
+      setMentionState((prev) => (prev?.field === field ? null : prev));
+      return;
+    }
+
+    setMentionState({
+      field,
+      query: match.query || "",
+    });
+  };
+
+  const handleMentionFieldChange = (field, value, selectionStart) => {
+    const nextValue =
+      field === "desc"
+        ? filterRoleMentionTokens(value, storyboardDraft.avatars, characters)
+      : field === "subtitle"
+        ? normalizeVoiceScriptText(value)
+        : field === "chat"
+          ? filterRoleMentionTokens(value, characters.map((_, index) => index), characters)
+          : value;
+    setMentionFieldValue(field, nextValue);
+    syncMentionState(field, nextValue, Math.min(selectionStart ?? nextValue.length, nextValue.length));
+  };
+
+  const handleMentionFieldSelect = (field, event) => {
+    syncMentionState(field, event.target.value, event.target.selectionStart);
+  };
+
+  const insertMentionReference = (field, item) => {
+    const textarea = getMentionFieldRef(field);
+    const sourceValue = getMentionFieldValue(field);
+    if (!textarea) return;
+
+    const cursorStart = textarea.selectionStart ?? sourceValue.length;
+    const cursorEnd = textarea.selectionEnd ?? cursorStart;
+    const beforeCursor = sourceValue.slice(0, cursorStart);
+    const afterCursor = sourceValue.slice(cursorEnd);
+    const mentionMatch = getActiveMentionMatch(sourceValue, cursorStart);
+    if (!mentionMatch) return;
+
+    const mentionStart = mentionMatch.start;
+    const token = `@[${item.tokenLabel}]`;
+    const nextValue = `${beforeCursor.slice(0, mentionStart)}${token} ${afterCursor}`;
+    handleMentionFieldChange(field, nextValue, mentionStart + token.length + 1);
+    setMentionState(null);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      const nextCursor = mentionStart + token.length + 1;
+      textarea.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  const buildStoryboardRoleSelection = (promptText, currentOutline) => {
+    const normalized = (promptText || "").trim();
+    const explicitMatches = characters
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => normalized.includes(item.name) || normalized.includes(item.trait))
+      .map(({ index }) => index);
+
+    if (explicitMatches.length > 0) {
+      return [...new Set(explicitMatches)].slice(0, 3);
+    }
+
+    const desiredCount = /单人|一个人|独自|单独/u.test(normalized)
+      ? 1
+      : /三人|多人|群像/u.test(normalized)
+        ? Math.min(3, characters.length)
+        : /双人|两人|对话/u.test(normalized)
+          ? Math.min(2, characters.length)
+          : Math.min(Math.max(currentOutline.avatars?.length || 2, 1), Math.min(3, characters.length));
+
+    const start = (normalized.length + currentOutline.title.length) % Math.max(characters.length, 1);
+    const nextAvatars = [];
+
+    for (let cursor = 0; cursor < characters.length && nextAvatars.length < desiredCount; cursor += 1) {
+      nextAvatars.push((start + cursor) % characters.length);
+    }
+
+    return nextAvatars.length ? nextAvatars : [...(currentOutline.avatars || [0])];
+  };
+
+  const buildFieldRewritePatch = (target, currentOutline, promptText) => {
+    const rewritten = buildOutlineRewriteFromPrompt(target.index, currentOutline, promptText);
+
+    if (target.type === "outline") {
+      return {
+        patch: rewritten,
+        summary: `第 ${target.index + 1} 段已根据你的修改要求完成改写，右侧口播脚本已替换为新的版本。`,
+      };
+    }
+
+    if (target.type === "title") {
+      return {
+        patch: { title: rewritten.title },
+        summary: `第 ${target.index + 1} 段的镜头标题已重写并替换为新版本。`,
+      };
+    }
+
+    if (target.type === "desc") {
+      return {
+        patch: { desc: rewritten.desc },
+        summary: `第 ${target.index + 1} 段的画面描述已重写并同步到右侧。`,
+      };
+    }
+
+    if (target.type === "subtitle") {
+      return {
+        patch: { subtitle: normalizeVoiceScriptText(rewritten.subtitle) },
+        summary: `第 ${target.index + 1} 段的口播脚本已重写并同步到右侧。`,
+      };
+    }
+
+    if (target.type === "roles") {
+      const nextAvatars = buildStoryboardRoleSelection(promptText, currentOutline);
+      return {
+        patch: {
+          avatars: nextAvatars,
+          desc: filterRoleMentionTokens(currentOutline.desc, nextAvatars, characters),
+          subtitle: normalizeVoiceScriptText(currentOutline.subtitle),
+        },
+        summary: `第 ${target.index + 1} 段的出场角色已按你的要求重新匹配。`,
+      };
+    }
+
+    return {
+      patch: {},
+      summary: `第 ${target.index + 1} 段内容已更新。`,
+    };
+  };
+
+  const handleRegenerateAllOutlines = () => {
+    const nextOutlines = outlines.map((item, index) => {
+      const nextAvatars = buildOutlineAvatarAllocation(index, outlines.length, characters.length);
+      const baseVariant = buildOutlineVariant(index, item, "all");
+
+      return {
+        ...item,
+        ...personalizeOutlineVariant(baseVariant, characters, nextAvatars),
+        avatars: nextAvatars,
+      };
+    });
+    setOutlines(normalizeStoryboardDurations(nextOutlines));
+    setDeletedStoryboardSlots([]);
+    setHiddenEmptyStoryboardSlots([]);
+    setRecentOutlineChange({ type: "all", stamp: Date.now() });
+    setSyncedOutlineCharacters(characters);
+    setOutlineSyncState(null);
+    triggerRightUpdateFeedback({ type: "outlines" }, "大纲已更新");
+    appendOperationFeedback("已同步角色变化并重生成整套剧本大纲，右侧内容已更新。", {
+      record: false,
+    });
+  };
+
+  const toggleOutlineCharacter = (outlineIndex, avatarIndex) => {
+    const target = outlines[outlineIndex];
+    if (!target) return;
+
+    const selected = target.avatars || [];
+    const alreadySelected = selected.includes(avatarIndex);
+    const nextAvatars = alreadySelected
+      ? selected.filter((id) => id !== avatarIndex)
+      : [...selected, avatarIndex];
+
+    updateOutline(outlineIndex, {
+      avatars: nextAvatars,
+      desc: filterRoleMentionTokens(target.desc, nextAvatars, characters),
+      subtitle: normalizeVoiceScriptText(target.subtitle),
+    });
+    appendManualSelectionRecord({
+      title: `${alreadySelected ? "移除" : "添加"}了第 ${outlineIndex + 1} 段出镜角色`,
+      description: characters[avatarIndex]?.name || `角色 ${avatarIndex + 1}`,
+      step: 2,
+      target: "方案规划",
+    });
+  };
+
+  const jumpPreviewToShot = (index, options = {}) => {
+    const shot = storyboardTimeline[index];
+    if (!shot || shot.isEmpty) return;
+    setPreviewCurrentTime(shot.startSeconds);
+    setPreviewPlayback({
+      isPlaying: Boolean(options.play),
+      mode: options.play ? options.mode || "shot" : "sequence",
+      shotIndex: options.play && (options.mode || "shot") === "shot" ? index : null,
+    });
+  };
+
+	  const toggleSequencePlayback = () => {
+    if (!totalStoryboardDuration || !validStoryboardIndexes.length) return;
+    setPreviewPlayback((prev) => {
+      if (prev.isPlaying && prev.mode === "sequence") {
+        return { ...prev, isPlaying: false };
+      }
+
+      if (previewCurrentTime >= totalStoryboardDuration) {
+        setPreviewCurrentTime(0);
+      }
+
+      return {
+        isPlaying: true,
+        mode: "sequence",
+        shotIndex: null,
+      };
+    });
+  };
+
+  const seekPreviewToTime = (nextValue) => {
+    setPreviewCurrentTime(nextValue);
+    setPreviewPlayback((prev) => ({ ...prev, isPlaying: false, mode: "sequence", shotIndex: null }));
+  };
+
+  const handlePreviewRailSeek = (event) => {
+    if (!totalStoryboardDuration) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const nextRatio = Math.min(Math.max((event.clientX - bounds.left) / bounds.width, 0), 1);
+    seekPreviewToTime(Number((nextRatio * totalStoryboardDuration).toFixed(2)));
+  };
+
+  useEffect(() => {
+    const nextState = buildAgentState(job.agentForm, job.agentState);
+    clearStepGenerationTimers();
+    clearRightFocusCue();
+    clearStoryboardGenerationTimer();
+    clearStoryboardLibraryScriptTimer();
+    clearComposerGenerationTimer();
+    clearComposerImportFeedbackTimers();
+    clearRightUpdateFeedbackTimers();
+    pipDragStateRef.current = null;
+    setStepGenerationState(null);
+    setStepGenerationFailure(null);
+    step23FailureDemoShownRef.current = false;
+    setRightFocusCue(null);
+    setStoryboardGenerationState(null);
+    setStoryboardLibraryScriptMeasureState(null);
+    setComposerGenerationState(null);
+    setComposerImportCue(null);
+    setIsComposerImportHighlight(false);
+    setRightUpdateCue(null);
+    setRightUpdateHighlight(null);
+    setIsPipDragging(false);
+    setCollapsedAnalysisCards({});
+    setCurrentStep(clampDeepStep(job.agentProgress?.currentStep || 1));
+    setMaxStepReached(clampDeepStep(job.agentProgress?.maxStepReached || 1));
+    setBusinessInfo(nextState.businessInfo);
+    setStep1TouchedFields({});
+    setStep1ValidationTriggered(false);
+    businessInfoFeedbackRef.current = nextState.businessInfo;
+    step1ExitBaselineRef.current = cloneStep1BusinessInfo(nextState.businessInfo);
+    setTheme(nextState.theme);
+    themeFeedbackRef.current = nextState.theme;
+    setCharacters(nextState.characters);
+    setSyncedOutlineCharacters(nextState.characters);
+    setOutlines(nextState.outlines);
+    setStoryboardDraft(createStoryboardDraft(nextState.outlines[0]));
+    setFavoriteMusicOnly(nextState.finalSettings.favoriteMusicOnly);
+    setSelectedMusicId(nextState.finalSettings.selectedMusicId);
+    setMusicVolume(nextState.finalSettings.musicVolume);
+    setSubtitleSettings(nextState.finalSettings.subtitleSettings);
+    setVideoSettings(nextState.finalSettings.videoSettings);
+    setActiveFinalCombinationIndex(0);
+    setLogoPickerOpen(false);
+    setDeleteStoryboardDialog(null);
+    setDeepComposerAttachments({
+      uploads: [...(nextState.deepComposerAttachments?.uploads || [])],
+      landingPage: null,
+      voiceScript: null,
+    });
+    setGlobalStoryboardSettings((prev) => ({
+      ...prev,
+      bgm: nextState.finalSettings.selectedMusicId !== "none",
+      subtitles: nextState.finalSettings.subtitleSettings.enabled,
+    }));
+    setRegenerateTarget(null);
+    setRewriteTarget(null);
+    setPlanComposerTarget(null);
+    setStoryboardAddTarget(null);
+    setStoryboardLibraryScriptDraft("");
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+    setSaveStep1ExitDialogOpen(false);
+    setDeletedStoryboardSlots([]);
+    setHiddenEmptyStoryboardSlots([]);
+    setLibraryTarget(null);
+    setVoiceBindingTargetIndex(null);
+    setOutlineSyncState(null);
+    editSessionSnapshotRef.current = { key: null, step: null, snapshot: null };
+  }, [job.id]);
+
+  useEffect(
+    () => () => {
+      clearStepGenerationTimers();
+      clearRightFocusCue();
+      clearStoryboardGenerationTimer();
+      clearStoryboardLibraryScriptTimer();
+      clearComposerGenerationTimer();
+      clearComposerImportFeedbackTimers();
+      clearRightUpdateFeedbackTimers();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!showChatComposer) return;
+    const container = conversationScrollRef.current;
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    } else {
+      conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [getVisibleAgentMessages(job.agentMessages).length, showChatComposer, stepGenerationState?.targetStep]);
+
+  useEffect(() => {
+    if (!recentCharacterChange) return undefined;
+    const timer = window.setTimeout(() => setRecentCharacterChange(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [recentCharacterChange]);
+
+  useEffect(() => {
+    if (!recentOutlineChange) return undefined;
+    const timer = window.setTimeout(() => setRecentOutlineChange(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [recentOutlineChange]);
+
+  useEffect(() => {
+    if ([3, 4].includes(currentStep) || !isPipDragging) return;
+    pipDragStateRef.current = null;
+    setIsPipDragging(false);
+  }, [currentStep, isPipDragging]);
+
+  useEffect(() => {
+    if (showChatComposer) return;
+    setDraft("");
+    setMentionState(null);
+    setRewriteTarget(null);
+    setRegenerateTarget(null);
+    setStoryboardAddTarget(null);
+    setStoryboardLibraryScriptDraft("");
+    setStoryboardLibraryScriptMeasureState(null);
+    clearStoryboardLibraryScriptTimer();
+    setVideoLibraryTarget(null);
+    setImageLibraryTarget(null);
+  }, [showChatComposer]);
+
+  useEffect(() => {
+    setGenerationTraceExpanded(false);
+  }, [stepGenerationState?.targetStep, stepGenerationState?.mode]);
+
+  useEffect(() => {
+    if (activeStoryboard > outlines.length - 1) {
+      setActiveStoryboard(Math.max(0, outlines.length - 1));
+    }
+  }, [activeStoryboard, outlines.length]);
+
+  useEffect(() => {
+    if (!deletedStoryboardSlots.includes(activeStoryboard) && !isEmptyStoryboardOutline(outlines[activeStoryboard])) return;
+    const nextIndex = validStoryboardIndexes.find((index) => index > activeStoryboard) ?? validStoryboardIndexes[0];
+    if (typeof nextIndex === "number") {
+      setActiveStoryboard(nextIndex);
+      jumpPreviewToShot(nextIndex, { play: false });
+    }
+  }, [activeStoryboard, deletedStoryboardSlots, outlines, validStoryboardIndexes]);
+
+  useEffect(() => {
+    if (storyboardDraftOverrideRef.current) {
+      setStoryboardDraft(storyboardDraftOverrideRef.current);
+      storyboardDraftOverrideRef.current = null;
+      return;
+    }
+    const nextDraft = createStoryboardDraft(activeOutline);
+    setStoryboardDraft({
+      ...nextDraft,
+      desc: filterRoleMentionTokens(nextDraft.desc, nextDraft.avatars, characters),
+      subtitle: normalizeVoiceScriptText(nextDraft.subtitle),
+    });
+  }, [activeOutline, activeStoryboard]);
+
+  useEffect(() => {
+    setMentionState(null);
+    setStoryboardMediaAddMenuOpen(false);
+  }, [activeStoryboard]);
+
+  useEffect(() => {
+    if (!activeStoryboardTimeline.length) return;
+    if (previewCurrentTime > totalStoryboardDuration) {
+      setPreviewCurrentTime(totalStoryboardDuration);
+    }
+  }, [activeStoryboardTimeline.length, previewCurrentTime, totalStoryboardDuration]);
+
+  useEffect(() => {
+    if (activeFinalCombinationIndex < storyboardCombinationCount) return;
+    setActiveFinalCombinationIndex(Math.max(0, storyboardCombinationCount - 1));
+  }, [activeFinalCombinationIndex, storyboardCombinationCount]);
+
+  useEffect(() => {
+    if (!previewPlayback.isPlaying || !activeStoryboardTimeline.length) return undefined;
+
+    const timer = window.setInterval(() => {
+      setPreviewCurrentTime((prev) => {
+        const step = 0.1;
+        const next = Number((prev + step).toFixed(1));
+
+        if (previewPlayback.mode === "shot" && previewPlayback.shotIndex !== null) {
+          const currentShot = storyboardTimeline[previewPlayback.shotIndex];
+          if (!currentShot) return prev;
+          if (next >= currentShot.endSeconds) {
+            setPreviewPlayback((last) => ({ ...last, isPlaying: false }));
+            return Number(Math.max(currentShot.endSeconds - 0.05, currentShot.startSeconds).toFixed(2));
+          }
+          return next;
+        }
+
+        if (next >= totalStoryboardDuration) {
+          setPreviewPlayback((last) => ({ ...last, isPlaying: false }));
+          return totalStoryboardDuration;
+        }
+
+        return next;
+      });
+    }, 100);
+
+    return () => window.clearInterval(timer);
+  }, [activeStoryboardTimeline.length, previewPlayback, storyboardTimeline, totalStoryboardDuration]);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video || previewVideoFailed) return;
+
+    const syncVideoTime = () => {
+      const duration = video.duration;
+      if (!Number.isFinite(duration) || duration <= 0) return;
+      const currentShot = storyboardTimeline[previewStoryboardIndex] || activeStoryboardTimeline[0] || storyboardTimeline[0];
+      const shotElapsed = currentShot ? Math.max(0, previewCurrentTime - currentShot.startSeconds) : previewCurrentTime;
+      const previewOutline = outlines[previewStoryboardIndex] || outlines[firstValidStoryboardIndex] || null;
+      const previewMediaAssets = getStoryboardMediaAssets(previewOutline, previewStoryboardIndex);
+      const previewMediaIndex =
+        currentStep === 4
+          ? finalCombinationMediaIndexMap[previewStoryboardIndex] ?? getActiveStoryboardMediaIndex(previewOutline, previewStoryboardIndex)
+          : getActiveStoryboardMediaIndex(previewOutline, previewStoryboardIndex);
+      const previewMedia =
+        previewMediaAssets[previewMediaIndex] || getActiveStoryboardMediaAsset(previewOutline, previewStoryboardIndex);
+      const clipStartSeconds = Number(previewMedia?.clipStartSeconds) || 0;
+      const safeTarget = Math.min(clipStartSeconds + shotElapsed, Math.max(duration - 0.12, 0));
+      if (Math.abs(video.currentTime - safeTarget) > 0.45) {
+        video.currentTime = safeTarget;
+      }
+    };
+
+    syncVideoTime();
+
+    if (previewPlayback.isPlaying) {
+      const playPromise = video.play();
+      if (playPromise?.catch) {
+        playPromise.catch(() => setPreviewVideoFailed(true));
+      }
+    } else {
+      video.pause();
+    }
+  }, [
+    activeStoryboardTimeline,
+    currentStep,
+    finalCombinationMediaIndexMap,
+    firstValidStoryboardIndex,
+    outlines,
+    previewCurrentTime,
+    previewPlayback.isPlaying,
+    previewStoryboardIndex,
+    previewVideoFailed,
+    storyboardTimeline,
+  ]);
+
+  useEffect(() => {
+    if (!isPipDragging) return undefined;
+
+    const handlePointerMove = (event) => {
+      const dragState = pipDragStateRef.current;
+      const previewBounds = previewCanvasRef.current?.getBoundingClientRect();
+      if (!dragState || !previewBounds || !previewBounds.width || !previewBounds.height) return;
+
+      const nextLeftPercent =
+        ((event.clientX - previewBounds.left - dragState.pointerOffsetX) / previewBounds.width) * 100;
+      const nextTopPercent =
+        ((event.clientY - previewBounds.top - dragState.pointerOffsetY) / previewBounds.height) * 100;
+      const bounds = dragState.type === "logo" ? brandLogoBounds : pictureInPictureBounds;
+      const patchKey = dragState.type === "logo" ? "brandLogoPosition" : "pictureInPicturePosition";
+      const nextX = clampNumber(
+        (nextLeftPercent - bounds.minXPercent) / (bounds.maxXPercent - bounds.minXPercent),
+        0,
+        1,
+      );
+      const nextY = clampNumber(
+        (nextTopPercent - bounds.minYPercent) / (bounds.maxYPercent - bounds.minYPercent),
+        0,
+        1,
+      );
+      const nextPosition = { x: nextX, y: nextY };
+
+      setOutlines((prev) =>
+        prev.map((item, itemIndex) =>
+          itemIndex === dragState.index
+            ? {
+                ...item,
+                [patchKey]: nextPosition,
+              }
+            : item,
+        ),
+      );
+
+      if (dragState.index === activeStoryboard) {
+        storyboardDraftOverrideRef.current = {
+          ...(storyboardDraftOverrideRef.current || storyboardDraft),
+          [patchKey]: nextPosition,
+        };
+        setStoryboardDraft(storyboardDraftOverrideRef.current);
+      }
+    };
+
+    const handlePointerUp = () => {
+      pipDragStateRef.current = null;
+      setIsPipDragging(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [activeStoryboard, currentStep, isPipDragging]);
+
+  useEffect(() => {
+    onProgressChange?.(job.id, { currentStep, maxStepReached });
+  }, [currentStep, job.id, maxStepReached, onProgressChange]);
+
+  useEffect(() => {
+    onStateChange?.(job.id, {
+      businessInfo,
+      theme,
+      characters,
+      outlines,
+      finalSettings: {
+        favoriteMusicOnly,
+        selectedVoiceId: voiceoverCharacter?.voiceId || null,
+        selectedMusicId,
+        musicVolume,
+        combinationSettings: {},
+        subtitleSettings,
+        videoSettings,
+      },
+      deepComposerAttachments,
+    });
+  }, [
+    businessInfo,
+    characters,
+    deepComposerAttachments,
+    favoriteMusicOnly,
+    job.id,
+    musicVolume,
+    onStateChange,
+    outlines,
+    selectedMusicId,
+    subtitleSettings,
+    theme,
+    videoSettings,
+  ]);
+
+  const blockPendingStoryboardClipReview = () => {
+    if (!firstPendingStoryboardClipReview) return false;
+    const { outlineIndex, mediaIndex } = firstPendingStoryboardClipReview;
+    const pendingLabel = `${getStoryboardDisplayName(outlineIndex)} · 素材${getStoryboardMediaLabel(mediaIndex)}`;
+    selectStoryboardMediaVariant(outlineIndex, mediaIndex);
+    appendOperationFeedback(
+      `请先处理 ${pendingLabel} 的视频节选；处理完成后才能进入成片设置。`,
+      { type: "warning" },
+    );
+    onNotify?.({
+      type: "warning",
+      title: "请先确认视频节选",
+      description:
+        pendingStoryboardClipReviewCount > 1
+          ? `${pendingLabel} 等 ${pendingStoryboardClipReviewCount} 个素材需要按口播时长调整。`
+          : `${pendingLabel} 需要按口播时长调整。`,
+    });
+    return true;
+  };
+
+  const jumpToStep = (stepNo) => {
+    if (stepGenerationState) return;
+    if (stepNo === 4 && pendingStoryboardClipReviewCount > 0) {
+      blockPendingStoryboardClipReview();
+      return;
+    }
+    if (stepNo <= maxStepReached) {
+      setHistoryVersionPreview(null);
+      setCurrentStep(stepNo);
+    }
+  };
+
+  const blockStep1Submit = () => {
+    const touchedMap = agentBusinessRequiredFields.reduce((acc, field) => {
+      acc[field] = true;
+      return acc;
+    }, {});
+    setStep1TouchedFields((prev) => ({ ...touchedMap, ...prev }));
+    setStep1ValidationTriggered(true);
+  };
+
+  const handleStepConfirm = () => {
+    if (currentStep === 1) {
+      if (!isStep1Complete) {
+        blockStep1Submit();
+        return;
+      }
+      setStep1ValidationTriggered(false);
+      flushBusinessFieldFeedback();
+      startStepGeneration({ targetStep: 2, mode: "confirm", fromStep: 1 });
+      return;
+    }
+    if (currentStep === 2) {
+      if (step2CharacterRuleError) return;
+      startStepGeneration({ targetStep: 3, mode: "confirm", fromStep: 2 });
+      return;
+    }
+    if (currentStep === 3) {
+      if (isStoryboardScriptOnlyDraft) {
+        setStoryboardMaterialValidationCue({ stamp: Date.now() });
+        setStoryboardScriptMaterialMenuOpen(false);
+        window.setTimeout(() => setStoryboardMaterialValidationCue(null), 1200);
+        return;
+      }
+      if (pendingStoryboardClipReviewCount > 0) {
+        blockPendingStoryboardClipReview();
+        return;
+      }
+      startStepGeneration({ targetStep: 4, mode: "confirm", fromStep: 3 });
+      return;
+    }
+    if (currentStep === 4) {
+      onStepFlowAction?.(job.id, { type: "confirm", from: 4, to: "export" });
+      onExportVideo?.(job.id);
+    }
+  };
+
+  const handleStepRegenerate = () => {
+    if (currentStep === 1) {
+      if (!isStep1Complete) {
+        blockStep1Submit();
+        return;
+      }
+      setStep1ValidationTriggered(false);
+      flushBusinessFieldFeedback();
+      startStepGeneration({ targetStep: 2, mode: "regenerate", fromStep: 1 });
+      return;
+    }
+    if (currentStep === 2) {
+      if (step2CharacterRuleError) return;
+      startStepGeneration({ targetStep: 3, mode: "regenerate", fromStep: 2 });
+      return;
+    }
+    if (currentStep === 3) {
+      if (isStoryboardScriptOnlyDraft) {
+        setStoryboardMaterialValidationCue({ stamp: Date.now() });
+        setStoryboardScriptMaterialMenuOpen(false);
+        window.setTimeout(() => setStoryboardMaterialValidationCue(null), 1200);
+        return;
+      }
+      if (pendingStoryboardClipReviewCount > 0) {
+        blockPendingStoryboardClipReview();
+        return;
+      }
+      startStepGeneration({ targetStep: 4, mode: "regenerate", fromStep: 3 });
+      return;
+    }
+    if (currentStep === 4) {
+      onStepFlowAction?.(job.id, { type: "regenerate", from: 4, to: "export" });
+      onExportVideo?.(job.id);
+    }
+  };
+
+  const confirmButtonLabel =
+	    currentStep === 1
+	      ? "确认，开始规划剧本"
+	      : currentStep === 2
+	        ? outlineSyncState
+	          ? "请先同步角色变化"
+	          : "确认，开始生成分镜"
+	        : currentStep === 3
+	          ? "确认，开始设置成片"
+	          : "生成";
+
+  const regenerateButtonLabel =
+    currentStep === 1
+      ? "确认修改，重新规划剧本"
+      : currentStep === 2
+        ? outlineSyncState
+          ? "请先同步角色变化"
+          : "确认修改，重新生成口播脚本"
+        : currentStep === 3
+          ? "确认修改，重新生成成片设置"
+          : "确认修改，重新合成视频";
+
+	  const renderBanner = () => {
+	    return null;
+	  };
+
+  const renderShimmerLine = (widthClassName, className) => (
+    <div className={cn("ai-shimmer h-4 rounded-full", widthClassName, className)} />
+  );
+
+  const renderThinkingPanel = () => {
+    if (!stepGenerationState && !composerGenerationState) return null;
+
+    if (!stepGenerationState && composerGenerationState) {
+      return (
+        <div className="w-full">
+          <div className="max-w-[88%] rounded-[22px] rounded-tl-[8px] border border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)] px-5 py-4 text-[15px] leading-7 text-[#434a5c]">
+            <div className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#7b5cff]">
+              <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+              Agent 思考中...
+            </div>
+            <div className="mt-3 font-medium text-[#202634]">{composerGenerationState.title}</div>
+            <div className="mt-1 text-[14px] leading-6 text-[#5f6778]">{composerGenerationState.detail}</div>
+          </div>
+        </div>
+      );
+    }
+
+    const visibleSteps = stepGenerationState.steps.slice(0, stepGenerationState.visibleCount);
+    const currentTraceStep =
+      stepGenerationState.activeIndex !== null && stepGenerationState.activeIndex !== undefined
+        ? stepGenerationState.steps[stepGenerationState.activeIndex]
+        : stepGenerationState.steps[stepGenerationState.steps.length - 1];
+
+    return (
+      <div className="w-full">
+        <div className="max-w-[88%] rounded-[22px] rounded-tl-[8px] border border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)] px-5 py-4 text-[15px] leading-7 text-[#434a5c]">
+          <div className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#7b5cff]">
+            <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+            Agent 思考中...
+          </div>
+          <div className="mt-3 font-medium text-[#202634]">{stepGenerationState.title}</div>
+          <div className="mt-1 text-[14px] leading-6 text-[#5f6778]">
+            {currentTraceStep?.detail || stepGenerationState.subtitle}
+          </div>
+          <button
+            type="button"
+            onClick={() => setGenerationTraceExpanded((prev) => !prev)}
+            className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-[#7c8595]"
+          >
+            {stepGenerationState.completedCount}/{stepGenerationState.steps.length} 步
+            <ChevronDown className={cn("h-4 w-4 transition-transform", generationTraceExpanded && "rotate-180")} />
+          </button>
+
+          {generationTraceExpanded ? (
+            <div className="mt-3 space-y-2">
+              {visibleSteps.map((item, index) => {
+                const isDone = index < stepGenerationState.completedCount;
+                const isActive = stepGenerationState.activeIndex === index;
+
+                return (
+                  <div key={item.title} className="flex items-start gap-3 text-[13px] leading-6 text-[#6f7888]">
+                    <div
+                      className={cn(
+                        "mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full",
+                        isDone ? "bg-[#18a36f]" : isActive ? "bg-[#7b5cff]" : "bg-[#c9d2e3]",
+                      )}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-[#202634]">{item.title}</div>
+                      <div>{item.detail}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderGeneratingStepContent = () => {
+    if (!stepGenerationState) return null;
+
+    const titleMap = {
+      1: "创意收集",
+      2: "方案规划",
+      3: "分镜设计",
+      4: "成片设置",
+    };
+
+    const renderCollectSkeleton = () => (
+      <div className="deep-collect-screen flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        {renderBanner()}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-6 pb-8 pt-4 scrollbar-hide">
+          <div className="w-[580px] max-w-full space-y-6">
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">业务信息</div>
+              <div className="space-y-1">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div key={`collect-business-${index}`} className="flex min-h-[64px] items-start gap-4">
+                    <div className="h-10 w-[60px] shrink-0 pt-2.5 text-[14px] leading-5 text-[#191b1e]">
+                      {index === 0 ? "业务点" : "目标受众"}
+                    </div>
+                    <div className="ai-shimmer-strong h-10 min-w-0 flex-1 rounded-[8px]" />
+                  </div>
+                ))}
+                <div className="flex min-h-[64px] items-start gap-4">
+                  <div className="h-10 w-[60px] shrink-0 pt-2.5 text-[14px] leading-5 text-[#191b1e]">转化方式</div>
+                  <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <div key={`collect-conversion-${index}`} className="ai-shimmer h-9 w-[84px] rounded-[8px]" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">视频信息</div>
+              <div className="space-y-1">
+                {Array.from({ length: 2 }).map((_, rowIndex) => (
+                  <div key={`collect-video-options-${rowIndex}`} className="flex min-h-[64px] items-start gap-4">
+                    <div className="h-10 w-[60px] shrink-0 pt-2.5 text-[14px] leading-5 text-[#191b1e]">
+                      {rowIndex === 0 ? "画面风格" : "视频类型"}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                      {Array.from({ length: rowIndex === 0 ? 4 : 2 }).map((_, index) => (
+                        <div key={`collect-video-${rowIndex}-${index}`} className="ai-shimmer h-9 w-[84px] rounded-[8px]" />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex min-h-[64px] items-start gap-4">
+                  <div className="h-10 w-[60px] shrink-0 pt-2.5 text-[14px] leading-5 text-[#191b1e]">脚本风格</div>
+                  <div className="ai-shimmer-strong h-10 min-w-0 flex-1 rounded-[8px]" />
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">其他</div>
+              <div className="flex min-h-[64px] items-start gap-4">
+                <div className="h-10 w-[60px] shrink-0 pt-2.5 text-[14px] leading-5 text-[#191b1e]">补充</div>
+                <div className="ai-shimmer-strong h-10 min-w-0 flex-1 rounded-[8px]" />
+              </div>
+            </section>
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+
+    const renderPlanSkeleton = () => (
+      <div className="deep-plan-screen flex h-full min-h-0 flex-col bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-4 scrollbar-hide">
+          <div className="mb-5 rounded-[12px] border border-transparent">
+            <div className="flex h-8 items-center justify-between gap-4">
+              <div className="ai-shimmer-strong h-[22px] w-[260px] max-w-[68%] rounded-[6px]" />
+              <div className="ai-shimmer h-8 w-8 shrink-0 rounded-[8px]" />
+            </div>
+          </div>
+
+          <div className="mb-8 rounded-[12px] border border-transparent">
+            <div className="mb-3 flex h-[22px] items-center justify-between gap-3">
+              <div className="deep-plan-title-16 text-[16px] font-medium leading-[22px] text-black">出场角色</div>
+              <div className="ai-shimmer h-8 w-[72px] rounded-[8px]" />
+            </div>
+            <div className="flex gap-3 overflow-hidden pb-1">
+              <div className="h-[102px] w-[102px] shrink-0 rounded-[8px] bg-[#f6f7f9] p-3">
+                <div className="ai-shimmer mx-auto mt-4 h-5 w-5 rounded-[6px]" />
+                <div className="ai-shimmer mx-auto mt-4 h-4 w-12 rounded-[4px]" />
+              </div>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={`plan-role-${index}`} className="flex h-[102px] min-w-[213px] items-center gap-3 rounded-[8px] bg-[#f6f7f9] p-3">
+                  <div className="ai-shimmer-strong h-[72px] w-[72px] shrink-0 rounded-[8px]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="ai-shimmer h-4 w-16 rounded-[4px]" />
+                    <div className="ai-shimmer mt-2 h-3 w-24 rounded-[4px]" />
+                    <div className="ai-shimmer mt-2 h-3 w-20 rounded-[4px]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[12px] border border-transparent">
+            <div className="mb-3 flex h-9 items-center justify-between gap-3">
+              <div className="deep-plan-title-16 text-[16px] font-medium leading-[22px] text-black">剧本大纲</div>
+              <div className="ai-shimmer h-8 w-8 rounded-[8px]" />
+            </div>
+            <div className="space-y-5">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={`plan-outline-${index}`} className="rounded-[10px] bg-[#f6f7f9] p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="ai-shimmer h-5 w-5 shrink-0 rounded-full" />
+                    <div className="ai-shimmer h-4 w-[34%] rounded-[4px]" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="ai-shimmer-strong h-4 w-full rounded-[4px]" />
+                    <div className="ai-shimmer-strong h-4 w-[86%] rounded-[4px]" />
+                  </div>
+                  <div className="mt-3 flex gap-2 overflow-hidden">
+                    {Array.from({ length: 3 }).map((__, chipIndex) => (
+                      <div key={`plan-outline-chip-${index}-${chipIndex}`} className="ai-shimmer h-8 w-[92px] rounded-[8px]" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+
+    const renderStoryboardSkeleton = () => (
+      <div className="deep-storyboard-screen flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        {renderBanner()}
+        <div className="min-h-0 flex-1 overflow-hidden px-6 pb-5 pt-4">
+          <div className="deep-storyboard-grid grid h-full min-h-0">
+            <div className="min-h-0 overflow-y-auto pr-0 scrollbar-hide">
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 flex h-8 items-center justify-between gap-3">
+                    <div className="deep-storyboard-title-16 text-[16px] font-semibold leading-[22px] text-black">口播脚本</div>
+                    <div className="ai-shimmer h-8 w-8 rounded-[8px]" />
+                  </div>
+                  <div className="ai-shimmer-strong min-h-[88px] rounded-[8px]" />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex h-6 items-center justify-between gap-3">
+                    <div className="deep-storyboard-title-16 text-[16px] font-semibold leading-[22px] text-black">素材版本</div>
+                  </div>
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={`storyboard-media-${index}`} className="flex h-12 items-center gap-2 rounded-[8px] bg-[#f6f7f9] p-2">
+                        <div className="ai-shimmer h-8 w-8 shrink-0 rounded-[6px]" />
+                        <div className="min-w-0 flex-1">
+                          <div className="ai-shimmer h-3 w-[68%] rounded-[4px]" />
+                          <div className="ai-shimmer mt-2 h-2.5 w-[44%] rounded-[4px]" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex h-6 items-center gap-1.5">
+                    <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">素材A出场角色</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: 2 }).map((_, index) => (
+                      <div key={`storyboard-role-${index}`} className="ai-shimmer h-8 w-[76px] rounded-[8px]" />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex h-8 items-center justify-between gap-3">
+                    <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">素材A画面描述</div>
+                    <div className="ai-shimmer h-8 w-8 rounded-[8px]" />
+                  </div>
+                  <div className="ai-shimmer-strong min-h-[88px] rounded-[8px]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto scrollbar-hide">
+              <div className="flex min-h-full w-full flex-col">
+                <div className="mb-2 flex h-8 items-center justify-between gap-3">
+                  <div className="deep-storyboard-title-16 text-[16px] font-semibold leading-[22px] text-black">分镜预览</div>
+                  <div className="ai-shimmer h-6 w-12 rounded-full" />
+                </div>
+                <div className="shrink-0 rounded-[8px] bg-[#f6f7f9]">
+                  <div className="ai-shimmer-strong aspect-[16/9] rounded-[8px]" />
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col bg-white pt-3">
+                  <div className="order-1 flex h-11 min-w-0 items-center gap-2.5 rounded-[8px] bg-white px-1">
+                    <div className="ai-shimmer h-8 w-8 shrink-0 rounded-full" />
+                    <div className="ai-shimmer h-4 w-[92px] rounded-[4px]" />
+                  </div>
+
+                  <button type="button" className="order-2 relative mt-1 block h-5 w-full" aria-label="生成中的预览进度">
+                    <div className="absolute inset-x-0 top-[9px] h-[4px] rounded-full bg-[#e6ebf4]" />
+                    <div className="absolute left-0 top-[9px] h-[4px] w-[34%] rounded-full bg-[#dfe5f3]" />
+                    <div className="ai-shimmer absolute top-[6px] h-[10px] w-[10px] translate-x-[34%] rounded-full border-2 border-white" />
+                  </button>
+
+                  <div className="order-3 relative mt-3 min-h-0 overflow-hidden rounded-[8px] bg-[#f6f7f9] p-3 pb-2">
+                    <div className="flex min-w-max items-stretch gap-0 pb-1">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <div key={`storyboard-timeline-${index}`} className="h-[116px] w-[160px] shrink-0 pr-2">
+                          <div className="flex h-full w-full flex-col justify-between rounded-[8px] bg-white p-2">
+                            <div className="ai-shimmer-strong h-[70px] rounded-[6px]" />
+                            <div>
+                              <div className="ai-shimmer h-3 w-[68%] rounded-[4px]" />
+                              <div className="ai-shimmer mt-2 h-2.5 w-[42%] rounded-[4px]" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+
+    const renderSettingsSkeleton = () => (
+      <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-4 scrollbar-hide">
+          <div className="mx-auto w-full max-w-[802px]">
+            <div className="mb-3 flex h-6 items-center justify-between gap-3">
+              <div className="text-[14px] font-semibold leading-5 text-black">实时预览</div>
+              <div className="rounded-full border border-[#dff0e7] bg-[#f4fbf7] px-3 py-1.5 text-[12px] font-semibold text-[#18a36f]">
+                AI 整理中
+              </div>
+            </div>
+
+            <div className="rounded-[8px] bg-[#f6f7f9] p-4">
+              <div className="ai-shimmer-strong aspect-[16/9] rounded-[6px]" />
+              <div className="mt-3 flex h-10 items-center gap-3 rounded-[6px] bg-white px-3">
+                <div className="ai-shimmer h-7 w-7 shrink-0 rounded-full" />
+                <div className="ai-shimmer h-4 w-[76px] shrink-0 rounded-[4px]" />
+                <div className="ai-shimmer h-[3px] min-w-0 flex-1 rounded-full" />
+              </div>
+            </div>
+
+            <div className="mt-5 text-[14px] font-semibold leading-5 text-black">成片设置</div>
+            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(136px,1fr))] gap-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex h-[60px] min-w-0 items-center gap-3 rounded-[8px] bg-[#f6f7f9] p-3">
+                  <div className="ai-shimmer h-9 w-9 shrink-0 rounded-[6px]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="ai-shimmer h-4 w-16 rounded-[4px]" />
+                    <div className="ai-shimmer mt-2 h-3 w-24 rounded-[4px]" />
+                  </div>
+                  {index === 4 ? <div className="ai-shimmer h-5 w-9 shrink-0 rounded-full" /> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+
+    if (stepGenerationState.skeleton === "collect" || stepGenerationState.targetStep === 1) {
+      return renderCollectSkeleton();
+    }
+
+    if (stepGenerationState.skeleton === "plan" || stepGenerationState.targetStep === 2) {
+      return renderPlanSkeleton();
+    }
+
+    if (stepGenerationState.skeleton === "storyboard" || stepGenerationState.targetStep === 3) {
+      return renderStoryboardSkeleton();
+    }
+
+    if (stepGenerationState.skeleton === "settings" || stepGenerationState.targetStep === 4) {
+      return renderSettingsSkeleton();
+    }
+
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-4 scrollbar-hide">
+          <div className="mb-3 text-[16px] font-semibold leading-[22px] text-black">
+            {titleMap[stepGenerationState.targetStep] || "生成中"}
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`generic-skeleton-${index}`} className="ai-shimmer-strong h-14 rounded-[8px]" />
+            ))}
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+
+  };
+
+  const renderRightFocusBanner = () => {
+    if (!rightFocusCue || stepGenerationState || currentStep !== rightFocusCue.step) return null;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="mb-5 rounded-[22px] border border-[#dce8ff] bg-[linear-gradient(180deg,#f7fbff_0%,#f2f8ff_100%)] px-5 py-4 shadow-[0_16px_28px_rgba(79,107,255,0.08)]"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold tracking-[0.03em] text-[#4f6bff] shadow-[0_8px_18px_rgba(79,107,255,0.08)]">
+              <MonitorSmartphone className="h-3.5 w-3.5" />
+              请先看右侧
+            </div>
+            <div className="mt-3 text-[18px] font-bold tracking-[-0.03em] text-[#202634]">{rightFocusCue.title}</div>
+            <div className="mt-1 text-[13px] leading-6 text-[#637089]">{rightFocusCue.detail}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearRightFocusCue();
+              setRightFocusCue(null);
+            }}
+            className="shrink-0 rounded-[14px] border border-[#dfe7f5] bg-white px-4 py-2 text-[13px] font-semibold text-[#5c6678]"
+          >
+            我知道了
+          </button>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderComposerImportCue = () => {
+    if (!composerImportCue || typeof document === "undefined") return null;
+
+    const { from, to, label, id } = composerImportCue;
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const arcLift = Math.min(96, Math.max(42, Math.abs(deltaX) * 0.12));
+    const mid = {
+      x: from.x + deltaX * 0.54,
+      y: from.y + deltaY * 0.5 - arcLift,
+    };
+    const path = [
+      `M ${from.x} ${from.y}`,
+      `C ${from.x + deltaX * 0.34} ${from.y - arcLift * 0.35}`,
+      `${to.x - deltaX * 0.22} ${to.y - arcLift}`,
+      `${to.x} ${to.y}`,
+    ].join(" ");
+
+    return createPortal(
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={`${id}-path`}
+          className="pointer-events-none fixed inset-0 z-[95]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <svg className="h-full w-full">
+            <defs>
+              <linearGradient id="composer-import-gradient" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#7b5cff" stopOpacity="0" />
+                <stop offset="42%" stopColor="#7b5cff" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#a889ff" stopOpacity="0.2" />
+              </linearGradient>
+            </defs>
+            <motion.path
+              d={path}
+              fill="none"
+              stroke="url(#composer-import-gradient)"
+              strokeLinecap="round"
+              strokeWidth="3"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: [0, 1, 1], opacity: [0, 0.95, 0] }}
+              transition={{ duration: 0.82, times: [0, 0.7, 1], ease: "easeOut" }}
+            />
+          </svg>
+        </motion.div>
+        <motion.div
+          key={id}
+          className="pointer-events-none fixed left-0 top-0 z-[100]"
+          initial={{ x: from.x, y: from.y, opacity: 0, scale: 0.78 }}
+          animate={{
+            x: [from.x, mid.x, to.x],
+            y: [from.y, mid.y, to.y],
+            opacity: [0, 1, 1, 0],
+            scale: [0.78, 1.04, 0.96, 0.72],
+          }}
+          exit={{ opacity: 0, scale: 0.72 }}
+          transition={{ duration: 0.82, times: [0, 0.24, 0.78, 1], ease: "easeInOut" }}
+        >
+          <div className="flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-[#d9ceff] bg-white px-3 py-2 text-[12px] font-semibold text-[#5f46d6] shadow-[0_18px_40px_rgba(92,70,214,0.2)]">
+            <Sparkles className="h-3.5 w-3.5" />
+            {label}
+          </div>
+        </motion.div>
+      </AnimatePresence>,
+      document.body,
+    );
+  };
+
+  const renderRightUpdateCue = () => {
+    if (!rightUpdateCue || typeof document === "undefined") return null;
+
+    const { from, to, label, id, targetRect } = rightUpdateCue;
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const arcLift = Math.min(88, Math.max(38, Math.abs(deltaX) * 0.1));
+    const mid = {
+      x: from.x + deltaX * 0.55,
+      y: from.y + deltaY * 0.52 - arcLift,
+    };
+    const path = [
+      `M ${from.x} ${from.y}`,
+      `C ${from.x + deltaX * 0.28} ${from.y - arcLift}`,
+      `${to.x - deltaX * 0.2} ${to.y - arcLift * 0.3}`,
+      `${to.x} ${to.y}`,
+    ].join(" ");
+
+    return createPortal(
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={`${id}-target`}
+          className="pointer-events-none fixed z-[94] rounded-[28px] border border-[#a889ff]"
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: [0, 0.95, 0], scale: [0.985, 1.006, 1.012] }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.08, ease: "easeOut" }}
+          style={{
+            left: targetRect.left,
+            top: targetRect.top,
+            width: targetRect.width,
+            height: targetRect.height,
+            boxShadow: "0 0 0 5px rgba(123, 92, 255, 0.12), 0 24px 64px rgba(123, 92, 255, 0.16)",
+          }}
+        />
+        <motion.div
+          key={`${id}-path`}
+          className="pointer-events-none fixed inset-0 z-[95]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <svg className="h-full w-full">
+            <defs>
+              <linearGradient id="right-update-gradient" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#53d4d8" stopOpacity="0" />
+                <stop offset="46%" stopColor="#7b5cff" stopOpacity="0.96" />
+                <stop offset="100%" stopColor="#a889ff" stopOpacity="0.18" />
+              </linearGradient>
+            </defs>
+            <motion.path
+              d={path}
+              fill="none"
+              stroke="url(#right-update-gradient)"
+              strokeLinecap="round"
+              strokeWidth="3"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: [0, 1, 1], opacity: [0, 0.95, 0] }}
+              transition={{ duration: 0.92, times: [0, 0.72, 1], ease: "easeOut" }}
+            />
+          </svg>
+        </motion.div>
+        <motion.div
+          key={id}
+          className="pointer-events-none fixed left-0 top-0 z-[100]"
+          initial={{ x: from.x, y: from.y, opacity: 0, scale: 0.78 }}
+          animate={{
+            x: [from.x, mid.x, to.x],
+            y: [from.y, mid.y, to.y],
+            opacity: [0, 1, 1, 0],
+            scale: [0.78, 1.04, 0.96, 0.72],
+          }}
+          exit={{ opacity: 0, scale: 0.72 }}
+          transition={{ duration: 0.92, times: [0, 0.24, 0.8, 1], ease: "easeInOut" }}
+        >
+          <div className="flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-[#d9ceff] bg-white px-3 py-2 text-[12px] font-semibold text-[#5f46d6] shadow-[0_18px_40px_rgba(92,70,214,0.2)]">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {label}
+          </div>
+        </motion.div>
+      </AnimatePresence>,
+      document.body,
+    );
+  };
+
+	  const renderDownstreamStatusBanner = () => {
+	    if (stepGenerationState) return null;
+	    const hasOutlineSync = currentStep === 2 && Boolean(outlineSyncState);
+	    if (!downstreamStatus && !isEditingPreviousStep && !hasOutlineSync) return null;
+
+	    const isCurrentDirty = Boolean(downstreamStatus?.dirtySteps.includes(currentStep));
+	    const isSourceStep = Boolean(downstreamStatus && currentStep === downstreamStatus.sourceStep);
+	    if (downstreamStatus && !isCurrentDirty && !isSourceStep && !hasOutlineSync) return null;
+
+	    const actionStep = hasOutlineSync ? null : isCurrentDirty ? currentStep : downstreamStatus?.actionStep;
+	    const affectedSteps = downstreamStatus?.dirtySteps || [];
+	    const title = hasOutlineSync
+	      ? "剧本待同步"
+	      : isCurrentDirty
+	      ? `${stepTitleMap[currentStep]}待更新`
+	      : affectedSteps.length
+	        ? "后续需同步"
+	        : `正在回改${stepTitleMap[currentStep]}`;
+	    const supportingLabel = hasOutlineSync
+	      ? "角色已更新"
+	      : downstreamStatus
+	      ? `源自${stepTitleMap[downstreamStatus.sourceStep]}`
+	      : "保留历史结果";
+	    const statusChips = hasOutlineSync ? ["剧本大纲"] : affectedSteps.map((stepNo) => stepTitleMap[stepNo]);
+
+	    return (
+	      <div className="mb-5 rounded-[18px] border border-[#ffe0b8] bg-[#fffaf2] px-4 py-3 shadow-[0_10px_22px_rgba(245,158,11,0.07)]">
+	        <div className="flex flex-wrap items-center justify-between gap-3">
+	          <div className="flex min-w-0 items-center gap-3">
+	            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#d97706] shadow-[0_8px_18px_rgba(245,158,11,0.10)]">
+	              <AlertCircle className="h-4 w-4" />
+	            </div>
+	            <div className="min-w-0">
+	              <div className="flex flex-wrap items-center gap-2">
+	                <span className="text-[15px] font-bold text-[#202634]">{title}</span>
+	                <span className="inline-flex h-6 items-center rounded-full bg-white px-2.5 text-[11px] font-semibold text-[#c76b0a]">
+	                  {supportingLabel}
+	                </span>
+	                {statusChips.map((label) => (
+	                  <span
+	                    key={`status-chip-${label}`}
+	                    className="inline-flex h-6 items-center rounded-full border border-[#ffd7a6] bg-white px-2.5 text-[11px] font-semibold text-[#d97706]"
+	                  >
+	                    {label}
+	                  </span>
+	                ))}
+	              </div>
+	            </div>
+	          </div>
+	          {actionStep ? (
+	            <button
+	              type="button"
+	              onClick={() => handleRegenerateDirtyStep(actionStep)}
+	              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[12px] border border-[#ffd69f] bg-white px-3.5 text-[13px] font-semibold text-[#d97706] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(245,158,11,0.12)]"
+	            >
+	              <RefreshCcw className="h-3.5 w-3.5" />
+	              更新{stepTitleMap[actionStep]}
+	            </button>
+	          ) : null}
+	        </div>
+	      </div>
+    );
+  };
+
+  const renderStepFooter = () => {
+    const footerStep = stepGenerationState?.targetStep ?? currentStep;
+    const isStep1Step = footerStep === 1;
+    const isStep2Step = footerStep === 2;
+    const isStep3Step = footerStep === 3;
+    const isStep4Step = footerStep === 4;
+    const isLeadingFooterStep = true;
+    const isFooterBusy = Boolean(stepGenerationState) || isStoryboardGenerating || isComposerGenerating;
+    const isStep1Invalid = footerStep === 1 && !isStep1Complete;
+    const isStep2CharacterRuleInvalid = footerStep === 2 && Boolean(step2CharacterRuleError);
+    const isStep2PendingOutlineSync = footerStep === 2 && Boolean(outlineSyncState);
+    const isStep3MissingStoryboard = footerStep === 3 && validStoryboardCount === 0;
+    const isStep3PendingClipReview = footerStep === 3 && pendingStoryboardClipReviewCount > 0;
+    const isCurrentStepDirty = Boolean(downstreamStatus?.dirtySteps.includes(footerStep));
+    const isActionDisabled =
+      isFooterBusy ||
+      isStep1Invalid ||
+      isStep2CharacterRuleInvalid ||
+      isStep2PendingOutlineSync ||
+      isStep3MissingStoryboard ||
+      isStep3PendingClipReview;
+    const firstPendingClipReviewLabel = firstPendingStoryboardClipReview
+      ? `${getStoryboardDisplayName(firstPendingStoryboardClipReview.outlineIndex)} · 素材${getStoryboardMediaLabel(
+          firstPendingStoryboardClipReview.mediaIndex,
+        )}`
+      : "";
+    const isCancelEditDisabled = isFooterBusy || !hasEditSessionChanges;
+    const primaryActionTooltip = isStep1Invalid
+      ? "请先填写表单"
+      : isStep2CharacterRuleInvalid
+        ? step2CharacterRuleError
+      : isStep2PendingOutlineSync
+        ? "请先同步下方剧本大纲"
+        : isStep3MissingStoryboard
+          ? "请至少新增 1 个分镜"
+          : isStep3PendingClipReview
+            ? firstPendingClipReviewLabel
+              ? `请先处理 ${firstPendingClipReviewLabel} 的视频节选`
+              : `还有 ${pendingStoryboardClipReviewCount} 个视频素材需要确认节选`
+          : stepGenerationState
+            ? stepGenerationState.title
+            : isStoryboardGenerating
+              ? "正在更新分镜，请稍候"
+              : isComposerGenerating
+                ? "AI 正在处理当前修改，请稍候"
+                : "";
+    const renderPrimaryButton = (label, onClick) => {
+      const buttonNode = (
+        <button
+          onClick={onClick}
+          disabled={isActionDisabled}
+          className={cn(
+            "font-semibold transition-all",
+	            isStep1Step
+	              ? "h-10 min-w-[247px] rounded-[10px] px-8 text-[14px]"
+	              : isStep2Step || isStep3Step
+	                ? "h-10 min-w-[247px] rounded-[8px] px-8 text-[14px]"
+	                : isStep4Step
+	                  ? "h-9 min-w-[247px] rounded-[8px] px-8 text-[14px]"
+	              : "rounded-[16px] px-6 py-3 text-[15px]",
+            isActionDisabled
+              ? "cursor-not-allowed bg-[#e9edf4] text-[#a1a9b7]"
+              : isStep1Step
+                ? "bg-[#3a5bfd] text-white shadow-[0_10px_20px_rgba(58,91,253,0.14)]"
+	                : isStep2Step || isStep3Step || isStep4Step
+	                  ? "bg-[linear-gradient(129.53deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] text-white"
+	                : "bg-[#7b5cff] text-white shadow-[0_10px_20px_rgba(123,92,255,0.16)]",
+          )}
+        >
+          {label}
+        </button>
+      );
+
+      if (!isActionDisabled || !primaryActionTooltip) return buttonNode;
+
+      return (
+        <HoverTooltip content={primaryActionTooltip} side="top" align="end" wrapperClassName="inline-flex">
+          {buttonNode}
+        </HoverTooltip>
+      );
+    };
+    const overwriteTargetStep = Math.min(4, footerStep + 1);
+    const primaryLabel = isCurrentStepDirty ? `重新生成${stepTitleMap[footerStep]}` : isEditingPreviousStep ? regenerateButtonLabel : confirmButtonLabel;
+    const primaryAction = isCurrentStepDirty
+      ? () => handleRegenerateDirtyStep(footerStep)
+      : isEditingPreviousStep
+        ? () =>
+            requestOverwriteConfirm({
+              targetStep: overwriteTargetStep,
+              confirmLabel: regenerateButtonLabel,
+              onConfirm: handleStepRegenerate,
+            })
+        : handleStepConfirm;
+
+    const cancelEditTooltip = isFooterBusy ? "正在生成，稍等一下" : !hasEditSessionChanges ? "还没有可取消的修改" : "";
+    const shouldShowFooterMeta = !isFooterBusy;
+    const shouldHideStep1FooterMeta = isStep1Step;
+    const shouldHideStep2FooterMeta =
+      isStep2Step &&
+      !isStep2PendingOutlineSync &&
+      !isStep2CharacterRuleInvalid &&
+      !isComposerGenerating &&
+      !isStoryboardGenerating;
+	    const shouldHideStep3FooterMeta =
+	      isStep3Step &&
+	      !isStep3MissingStoryboard &&
+	      !isStep3PendingClipReview &&
+	      !isComposerGenerating &&
+	      !isStoryboardGenerating;
+	    const shouldHideStep4FooterMeta = isStep4Step && !isComposerGenerating && !isStoryboardGenerating;
+    const renderCancelEditButton = () => (
+      <DisabledTooltip
+        disabled={isCancelEditDisabled}
+        reason={cancelEditTooltip}
+        side="top"
+        align="end"
+        wrapperClassName="inline-flex"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (isCancelEditDisabled) return;
+            restoreEditSessionSnapshot();
+          }}
+          disabled={isCancelEditDisabled}
+          className={cn(
+            "rounded-[16px] border px-5 py-3 text-[15px] font-semibold transition-all",
+            isCancelEditDisabled
+              ? "cursor-not-allowed border-[#eceff5] bg-[#f6f8fb] text-[#a1a9b7]"
+              : "border-[#e3e8f1] bg-white text-[#687286] hover:border-[#cfd8e8] hover:bg-[#f8faff] hover:text-[#202634]",
+          )}
+        >
+          取消修改
+        </button>
+      </DisabledTooltip>
+    );
+
+    return (
+      <div
+        className={cn(
+	          "mt-4 flex flex-wrap items-center justify-start gap-3",
+          isStep1Step && "mt-0 shrink-0 justify-start border-t border-[#e0e8f5] bg-white px-6 py-4",
+	          isStep2Step && "mt-0 border-t border-[#e0e8f5] bg-white px-6 py-4",
+	          isStep3Step && "mt-0 shrink-0 justify-start border-t border-[#e0e8f5] bg-white px-6 py-4",
+	          isStep4Step && "mt-0 shrink-0 justify-start border-t border-[#e0e8f5] bg-white px-6 py-4",
+        )}
+      >
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-wrap items-center gap-3",
+            isLeadingFooterStep && "order-2",
+	            (shouldHideStep1FooterMeta || shouldHideStep2FooterMeta || shouldHideStep3FooterMeta || shouldHideStep4FooterMeta) && "hidden",
+          )}
+        >
+          {shouldShowFooterMeta && !isStep1Step ? (
+            <>
+              {isStep1Invalid ? (
+                <div className="text-[13px] font-medium text-[#8a93a6]">
+                  请先完善带 <span className="font-semibold text-[#ff5c73]">*</span> 的必填信息后继续。
+                </div>
+              ) : null}
+              {isStep2PendingOutlineSync ? (
+                <div className="text-[13px] font-medium text-[#8a93a6]">
+                  角色已变更，请先同步下方剧本大纲，再进入下一步。
+                </div>
+              ) : null}
+              {isStep2CharacterRuleInvalid && !isStep2PendingOutlineSync ? (
+                <div className="text-[13px] font-medium text-[#8a93a6]">{step2CharacterRuleError}</div>
+              ) : null}
+              {isStep3MissingStoryboard ? (
+                <div className="text-[13px] font-medium text-[#8a93a6]">请至少新增 1 个分镜后再继续成片设置。</div>
+              ) : null}
+              {footerStep === 3 && !isStep3MissingStoryboard ? (
+                <div className="min-w-0 text-[13px] font-medium text-[#687286]">
+                  当前 {validStoryboardCount} 个分镜，素材组合 {storyboardCombinationExpression || "1"} ={" "}
+                  <span className="font-semibold text-[#202634]">{storyboardCombinationCount}</span> 条候选成片。
+                </div>
+              ) : null}
+              {isStoryboardGenerating ? (
+                <div className="inline-flex items-center gap-2 rounded-[16px] border border-[#e5dcff] bg-[#faf7ff] px-5 py-3 text-[14px] font-semibold text-[#7b5cff]">
+                  <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+                  正在更新分镜
+                </div>
+              ) : isComposerGenerating ? (
+                <div className="inline-flex items-center gap-2 rounded-[16px] border border-[#e5dcff] bg-[#faf7ff] px-5 py-3 text-[14px] font-semibold text-[#7b5cff]">
+                  <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+                  AI 正在处理当前修改
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-3",
+            isLeadingFooterStep && "order-1",
+	            !isStep1Step && !isStep2Step && !isStep3Step && !isStep4Step && "ml-auto",
+          )}
+        >
+          {renderPrimaryButton(primaryLabel, primaryAction)}
+          {isEditingPreviousStep && !isCurrentStepDirty ? renderCancelEditButton() : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderStep1 = () => {
+    const renderFieldLabel = ({ label, required = false, optional = false }) => (
+      <div className="flex items-center gap-1 text-[12px] font-normal leading-4 text-[#191b1e]">
+        <span>{label}</span>
+        {required ? <span className="text-[#ff5c73]">*</span> : null}
+        {optional ? <span className="text-[12px] font-normal text-[#838995]">（选填）</span> : null}
+      </div>
+    );
+
+    const renderInputField = ({ label, field, required = false, optional = false, rows = 1 }) => {
+      const value = businessInfo[field] || "";
+      const maxLength = agentBusinessFieldMaxLengths[field];
+      const errorText = getStep1FieldError(field);
+      const baseClassName = cn(
+        "h-9 w-full rounded-[4px] border border-transparent bg-[#f6f7f9] px-3 text-[12px] leading-4 text-[#191b1e] outline-none placeholder:text-[#848b99] transition-colors focus:border-[#dbe5ff] focus:bg-white",
+        errorText && "border-[#ffc9d2] bg-[#fff8fa]",
+      );
+      const handleChange = (event) => {
+        setBusinessInfo((prev) => ({
+          ...prev,
+          [field]: event.target.value.slice(0, maxLength),
+        }));
+      };
+      const handleBlur = (event) => {
+        markStep1FieldTouched(field);
+        commitBusinessFieldFeedback(field, event.target.value);
+        finishManualEditRecord({
+          key: `step1-${field}`,
+          value: event.target.value,
+          title: `手动修改了${label}`,
+          step: 1,
+          target: "创意收集",
+        });
+      };
+
+      return (
+        <div className="flex flex-col gap-1">
+          <div className="flex w-full items-center gap-7">
+            <div className="w-12 shrink-0">{renderFieldLabel({ label, required, optional })}</div>
+            <input
+              value={value}
+              onChange={handleChange}
+              onFocus={() => beginManualEditRecord(`step1-${field}`, value)}
+              onBlur={handleBlur}
+              className={baseClassName}
+              placeholder={businessFieldPlaceholders[field] || "请输入"}
+              aria-invalid={Boolean(errorText)}
+            />
+          </div>
+          <div className="ml-[76px] min-h-[14px] text-[12px] font-medium leading-[14px] text-[#e45b6b]">
+            {errorText || ""}
+          </div>
+        </div>
+      );
+    };
+
+    const selectBusinessOption = (field, item) => {
+      const previousValue = businessInfo[field] || "";
+      setBusinessInfo((prev) => ({ ...prev, [field]: item }));
+      markStep1FieldTouched(field);
+      commitBusinessFieldFeedback(field, item);
+      if (previousValue !== item) {
+        appendManualSelectionRecord({
+          title: `手动选择了${businessFieldLabels[field] || "业务信息"}`,
+          description: `${summarizeRecordText(previousValue, "未选择")} → ${item}`,
+          step: 1,
+          target: "创意收集",
+        });
+      }
+    };
+
+    const toggleMaterialOption = (item) => {
+      const current = normalizeAgentMaterialTypes(
+        businessInfo.materialTypes || businessInfo.materialType,
+      );
+      const next =
+        item === "无素材"
+          ? ["无素材"]
+          : (() => {
+              const withoutNone = current.filter((option) => option !== "无素材");
+              const toggled = withoutNone.includes(item)
+                ? withoutNone.filter((option) => option !== item)
+                : [...withoutNone, item];
+              return toggled.length ? toggled : ["无素材"];
+            })();
+      const nextLabel = getAgentMaterialTypeLabel(next);
+      const previousLabel = getAgentMaterialTypeLabel(current);
+
+      setBusinessInfo((prev) => ({
+        ...prev,
+        materialTypes: next,
+        materialType: nextLabel,
+      }));
+      markStep1FieldTouched("materialType");
+      commitBusinessFieldFeedback("materialType", nextLabel);
+      if (previousLabel !== nextLabel) {
+        appendManualSelectionRecord({
+          title: "手动选择了视频素材",
+          description: `${summarizeRecordText(previousLabel, "未选择")} → ${nextLabel}`,
+          step: 1,
+          target: "创意收集",
+        });
+      }
+    };
+
+    const renderOptionField = ({ label, field, options, required = false }) => {
+      const value = businessInfo[field] || "";
+      const errorText = getStep1FieldError(field);
+
+      return (
+        <div className="flex flex-col gap-1">
+          <div className="flex w-full items-center gap-7">
+            <div className="w-12 shrink-0">{renderFieldLabel({ label, required })}</div>
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-2",
+                errorText && "rounded-[8px] outline outline-1 outline-[#ffc9d2]",
+              )}
+            >
+              {options.map((item) => {
+                const active = value === item;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => selectBusinessOption(field, item)}
+                    className={cn(
+                      "flex h-9 min-w-20 items-center justify-center rounded-[8px] px-3 text-[12px] leading-4 transition-all",
+                      active
+                        ? "bg-[rgba(77,121,255,0.08)] font-medium text-[#3a5bfd]"
+                        : "bg-[#f6f7f9] font-normal text-[#191b1e] hover:bg-[#eef2fb]",
+                    )}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="ml-[76px] min-h-[14px] text-[12px] font-medium leading-[14px] text-[#e45b6b]">
+            {errorText || ""}
+          </div>
+        </div>
+      );
+    };
+
+	    const renderVideoTypeField = () => {
+	      const value = businessInfo.videoType || defaultAgentBusinessInfo.videoType;
+	      const errorText = getStep1FieldError("videoType");
+
+	      return (
+	        <div className="flex flex-col gap-1">
+          <div className="flex w-full items-center gap-7">
+            <div className="w-12 shrink-0">{renderFieldLabel({ label: "视频类型", required: true })}</div>
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-2",
+                errorText && "rounded-[8px] outline outline-1 outline-[#ffc9d2]",
+              )}
+            >
+              {agentVideoTypeOptions.map((item) => {
+                const active = value === item;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => selectBusinessOption("videoType", item)}
+                    className={cn(
+                      "flex h-9 min-w-20 items-center justify-center rounded-[8px] px-3 text-[12px] leading-4 transition-all",
+                      active
+                        ? "bg-[rgba(77,121,255,0.08)] font-medium text-[#3a5bfd]"
+                        : "bg-[#f6f7f9] font-normal text-[#191b1e] hover:bg-[#eef2fb]",
+                    )}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+	          <div className="ml-[76px] min-h-[14px] text-[12px] font-medium leading-[14px] text-[#e45b6b]">
+	            {errorText || ""}
+	          </div>
+	        </div>
+	      );
+	    };
+
+	    const renderMaterialTypeField = () => {
+	      const errorText = getStep1FieldError("materialType");
+	      const materialValue = normalizeAgentMaterialTypes(
+	        businessInfo.materialTypes || businessInfo.materialType,
+	      );
+
+	      return (
+	        <div className="flex flex-col gap-1">
+	          <div className="flex w-full items-center gap-7">
+	            <div className="w-12 shrink-0">{renderFieldLabel({ label: "视频素材", required: true })}</div>
+	            <div
+	              className={cn(
+	                "flex flex-wrap items-center gap-2",
+	                errorText && "rounded-[8px] outline outline-1 outline-[#ffc9d2]",
+	              )}
+	            >
+	              {agentMaterialTypeOptions.map((item) => {
+	                const active = materialValue.includes(item);
+	                return (
+	                  <button
+	                    key={item}
+	                    type="button"
+	                    onClick={() => toggleMaterialOption(item)}
+	                    aria-pressed={active}
+	                    className={cn(
+	                      "inline-flex h-9 min-w-20 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[12px] leading-4 transition-all",
+	                      active
+	                        ? "bg-[rgba(77,121,255,0.08)] font-medium text-[#3a5bfd]"
+	                        : "bg-[#f6f7f9] font-normal text-[#191b1e] hover:bg-[#eef2fb]",
+	                    )}
+	                  >
+	                    <span
+	                      className={cn(
+	                        "flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border transition-all",
+	                        active ? "border-[#3a5bfd] bg-[#3a5bfd] text-white" : "border-[#cfd6e3] bg-white",
+	                      )}
+	                    >
+	                      {active ? <Check className="h-2.5 w-2.5" /> : null}
+	                    </span>
+	                    {item}
+	                  </button>
+	                );
+	              })}
+	            </div>
+	          </div>
+	          <div className="ml-[76px] min-h-[14px] text-[12px] font-medium leading-[14px] text-[#e45b6b]">
+	            {errorText || ""}
+	          </div>
+	        </div>
+	      );
+	    };
+
+    return (
+      <div className="deep-collect-screen flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        {renderBanner()}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-6 pb-8 pt-4 scrollbar-hide">
+          <div className="w-[580px] max-w-full space-y-6">
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">业务信息</div>
+              <div className="space-y-1">
+                {renderInputField({ label: "业务点", field: "businessPoint", required: true })}
+                {renderInputField({ label: "目标受众", field: "audience", required: true })}
+                {renderOptionField({
+                  label: "转化方式",
+                  field: "conversionGuidance",
+                  options: agentConversionGuidanceOptions,
+                  required: true,
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">视频信息</div>
+              <div className="space-y-1">
+                {renderOptionField({
+                  label: "画面风格",
+                  field: "style",
+                  options: agentVideoStyleOptions,
+                  required: true,
+	                })}
+	                {renderVideoTypeField()}
+	                {(businessInfo.videoType || defaultAgentBusinessInfo.videoType) === "自定义" ? (
+	                  <>
+	                    {renderOptionField({
+	                      label: "视频口播",
+	                      field: "narratorType",
+	                      options: agentNarratorTypeOptions,
+	                      required: true,
+	                    })}
+	                    {renderMaterialTypeField()}
+	                  </>
+	                ) : null}
+	                {renderInputField({ label: "脚本风格", field: "scriptStyle", required: true })}
+	              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="text-[16px] font-medium leading-[22px] text-black">其他</div>
+              <div className="space-y-1">
+                {renderInputField({ label: "补充", field: "additionalInfo", optional: true })}
+              </div>
+            </section>
+          </div>
+        </div>
+        {renderStepFooter()}
+      </div>
+    );
+  };
+
+  const isRightUpdateHighlighted = (type, index = null) => {
+    if (!rightUpdateHighlight) return false;
+    if (rightUpdateHighlight.type === "plan") {
+      return index === null && ["theme", "characters", "outlines"].includes(type);
+    }
+    return (
+      rightUpdateHighlight.type === type &&
+      (index === null || rightUpdateHighlight.index === null || rightUpdateHighlight.index === index)
+    );
+  };
+  const rightUpdateHighlightClass =
+    "border-[#b99bff] ring-2 ring-[#e8dcff] shadow-[0_20px_52px_rgba(123,92,255,0.16)]";
+
+  const renderStep2 = () => {
+    const sectionClass =
+      "rounded-[28px] border border-[#edf1f6] bg-white p-6 shadow-[0_14px_30px_rgba(115,134,174,0.05)]";
+    const ghostButtonClass =
+      "inline-flex h-10 items-center gap-2 rounded-[14px] border border-[#e7ebf4] bg-white px-3.5 text-[13px] font-semibold text-[#44516b] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(117,135,170,0.08)] disabled:cursor-not-allowed disabled:opacity-60";
+    const aiButtonClass =
+      "inline-flex h-10 items-center gap-2 rounded-[14px] border border-[#ddd2ff] bg-[#f7f4ff] px-3.5 text-[13px] font-semibold text-[#5f46d6] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(123,92,255,0.12)] disabled:cursor-not-allowed disabled:opacity-60";
+    const composerBusyTooltip = "AI 正在处理，稍等一下";
+    const characterLimitTooltip = `最多添加 ${MAX_SCENE_CHARACTER_COUNT} 个角色`;
+    const planSectionClass = "rounded-[12px] border border-transparent";
+    const composerIconButtonClass =
+      "h-8 w-8 rounded-[8px] border-transparent bg-[#f6f7f9] text-[#191b1e] hover:translate-y-0 hover:bg-[#eef2ff] hover:text-[#3a5bfd] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-50";
+    const startAddAiCharacter = (sourceElement) => {
+      if (isCharacterLimitReached) return;
+      setAddCharacterMenuOpen(false);
+      setRegenerateTarget({ type: "add" });
+      setRewriteTarget(null);
+      setPlanComposerTarget(null);
+      setStoryboardAddTarget(null);
+      setRecentCharacterChange(null);
+      applyImportedDraft({
+        draftText: "新增一个角色，要求：",
+        step: 2,
+        sourceElement,
+        label: "角色要求已带入",
+      });
+    };
+    const startAddLibraryCharacter = () => {
+      if (isCharacterLimitReached) return;
+      setAddCharacterMenuOpen(false);
+      setLibraryTarget(characters.length);
+    };
+    const renderAddCharacterMenu = () => (
+      <div
+        data-add-character-menu="true"
+        className="w-[254px] rounded-[24px] border border-[#eef2f8] bg-white px-5 py-4 shadow-[0_24px_60px_rgba(76,105,160,0.18)]"
+      >
+        <button
+          type="button"
+          onClick={startAddLibraryCharacter}
+          className="flex h-14 w-full items-center gap-4 rounded-[14px] px-2 text-left text-[20px] font-medium leading-7 text-black transition-colors hover:bg-[#f6f8fc]"
+        >
+          <IdCard className="h-6 w-6 shrink-0 text-[#191b1e]" strokeWidth={2.3} />
+          <span>角色库选择</span>
+        </button>
+        <button
+          type="button"
+          onClick={(event) => startAddAiCharacter(addCharacterTriggerRef.current || event.currentTarget)}
+          className="mt-1 flex h-14 w-full items-center gap-4 rounded-[14px] px-2 text-left text-[20px] font-medium leading-7 text-black transition-colors hover:bg-[#f6f8fc]"
+        >
+          <CirclePlus className="h-6 w-6 shrink-0 text-[#191b1e]" strokeWidth={2.3} />
+          <span>AI生成角色</span>
+        </button>
+      </div>
+    );
+
+    return (
+      <div className="deep-plan-screen flex h-full min-h-0 flex-col bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-4 scrollbar-hide">
+          {stepGenerationFailure?.targetStep === 3 && stepGenerationFailure?.fromStep === 2 ? (
+            <div className="mb-4 flex items-start justify-between gap-4 rounded-[14px] border border-[#ffe1bd] bg-[#fffaf4] px-4 py-3 text-[#5b4630]">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-white text-[#f08a24]">
+                  <AlertCircle className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[14px] font-semibold text-[#202634]">分镜设计暂未生成成功</div>
+                  <div className="mt-0.5 text-[12px] leading-5 text-[#7f6a50]">
+                    方案规划已保留，右侧内容没有变化。可直接重试生成分镜。
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={retryStepGenerationFailure}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[12px] bg-[#202634] px-3.5 text-[13px] font-semibold text-white transition-all hover:bg-[#111827]"
+              >
+                <RefreshCcw className="h-3.5 w-3.5" />
+                重试
+              </button>
+            </div>
+          ) : null}
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.plan = node;
+              rightUpdateTargetRefs.current.theme = node;
+            }}
+            className={cn(
+              planSectionClass,
+              "mb-5",
+              (isRightUpdateHighlighted("plan") || isRightUpdateHighlighted("theme")) && rightUpdateHighlightClass,
+            )}
+          >
+            <div className="flex h-8 items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="deep-plan-title-16 truncate font-medium text-black">
+                  {theme || "待确认创意主题"}
+                </div>
+              </div>
+              <IconHintButton
+                onClick={(event) =>
+                  openPlanComposer({ type: "fullPlan" }, { sourceElement: event.currentTarget })
+                }
+                disabled={isComposerGenerating}
+                disabledReason={composerBusyTooltip}
+                tooltip="生成新方案"
+                tooltipSide="top"
+                tooltipAlign="center"
+                buttonClassName={composerIconButtonClass}
+                iconClassName="h-[18px] w-[18px]"
+              >
+                {composerGenerationState?.type === "fullPlan" ? (
+                  <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                ) : null}
+              </IconHintButton>
+            </div>
+          </div>
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.characters = node;
+            }}
+            className={cn(planSectionClass, "mb-8", isRightUpdateHighlighted("characters") && rightUpdateHighlightClass)}
+          >
+            <div className="mb-3 flex h-[22px] items-center justify-between gap-3">
+              <div className="deep-plan-title-16 font-medium text-black">出场角色</div>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+              <div
+                ref={addCharacterTriggerRef}
+                className="relative h-[102px] w-[102px] shrink-0 rounded-[8px] bg-[#f6f7f9]"
+              >
+                <DisabledTooltip
+                  disabled={isComposerGenerating || isCharacterLimitReached}
+                  reason={isComposerGenerating ? composerBusyTooltip : characterLimitTooltip}
+                  side="top"
+                  align="center"
+                  wrapperClassName="block h-full"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setAddCharacterMenuOpen((prev) => !prev)}
+                    disabled={isComposerGenerating || isCharacterLimitReached}
+                    className={cn(
+                      "flex h-full w-full flex-col items-center justify-center gap-4 rounded-[8px] text-[#686e7a] transition-colors hover:bg-[#eef2ff] hover:text-[#3a5bfd] disabled:cursor-not-allowed disabled:opacity-50",
+                      addCharacterMenuOpen && "bg-[#eef2ff] text-[#3a5bfd]",
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="text-[12px] leading-4">{isCharacterLimitReached ? "角色已满" : "新增角色"}</span>
+                  </button>
+                </DisabledTooltip>
+                <FloatingLayer
+                  anchorRef={addCharacterTriggerRef}
+                  open={addCharacterMenuOpen && !isComposerGenerating && !isCharacterLimitReached}
+                  preferredDirection="down"
+                  align="start"
+                  offset={12}
+                >
+                  {renderAddCharacterMenu()}
+                </FloatingLayer>
+              </div>
+
+              {characters.map((item, index) => {
+                const characterVoice = getDubbingVoiceOption(item.voiceId);
+                const isRecentCharacter =
+                  recentCharacterChange?.type === "all" || recentCharacterChange?.index === index;
+                const isLibraryRole = isLibraryCharacter(item);
+                const isVoiceoverRole = index === voiceoverCharacterIndex;
+                const canBeVoiceover = isLibraryRole;
+                const hasAlternateSystemRole = characters.some(
+                  (candidate, candidateIndex) => candidateIndex !== index && isLibraryCharacter(candidate),
+                );
+                const deleteBlocked = !hasAlternateSystemRole && isLibraryRole;
+                const deleteTooltip = deleteBlocked
+                  ? "请先从角色库新增角色，再删除当前口播角色"
+                  : "";
+                const canDeleteCharacter = characters.length > 1 && !deleteBlocked;
+
+                return (
+                  <div
+                    ref={(node) => {
+                      rightUpdateTargetRefs.current.characterCards[index] = node;
+                    }}
+                    key={item.name + index}
+                    className={cn(
+                      "group/card flex h-[102px] min-w-[213px] flex-1 basis-[213px] flex-col gap-3 rounded-[8px] border border-transparent bg-[#f6f7f9] p-3 transition-colors hover:border-[#dbe5ff] hover:bg-[#f2f7ff]",
+                      isRecentCharacter && "border-[#3a5bfd] bg-[#f2f7ff] ring-2 ring-[#dbe5ff]",
+                      isRightUpdateHighlighted("characters", index) && rightUpdateHighlightClass,
+                    )}
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <img
+                        src={item.avatar}
+                        alt={item.name}
+                        className="h-9 w-9 shrink-0 rounded-[8px] object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <TooltipText
+                          text={item.name}
+                          className="text-[12px] font-medium leading-4 text-black"
+                          wrapperClassName="block"
+                        />
+                        <TooltipText
+                          text={item.trait}
+                          className="mt-1 text-[12px] leading-4 text-[#838995]"
+                          wrapperClassName="block"
+                        />
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100">
+                        <IconHintButton
+                          onClick={(event) => {
+                            if (isLibraryRole) {
+                              setLibraryTarget(index);
+                              return;
+                            }
+                            setRegenerateTarget({ type: "replace", index });
+                            setPlanComposerTarget(null);
+                            setStoryboardAddTarget(null);
+                            setRecentCharacterChange(null);
+                            applyImportedDraft({
+                              draftText: `${item.name}，保持${item.trait}，调整为：`,
+                              step: 2,
+                              sourceElement: event.currentTarget,
+                              label: "角色修改要求已带入",
+                            });
+                          }}
+                          tooltip={isLibraryRole ? "从角色库更换角色" : "带入输入框重新生成 AI 角色"}
+                          icon={isLibraryRole ? FolderOpen : ComposerActionIcon}
+                          tooltipSide="bottom"
+                          buttonClassName="h-8 w-8 rounded-[8px] border-transparent bg-transparent text-[#686e7a] hover:bg-white hover:text-[#3a5bfd] hover:shadow-none"
+                          disabled={isComposerGenerating}
+                        />
+                        <HoverTooltip
+                          content={deleteTooltip || `删除角色 ${item.name}`}
+                          side="bottom"
+                          align="center"
+                          disabled={!canDeleteCharacter && !deleteTooltip}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!canDeleteCharacter) return;
+                              handleRemoveCharacter(index);
+                            }}
+                            disabled={!canDeleteCharacter}
+                            className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-[8px] transition-colors",
+                              canDeleteCharacter
+                                ? "text-[#686e7a] hover:bg-white hover:text-[#e45b6b]"
+                                : "cursor-not-allowed text-[#c8cfdb]",
+                            )}
+                            aria-label={`删除角色 ${item.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </HoverTooltip>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-[#e0e8f5]" />
+                    <div className="flex min-w-0 items-center gap-3">
+                      {isVoiceoverRole ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setVoiceBindingTargetIndex(index)}
+                            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-white text-black"
+                            aria-label={`切换 ${item.name} 的音色`}
+                            title="切换音色"
+                          >
+                            <Play className="h-2 w-2 fill-current" />
+                          </button>
+                          <div className="min-w-0 flex flex-1 items-center gap-2">
+                            <TooltipText
+                              text={characterVoice?.title || "未设置音色"}
+                              className="text-[12px] leading-4 text-black"
+                              wrapperClassName="min-w-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setVoiceBindingTargetIndex(index)}
+                              className="flex h-3 w-3 shrink-0 items-center justify-center text-[#686e7a] hover:text-[#3a5bfd]"
+                              aria-label={`更换 ${item.name} 的音色`}
+                              title="更换音色"
+                            >
+                              <RefreshCcw className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <span className="inline-flex h-[18px] shrink-0 items-center rounded-[4px] border border-[#e0e8f5] bg-[#f6f7f9] px-1 text-[12px] font-medium leading-4 text-[#686e7a]">
+                            角色库
+                          </span>
+                        </>
+                      ) : canBeVoiceover ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleSetVoiceoverCharacter(index)}
+                            className="min-w-0 flex-1 text-left text-[12px] leading-4 text-[#686e7a] hover:text-[#3a5bfd]"
+                          >
+                            可配置口播音色
+                          </button>
+                          <span className="inline-flex h-[18px] shrink-0 items-center rounded-[4px] border border-[#3a5bfd] bg-[#f2f7ff] px-1 text-[12px] font-medium leading-4 text-[#3a5bfd]">
+                            角色库
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="min-w-0 flex-1 text-[12px] leading-4 text-[#838995]">AI角色不可选音色</div>
+                          <button
+                            type="button"
+                            onClick={() => setLibraryTarget(index)}
+                            className="inline-flex h-[18px] shrink-0 items-center rounded-[4px] border border-[#3a5bfd] bg-[#f2f7ff] px-1 text-[12px] font-medium leading-4 text-[#3a5bfd] hover:bg-white"
+                          >
+                            AI角色
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.outlines = node;
+            }}
+            className={cn(planSectionClass, isRightUpdateHighlighted("outlines") && rightUpdateHighlightClass)}
+          >
+            <div className="mb-3 flex h-9 items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                <div className="deep-plan-title-16 font-medium text-black">剧本大纲</div>
+                <AlertCircle className="h-3.5 w-3.5 text-[#838995]" />
+              </div>
+              {!outlineSyncState ? (
+                <IconHintButton
+                  onClick={(event) => {
+                    openPlanComposer(
+                      { type: "allOutlines", sync: false },
+                      { sourceElement: event.currentTarget },
+                    );
+                  }}
+                  disabled={isComposerGenerating}
+                  disabledReason={composerBusyTooltip}
+                  tooltip="生成新大纲"
+                  tooltipSide="top"
+                  tooltipAlign="center"
+                  buttonClassName={composerIconButtonClass}
+                  iconClassName="h-[18px] w-[18px]"
+                >
+                  {composerGenerationState?.type === "allOutlines" ? (
+                    <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                  ) : null}
+                </IconHintButton>
+              ) : null}
+            </div>
+
+            {outlineSyncState ? (
+              <div className="mb-4 flex max-w-full flex-wrap items-center gap-2 rounded-[8px] border border-[#ffd8a8] bg-[#fff8ec] px-3 py-2">
+                <span className="inline-flex h-6 shrink-0 items-center gap-2 rounded-full bg-white px-2.5 text-[12px] font-medium text-[#c57a19]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#f6a23c]" />
+                  待同步
+                </span>
+                <span className="text-[12px] leading-5 text-[#8a6a3b]">
+                  角色已变更，剧本大纲仍保留上次同步版本。
+                </span>
+                <DisabledTooltip
+                  disabled={isComposerGenerating}
+                  reason={composerBusyTooltip}
+                  side="top"
+                  align="center"
+                  wrapperClassName="inline-flex"
+                >
+                  <button
+                    type="button"
+                    onClick={handleOneClickOutlineSync}
+                    disabled={isComposerGenerating}
+                    className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] border border-[#ffc987] bg-white px-2.5 text-[12px] font-medium text-[#c76b0a] transition-colors hover:bg-[#fffaf2] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCcw className="h-3 w-3" />
+                    同步剧本
+                  </button>
+                </DisabledTooltip>
+              </div>
+            ) : null}
+
+            <div className="space-y-5">
+              {outlines.map((item, index) => {
+                const activeAvatarCount = (item.avatars || []).filter((avatarIndex) => outlineCharacterOptions[avatarIndex]).length;
+
+                return (
+                  <div
+                    ref={(node) => {
+                      rightUpdateTargetRefs.current.outlineCards[index] = node;
+                    }}
+                    key={`outline-${index}`}
+                    className={cn(
+                      "flex items-start gap-2 rounded-[10px] border border-transparent transition-colors",
+                      outlineSyncState && "bg-[#fffdf8]",
+                      recentOutlineChange?.type === "all" && "border-[#d9cbff] bg-[#fbf8ff]",
+                      recentOutlineChange?.type === "single" &&
+                        recentOutlineChange?.index === index &&
+                        "border-[#d9cbff] bg-[#fbf8ff]",
+                      isRightUpdateHighlighted("outlines", index) && rightUpdateHighlightClass,
+                    )}
+                  >
+                    <div className="flex self-stretch flex-col items-center">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d1dff2] bg-white text-[14px] leading-[20px] text-black">
+                        {index + 1}
+                      </div>
+                      <div className={cn("mt-3 w-px flex-1 bg-[#e0e8f5]", index === outlines.length - 1 && "opacity-0")} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <input
+                        type="text"
+                        value={item.title}
+                        onChange={(event) => updateOutlineField(index, "title", event.target.value)}
+                        onFocus={() => beginManualEditRecord(`step2-outline-${index}-title`, item.title)}
+                        onBlur={(event) =>
+                          finishManualEditRecord({
+                            key: `step2-outline-${index}-title`,
+                            value: event.target.value,
+                            title: `手动修改了第 ${index + 1} 段标题`,
+                            step: 2,
+                            target: "方案规划",
+                          })
+                        }
+                        placeholder={`请输入第 ${index + 1} 段标题`}
+                        className="h-6 w-full border-none bg-transparent text-[14px] font-medium leading-5 text-black outline-none placeholder:text-[#838995]"
+                      />
+
+                      <textarea
+                        value={item.desc}
+                        onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
+                        onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
+                        onBlur={(event) =>
+                          finishManualEditRecord({
+                            key: `step2-outline-${index}-desc`,
+                            value: event.target.value,
+                            title: `手动修改了第 ${index + 1} 段大纲描述`,
+                            step: 2,
+                            target: "方案规划",
+                          })
+                        }
+                        placeholder="请输入这一段的大纲描述"
+                        rows={2}
+                        className="mt-2 min-h-[64px] w-full resize-none rounded-[8px] border-none bg-[#f6f7f9] px-3 py-[10px] text-[12px] leading-[22px] text-black outline-none placeholder:text-[#838995]"
+                      />
+
+                      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3">
+                        <div className="shrink-0 text-[14px] font-medium leading-5 text-[#686e7a]">
+                          出镜角色{activeAvatarCount}/{Math.max(outlineCharacterOptions.length, 1)}
+                        </div>
+                        <div className="flex min-w-0 flex-wrap gap-2">
+                          {outlineCharacterOptions.map((character, avatarIndex) => {
+                            const active = (item.avatars || []).includes(avatarIndex);
+
+                            return (
+                              <DisabledTooltip
+                                key={`${character.name}-${avatarIndex}`}
+                                disabled={Boolean(outlineSyncState)}
+                                reason="先同步剧本，再调整角色"
+                                side="top"
+                                align="center"
+                                wrapperClassName="inline-flex"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => toggleOutlineCharacter(index, avatarIndex)}
+                                  disabled={Boolean(outlineSyncState)}
+                                  className={cn(
+                                    "flex h-8 min-w-[80px] items-center gap-1 overflow-hidden rounded-[4px] pr-2 text-left transition-colors disabled:cursor-not-allowed",
+                                    active
+                                      ? "border border-[#3a5bfd] bg-[#f2f7ff] text-[#3a5bfd]"
+                                      : "border border-transparent bg-[#f6f7f9] text-black hover:bg-[#eef2ff]",
+                                    outlineSyncState && "opacity-85",
+                                  )}
+                                  title={outlineSyncState ? undefined : character.name}
+                                >
+                                  <img
+                                    src={character.avatar}
+                                    alt={character.name}
+                                    className="h-full w-8 shrink-0 rounded-[4px] object-cover"
+                                  />
+                                  <span className="truncate text-[12px] font-medium leading-4">{character.name}</span>
+                                </button>
+                              </DisabledTooltip>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {renderStepFooter()}
+      </div>
+    );
+
+    return (
+      <>
+        {renderBanner()}
+
+        <div className="space-y-5">
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.plan = node;
+            }}
+            className="flex flex-wrap items-center justify-between gap-4 px-1"
+          >
+            <div className="min-w-0">
+              <div className="deep-page-title deep-page-title-lg text-[28px] font-bold tracking-[-0.03em] text-[#202634]">方案规划</div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {composerGenerationState?.type === "fullPlan" ? (
+                <span className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e5dcff] bg-[#faf7ff] px-3 text-[12px] font-semibold text-[#7b5cff]">
+                  <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                  AI 生成中
+                </span>
+              ) : null}
+              <DisabledTooltip
+                disabled={isComposerGenerating}
+                reason={composerBusyTooltip}
+                side="top"
+                align="end"
+                wrapperClassName="inline-flex"
+              >
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    openPlanComposer({ type: "fullPlan" }, { sourceElement: event.currentTarget })
+                  }
+                  disabled={isComposerGenerating}
+                  className={aiButtonClass}
+                >
+                  <ComposerActionGlyph />
+                  生成新方案
+                </button>
+              </DisabledTooltip>
+            </div>
+          </div>
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.theme = node;
+            }}
+            className={cn(sectionClass, isRightUpdateHighlighted("theme") && rightUpdateHighlightClass)}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold text-[#9aa2b2]">创意主题</div>
+                <div className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[#202634]">
+                  {theme || "待确认创意主题"}
+                </div>
+                <div className="mt-2 max-w-[940px] text-[13px] leading-6 text-[#7c8595]">
+                  这一主题会继续影响出场角色和剧本大纲。右侧先确认结构方向，再在左侧继续补充修改要求。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.characters = node;
+            }}
+            className={cn(sectionClass, isRightUpdateHighlighted("characters") && rightUpdateHighlightClass)}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex items-end gap-3">
+                <div className="text-[24px] font-bold text-[#202634]">出场角色</div>
+                <div className="pb-0.5 text-[13px] font-medium text-[#9aa2b2]">
+                  共 {characters.length}/{MAX_SCENE_CHARACTER_COUNT} 个角色
+                </div>
+              </div>
+              <div className="relative flex shrink-0 flex-wrap items-center gap-2" ref={addCharacterTriggerRef}>
+                <DisabledTooltip
+                  disabled={isComposerGenerating || isCharacterLimitReached}
+                  reason={isComposerGenerating ? composerBusyTooltip : characterLimitTooltip}
+                  side="top"
+                  align="end"
+                  wrapperClassName="inline-flex"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setAddCharacterMenuOpen((prev) => !prev)}
+                    disabled={isComposerGenerating || isCharacterLimitReached}
+                    className={aiButtonClass}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {isCharacterLimitReached ? "已达角色上限" : "新增角色"}
+                  </button>
+                </DisabledTooltip>
+                <FloatingLayer
+                  anchorRef={addCharacterTriggerRef}
+                  open={addCharacterMenuOpen && !isComposerGenerating && !isCharacterLimitReached}
+                  preferredDirection="down"
+                  align="end"
+                  offset={10}
+                >
+                  {renderAddCharacterMenu()}
+                </FloatingLayer>
+              </div>
+            </div>
+
+            <div className="mt-4 grid auto-rows-[184px] gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {characters.map((item, index) => {
+                const characterVoice = getDubbingVoiceOption(item.voiceId);
+                const isRecentCharacter =
+                  recentCharacterChange?.type === "all" || recentCharacterChange?.index === index;
+                const isLibraryRole = isLibraryCharacter(item);
+                const isVoiceoverRole = index === voiceoverCharacterIndex;
+                const canBeVoiceover = isLibraryRole;
+                const hasAlternateSystemRole = characters.some(
+                  (candidate, candidateIndex) => candidateIndex !== index && isLibraryCharacter(candidate),
+                );
+                const deleteBlocked = !hasAlternateSystemRole && isLibraryRole;
+                const deleteTooltip = deleteBlocked
+                  ? "请先从角色库新增角色，再删除当前口播角色"
+                  : "";
+                const canDeleteCharacter = characters.length > 1 && !deleteBlocked;
+
+                return (
+                  <div
+                    ref={(node) => {
+                      rightUpdateTargetRefs.current.characterCards[index] = node;
+                    }}
+                    key={item.name + index}
+                    className={cn(
+                      "group/card relative flex h-full min-w-0 flex-col rounded-[18px] border border-[#e9eef6] bg-[#fbfcff] p-4 shadow-[0_10px_24px_rgba(117,135,170,0.05)] transition-all hover:border-[#dbe4f3] hover:bg-white hover:shadow-[0_14px_28px_rgba(117,135,170,0.08)]",
+                      isRecentCharacter && "border-[#b99bff] ring-2 ring-[#e8dcff] shadow-[0_16px_34px_rgba(123,92,255,0.14)]",
+                      isRightUpdateHighlighted("characters", index) && rightUpdateHighlightClass,
+                    )}
+                  >
+                    <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] gap-3">
+                      <div className="relative shrink-0">
+                        <img
+                          src={item.avatar}
+                          alt={item.name}
+                          className="h-[72px] w-[72px] shrink-0 rounded-[18px] border border-[#eef2f8] object-cover shadow-[0_10px_20px_rgba(117,135,170,0.10)]"
+                        />
+                        <div className="absolute inset-x-0 -bottom-3 flex justify-center opacity-0 transition-opacity duration-150 group-hover/card:opacity-100 group-focus-within/card:opacity-100">
+                          <div className="flex items-center gap-1 rounded-full border border-[#e7edf6] bg-white/96 p-1 shadow-[0_10px_22px_rgba(117,135,170,0.16)] backdrop-blur">
+                            <IconHintButton
+                              onClick={(event) => {
+                                if (isLibraryRole) {
+                                  setLibraryTarget(index);
+                                  return;
+                                }
+                                setRegenerateTarget({ type: "replace", index });
+                                setPlanComposerTarget(null);
+                                setStoryboardAddTarget(null);
+                                setRecentCharacterChange(null);
+                                applyImportedDraft({
+                                  draftText: `${item.name}，保持${item.trait}，调整为：`,
+                                  step: 2,
+                                  sourceElement: event.currentTarget,
+                                  label: "角色修改要求已带入",
+                                });
+                              }}
+                              tooltip={isLibraryRole ? "从角色库更换角色" : "带入输入框重新生成 AI 角色"}
+                              icon={isLibraryRole ? FolderOpen : ComposerActionIcon}
+                              tooltipSide="bottom"
+                              buttonClassName="h-7 w-7 rounded-full border-transparent bg-transparent text-[#6d7585] hover:bg-[#f5f7ff] hover:text-[#6b4cff] hover:shadow-none"
+                              disabled={isComposerGenerating}
+                            />
+                            <HoverTooltip
+                              content={deleteTooltip || `删除角色 ${item.name}`}
+                              side="bottom"
+                              align="center"
+                              disabled={!canDeleteCharacter && !deleteTooltip}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!canDeleteCharacter) return;
+                                  handleRemoveCharacter(index);
+                                }}
+                                disabled={!canDeleteCharacter}
+                                className={cn(
+                                  "flex h-7 w-7 items-center justify-center rounded-full transition-all",
+                                  canDeleteCharacter
+                                    ? "text-[#8a93a6] hover:bg-[#fff1f3] hover:text-[#e45b6b]"
+                                    : "cursor-not-allowed text-[#c8cfdb]",
+                                )}
+                                aria-label={`删除角色 ${item.name}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </HoverTooltip>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+	                          <TooltipText
+	                            text={item.name}
+	                            className="text-[17px] font-bold leading-7 text-[#202634]"
+	                            wrapperClassName="flex-1"
+	                          />
+                          <span
+                            className={cn(
+                              "inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-semibold",
+                              isLibraryRole
+                                ? "border-[#d9e6ff] bg-[#f5f9ff] text-[#4f6bff]"
+                                : "border-[#e8ecf4] bg-[#f7f9fc] text-[#7c8595]",
+                            )}
+                          >
+                            {isLibraryRole ? "角色库" : "AI 角色"}
+                          </span>
+                          {isRecentCharacter ? (
+                            <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[#f2ebff] px-2.5 text-[11px] font-semibold text-[#6b4cff]">
+                              已更新
+                            </span>
+                          ) : null}
+                        </div>
+	                        <TooltipText
+	                          text={`特征：${item.trait}`}
+	                          className="line-clamp-2 text-[13px] leading-5 text-[#7c8595]"
+	                          wrapperClassName="mt-2 block"
+	                          truncate={false}
+	                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-auto grid h-[54px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-[#edf1f6] bg-white/92 px-3">
+                      {isVoiceoverRole ? (
+                        <>
+                          <div className="min-w-0">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#f4f0ff] px-2 text-[11px] font-semibold text-[#6b4cff]">
+                                <Music2 className="h-3 w-3" />
+                                口播音色
+                              </span>
+	                              <TooltipText
+	                                text={characterVoice?.title || "未设置音色"}
+	                                className="text-[13px] font-semibold text-[#202634]"
+	                                wrapperClassName="flex-1"
+	                              />
+	                            </div>
+	                            <TooltipText
+	                              text={characterVoice?.desc || "请选择音色"}
+	                              className="text-[12px] leading-4 text-[#8a93a6]"
+	                              wrapperClassName="mt-0.5 block"
+	                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setVoiceBindingTargetIndex(index)}
+                            className="inline-flex h-8 shrink-0 items-center rounded-[10px] border border-[#e7e2ff] bg-[#faf7ff] px-2.5 text-[12px] font-semibold text-[#6b4cff] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(123,92,255,0.12)]"
+                            aria-label={`切换 ${item.name} 的音色`}
+                            title="切换音色"
+                          >
+                            更换
+                          </button>
+                        </>
+                      ) : canBeVoiceover ? (
+                        <>
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-semibold text-[#202634]">未设口播</div>
+                            <div className="mt-0.5 truncate text-[12px] leading-4 text-[#8a93a6]">可配置口播音色</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleSetVoiceoverCharacter(index)}
+                            className="inline-flex h-8 items-center rounded-[10px] border border-[#e5dcff] bg-[#faf7ff] px-2.5 text-[12px] font-semibold text-[#6b4cff] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(123,92,255,0.12)]"
+                          >
+                            设为口播
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-semibold text-[#202634]">仅出镜</div>
+                            <div className="mt-0.5 truncate text-[12px] leading-4 text-[#8a93a6]">AI 角色不可选音色</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLibraryTarget(index)}
+                            className="inline-flex h-8 items-center rounded-[10px] border border-[#dbe5f6] bg-[#f7faff] px-2.5 text-[12px] font-semibold text-[#4f6bff] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(79,107,255,0.12)]"
+                          >
+                            换角色库
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.outlines = node;
+            }}
+            className={cn(sectionClass, isRightUpdateHighlighted("outlines") && rightUpdateHighlightClass)}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="text-[24px] font-bold text-[#202634]">剧本大纲</div>
+                  {composerGenerationState?.type === "allOutlines" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e5dcff] bg-[#faf7ff] px-3 py-1 text-[12px] font-semibold text-[#7b5cff]">
+                      <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                      AI 生成中
+                    </span>
+                  ) : null}
+                </div>
+                {outlineSyncState ? (
+                  <div className="mt-3 inline-flex max-w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-[16px] border border-[#ffd8a8] bg-[#fff8ec] px-3 py-2 shadow-[0_10px_20px_rgba(245,158,11,0.08)]">
+                    <span className="inline-flex h-7 shrink-0 items-center gap-2 rounded-full bg-white px-3 text-[12px] font-semibold text-[#c57a19]">
+                      <span className="h-2 w-2 rounded-full bg-[#f6a23c]" />
+                      待同步
+                    </span>
+                    <span className="text-[13px] font-medium leading-5 text-[#8a6a3b]">
+                      角色已变更，剧本大纲仍保留上次同步版本。
+                    </span>
+                    <DisabledTooltip
+                      disabled={isComposerGenerating}
+                      reason={composerBusyTooltip}
+                      side="top"
+                      align="center"
+                      wrapperClassName="inline-flex"
+                    >
+                      <button
+                        type="button"
+                        onClick={handleOneClickOutlineSync}
+                        disabled={isComposerGenerating}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[11px] border border-[#ffc987] bg-white px-3 text-[13px] font-semibold text-[#c76b0a] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(245,158,11,0.12)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <RefreshCcw className="h-3.5 w-3.5" />
+                        同步剧本
+                      </button>
+                    </DisabledTooltip>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-[13px] leading-6 text-[#7c8595]">编辑标题、描述和出镜角色。</div>
+                )}
+              </div>
+              {!outlineSyncState ? (
+                <DisabledTooltip
+                  disabled={isComposerGenerating}
+                  reason={composerBusyTooltip}
+                  side="top"
+                  align="end"
+                  wrapperClassName="inline-flex"
+                >
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      openPlanComposer(
+                        { type: "allOutlines", sync: false },
+                        { sourceElement: event.currentTarget },
+                      );
+                    }}
+                    disabled={isComposerGenerating}
+                    className={aiButtonClass}
+                  >
+                    <ComposerActionGlyph />
+                    生成新大纲
+                  </button>
+                </DisabledTooltip>
+              ) : null}
+            </div>
+
+	            <div className="mt-4 space-y-3">
+              {outlines.map((item, index) => (
+                <div
+                  ref={(node) => {
+                    rightUpdateTargetRefs.current.outlineCards[index] = node;
+                  }}
+                  key={`outline-${index}`}
+                  className={cn(
+                    "rounded-[22px] border border-[#e9eef6] bg-[#fcfdff] px-5 py-4 shadow-[0_10px_24px_rgba(117,135,170,0.04)] transition-all",
+                    outlineSyncState && "border-[#ffe2b7] bg-[#fffdf8]",
+                    recentOutlineChange?.type === "all" && "border-[#d9cbff] ring-2 ring-[#efe7ff]",
+                    recentOutlineChange?.type === "single" &&
+                      recentOutlineChange?.index === index &&
+                      "border-[#d9cbff] ring-2 ring-[#efe7ff]",
+                    isRightUpdateHighlighted("outlines", index) && rightUpdateHighlightClass,
+                  )}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex min-w-0 flex-1 gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1ebff] text-[18px] font-bold text-[#7b5cff]">
+                        {index + 1}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="rounded-[16px] border border-[#edf1f6] bg-white px-4 py-3">
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(event) => updateOutlineField(index, "title", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-title`, item.title)}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-title`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段标题`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder={`请输入第 ${index + 1} 段标题`}
+                            className="w-full border-none bg-transparent text-[18px] font-bold text-[#202634] outline-none placeholder:text-[#b0b8c8]"
+                          />
+                        </div>
+
+                        <div className="mt-3 rounded-[16px] border border-[#edf1f6] bg-white px-4 py-3">
+                          <textarea
+                            value={item.desc}
+                            onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-desc`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段大纲描述`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder="请输入这一段的大纲描述"
+                            rows={3}
+                            className="min-h-[92px] w-full resize-none border-none bg-transparent text-[14px] leading-6 text-[#5f6778] outline-none placeholder:text-[#b0b8c8]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full rounded-[18px] border border-[#edf1f6] bg-white px-3.5 py-3 min-[1180px]:w-[248px] min-[1180px]:shrink-0">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="text-[11px] font-semibold tracking-[0.04em] text-[#9aa2b2]">出镜角色</div>
+                        <div className="text-[11px] font-medium text-[#b0b8c8]">
+                          {(item.avatars || []).filter((avatarIndex) => outlineCharacterOptions[avatarIndex]).length} 人
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {outlineCharacterOptions.map((character, avatarIndex) => {
+                          const active = (item.avatars || []).includes(avatarIndex);
+
+                          return (
+                            <DisabledTooltip
+                              key={`${character.name}-${avatarIndex}`}
+                              disabled={Boolean(outlineSyncState)}
+                              reason="先同步剧本，再调整角色"
+                              side="top"
+                              align="center"
+                              wrapperClassName="inline-flex"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleOutlineCharacter(index, avatarIndex)}
+                                disabled={Boolean(outlineSyncState)}
+                                className={cn(
+                                  "inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-left transition-all disabled:cursor-not-allowed",
+                                  active
+                                    ? "border-[#d9cbff] bg-[#f7f2ff] text-[#5b46c5] shadow-[0_8px_18px_rgba(123,92,255,0.08)]"
+                                    : "border-[#e7ebf2] bg-[#fbfcff] text-[#6d7585]",
+                                  outlineSyncState && "opacity-85",
+                                )}
+                                title={outlineSyncState ? undefined : character.name}
+                              >
+                                <img
+                                  src={character.avatar}
+                                  alt={character.name}
+                                  className={cn(
+                                    "h-8 w-8 rounded-full object-cover",
+                                    active ? "ring-2 ring-[#7b5cff]/18" : "",
+                                  )}
+                                />
+                                <span className="text-[12px] font-semibold">{character.name}</span>
+                              </button>
+                            </DisabledTooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {renderStepFooter()}
+      </>
+    );
+  };
+
+  const renderStep3 = () => (
+    (() => {
+      const storyboardLibraryScriptTarget = isStoryboardLibraryScriptTarget(storyboardAddTarget)
+        ? storyboardAddTarget
+        : null;
+      const isStoryboardDraftPreview = Boolean(storyboardLibraryScriptTarget);
+      const libraryScriptSourceType = storyboardLibraryScriptTarget?.libraryType === "image" ? "image" : "video";
+      const libraryScriptValue = stripStoryboardLibraryScriptPrefix(storyboardLibraryScriptDraft);
+      const isLibraryScriptMeasuring = Boolean(storyboardLibraryScriptMeasureState);
+      const isSubmittedScriptCurrent =
+        Boolean(storyboardLibraryScriptTarget) &&
+        storyboardSubmittedScriptState?.index === storyboardLibraryScriptTarget.index &&
+        storyboardSubmittedScriptState?.mode === storyboardLibraryScriptTarget.mode &&
+        (storyboardSubmittedScriptState.afterIndex ?? null) === (storyboardLibraryScriptTarget.afterIndex ?? null) &&
+        storyboardSubmittedScriptState.scriptText === libraryScriptValue;
+      const isDraftInsertTarget = storyboardLibraryScriptTarget?.mode === "insert-library-script";
+      const draftPreviousIndex = isDraftInsertTarget
+        ? storyboardLibraryScriptTarget.afterIndex
+        : [...validStoryboardIndexes].reverse().find((index) => index < storyboardLibraryScriptTarget?.index);
+      const draftNextIndex = isDraftInsertTarget
+        ? storyboardLibraryScriptTarget.index
+        : validStoryboardIndexes.find((index) => index > storyboardLibraryScriptTarget?.index);
+      const draftPreviousPreview =
+        Number.isInteger(draftPreviousIndex)
+          ? getActiveStoryboardMediaAsset(outlines[draftPreviousIndex], draftPreviousIndex)?.preview
+          : null;
+      const draftNextPreview =
+        Number.isInteger(draftNextIndex)
+          ? getActiveStoryboardMediaAsset(outlines[draftNextIndex], draftNextIndex)?.preview
+          : null;
+      const draftDisplayPosition = isDraftInsertTarget
+        ? Math.max(1, validStoryboardIndexes.indexOf(storyboardLibraryScriptTarget.afterIndex) + 2)
+        : validStoryboardIndexes.filter((index) => index < storyboardLibraryScriptTarget?.index).length + 1;
+      const draftDisplayCount = validStoryboardCount + (isStoryboardDraftPreview ? 1 : 0);
+      const draftDurationLabel = isLibraryScriptMeasuring
+        ? "测算中"
+        : isSubmittedScriptCurrent
+          ? formatPreviewClock(storyboardSubmittedScriptState.durationSeconds)
+          : "待测算";
+      const draftPositionLabel = isStoryboardDraftPreview
+        ? isDraftInsertTarget
+          ? `插入位置：${getStoryboardDisplayName(storyboardLibraryScriptTarget.afterIndex)} 和 ${getStoryboardDisplayName(storyboardLibraryScriptTarget.index)}之间`
+          : `新增位置：${getStoryboardDisplayName(storyboardLibraryScriptTarget.index)}`
+        : "";
+      const previewStoryboard = outlines[previewStoryboardIndex] || outlines[firstValidStoryboardIndex] || defaultAgentOutlines[0];
+      const previewTimelineItem =
+        storyboardTimeline[previewStoryboardIndex] || activeStoryboardTimeline[0] || storyboardTimeline[0];
+      const previewMediaAsset = getActiveStoryboardMediaAsset(previewStoryboard, previewStoryboardIndex);
+      const previewMediaAssets = getStoryboardMediaAssets(previewStoryboard, previewStoryboardIndex);
+      const previewMediaIndex = getActiveStoryboardMediaIndex(previewStoryboard, previewStoryboardIndex);
+	      const previewMediaContent = getStoryboardMediaContent(previewStoryboard, previewStoryboardIndex, previewMediaIndex);
+	      const previewMediaNeedsClipReview = isPendingStoryboardClipReviewMedia(previewMediaAsset);
+	      const canSwitchPreviewMedia = previewMediaAssets.length > 1 && !isStoryboardGenerating;
+	      const previewMediaClipStatusLabel =
+	        getStoryboardClipReviewStatusLabel(previewMediaAsset?.clipReviewStatus) || "待确认节选";
+      const currentPreview =
+        previewMediaAsset?.preview ||
+        storyboardPreviewPool[previewStoryboardIndex % storyboardPreviewPool.length] ||
+        storyboardPreviewPool[0];
+      const currentVideoSrc = previewMediaAsset?.rawName ? currentPreview : demoVideoUrl;
+      const isPreviewImageAsset = previewMediaAsset?.assetType === "image";
+      const shotElapsed = previewTimelineItem
+        ? Math.max(0, previewCurrentTime - previewTimelineItem.startSeconds)
+        : 0;
+      const previewClipStartSeconds = Number(previewMediaAsset?.clipStartSeconds) || 0;
+      const previewTrackProgress = totalStoryboardDuration
+        ? Math.min(100, (previewCurrentTime / totalStoryboardDuration) * 100)
+        : 0;
+      const generatingShotIndex = storyboardGenerationState?.shotIndex ?? null;
+      const isInsertStoryboardGenerating = storyboardGenerationState?.mode === "insert";
+      const isGeneratingPreviewShot =
+        isStoryboardGenerating && !isInsertStoryboardGenerating && generatingShotIndex === previewStoryboardIndex;
+      const previewPipCharacter =
+        characters[getStoryboardPictureInPictureCharacterIndex(previewStoryboard, previewMediaContent)] || null;
+      const previewPipStyle = getPictureInPictureOverlayStyle(previewStoryboard?.pictureInPicturePosition);
+      const previewLogoStyle = getBrandLogoOverlayStyle(previewStoryboard?.brandLogoPosition);
+      const activeStoryboardName = getStoryboardDisplayName(activeStoryboard);
+      const previewStoryboardPosition = Math.max(
+        0,
+        validStoryboardIndexes.indexOf(previewStoryboardIndex),
+      ) + 1;
+      const previewCounterPosition = isStoryboardDraftPreview ? draftDisplayPosition : previewStoryboardPosition;
+      const previewCounterTotal = isStoryboardDraftPreview ? draftDisplayCount : validStoryboardCount;
+	      const activeMediaLabel = getStoryboardMediaLabel(activeStoryboardMediaIndex);
+	      const stepPreviewMedia = (direction) => {
+	        if (!canSwitchPreviewMedia) return;
+	        const nextMediaIndex = (previewMediaIndex + direction + previewMediaAssets.length) % previewMediaAssets.length;
+	        selectStoryboardMediaVariant(previewStoryboardIndex, nextMediaIndex);
+	      };
+	      const storyboardBusyTooltip = getBusyDisabledReason();
+      const mediaAddDisabled = isActiveStoryboardMediaFull || isStoryboardGenerating || isComposerGenerating;
+      const mediaAddDisabledReason = isActiveStoryboardMediaFull
+        ? `这个分镜最多 ${STORYBOARD_MEDIA_MAX} 个素材`
+        : storyboardBusyTooltip;
+      const savedVoiceScriptDurationSeconds =
+        getStoryboardDurationSeconds(activeOutline, 6, activeStoryboard, activeStoryboardMediaIndex) || 6;
+      const isVoiceScriptSubmitting =
+        storyboardGenerationState?.mode === "subtitle" && storyboardGenerationState?.shotIndex === activeStoryboard;
+      const showVoiceScriptSubmitBar = storyboardVoiceScriptDirty || isVoiceScriptSubmitting;
+      const canSubmitVoiceScript = storyboardVoiceScriptDirty && !isStoryboardGenerating && !isComposerGenerating;
+      const isVoiceScriptSubmitBarWide = storyboardSettingsPanelWidth >= 320;
+      const shouldShowStoryboardGlobalSubmit =
+        storyboardNonVoiceScriptDirty || (isStoryboardGenerating && !isVoiceScriptSubmitting);
+      const resetStoryboardVoiceScriptDraft = () => {
+        if (!activeOutline || isStoryboardGenerating || isComposerGenerating) return;
+        updateStoryboardDraft({ subtitle: activeOutline.subtitle || "" });
+      };
+      const canSubmitLibraryScript =
+        Boolean(libraryScriptValue) && !isStoryboardGenerating && !isComposerGenerating && !isLibraryScriptMeasuring;
+      const canChooseSubmittedScriptMaterial =
+        isSubmittedScriptCurrent && !isStoryboardGenerating && !isComposerGenerating && !isLibraryScriptMeasuring;
+      const shouldPulseSubmittedMaterial = Boolean(storyboardMaterialValidationCue) && isSubmittedScriptCurrent;
+      const openStoryboardScriptPromptComposer = (sourceElement = null) => {
+        if (!storyboardLibraryScriptTarget) return;
+        const contextText = isDraftInsertTarget
+          ? `在${getStoryboardDisplayName(storyboardLibraryScriptTarget.afterIndex)}和${getStoryboardDisplayName(storyboardLibraryScriptTarget.index)}之间新增分镜脚本，要求：`
+          : `生成${getStoryboardDisplayName(storyboardLibraryScriptTarget.index)}脚本，要求：`;
+        applyImportedDraft({
+          draftText: contextText,
+          step: 3,
+          sourceElement,
+          label: "脚本生成要求已带入",
+        });
+      };
+      const cancelStoryboardLibraryScript = () => {
+        clearStoryboardLibraryScriptTimer();
+        setStoryboardLibraryScriptMeasureState(null);
+        setStoryboardSubmittedScriptState(null);
+        setStoryboardAddTarget(null);
+        setStoryboardLibraryScriptDraft("");
+        setStoryboardSlotAddMenuTarget(null);
+        setStoryboardInsertMenuTarget(null);
+        setStoryboardScriptMaterialMenuOpen(false);
+        setStoryboardMaterialValidationCue(null);
+      };
+      const renderMentionInputHint = () => (
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#f7f9fd] px-2 py-0.5 text-[10px] font-medium text-[#9aa2b2]">
+          <AtSign className="h-3 w-3 text-[#9b8cff]" />
+          输入 @ 可引用出场角色
+        </span>
+      );
+      const mediaAddOptions = [
+        {
+          label: "AI 生成",
+          icon: ComposerActionIcon,
+          onClick: () =>
+            addStoryboardAiMediaVariant(activeStoryboard, {
+              sourceElement: storyboardMediaAddTriggerRef.current,
+            }),
+        },
+        {
+          label: "视频库",
+          icon: Film,
+          onClick: () => openStoryboardAddVideoLibrary(activeStoryboard),
+        },
+        {
+          label: "图片库",
+          icon: ImageIcon,
+          onClick: () => openStoryboardAddImageLibrary(activeStoryboard),
+        },
+      ];
+      const renderMediaAddMenu = () => (
+        <div
+          data-storyboard-media-add-menu="true"
+          className="w-[210px] rounded-[18px] border border-[#e8edf5] bg-white p-2 shadow-[0_18px_42px_rgba(79,99,145,0.16)]"
+        >
+          {mediaAddOptions.map((option, optionIndex) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => {
+                  setStoryboardMediaAddMenuOpen(false);
+                  option.onClick();
+                }}
+                className={cn(
+                  "flex h-11 w-full items-center gap-3 rounded-[13px] px-3.5 text-left text-[14px] font-semibold transition-all",
+                  optionIndex === 0
+                    ? "bg-[#7b5cff] text-white hover:bg-[#6b4ef0]"
+                    : "text-[#44516b] hover:bg-[#f6f8fc] hover:text-[#202634]",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+      const scriptMaterialOptions = [
+        {
+          label: "AI 生成",
+          icon: ComposerActionIcon,
+          onClick: () =>
+            openSubmittedStoryboardMaterial("ai", storyboardLibraryScriptTarget, storyboardSubmittedScriptState),
+        },
+        {
+          label: "图片库",
+          icon: ImageIcon,
+          onClick: () =>
+            openSubmittedStoryboardMaterial("image", storyboardLibraryScriptTarget, storyboardSubmittedScriptState),
+        },
+        {
+          label: "视频库",
+          icon: Film,
+          onClick: () =>
+            openSubmittedStoryboardMaterial("video", storyboardLibraryScriptTarget, storyboardSubmittedScriptState),
+        },
+      ];
+      const renderScriptMaterialMenu = () => (
+        <div
+          data-storyboard-script-material-menu="true"
+          className="w-[210px] rounded-[18px] border border-[#e8edf5] bg-white p-2 shadow-[0_18px_42px_rgba(79,99,145,0.16)]"
+        >
+          {scriptMaterialOptions.map((option, optionIndex) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => {
+                  setStoryboardScriptMaterialMenuOpen(false);
+                  option.onClick();
+                }}
+                className={cn(
+                  "flex h-11 w-full items-center gap-3 rounded-[13px] px-3.5 text-left text-[14px] font-semibold transition-all",
+                  optionIndex === 0
+                    ? "bg-[#7b5cff] text-white hover:bg-[#6b4ef0]"
+                    : "text-[#44516b] hover:bg-[#f6f8fc] hover:text-[#202634]",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+      const renderStoryboardSlotAddMenu = (targetIndex) => {
+        const options = [
+          {
+            label: "AI 生成",
+            icon: ComposerActionIcon,
+            onClick: () =>
+              openStoryboardSlotComposer(targetIndex, {
+                sourceElement: storyboardSlotAddTriggerRefs.current[targetIndex],
+              }),
+          },
+          {
+            label: "视频库",
+            icon: Film,
+            onClick: () =>
+              openStoryboardLibraryScriptComposer(targetIndex, "video", {
+                sourceElement: storyboardSlotAddTriggerRefs.current[targetIndex],
+              }),
+          },
+          {
+            label: "图片库",
+            icon: ImageIcon,
+            onClick: () =>
+              openStoryboardLibraryScriptComposer(targetIndex, "image", {
+                sourceElement: storyboardSlotAddTriggerRefs.current[targetIndex],
+              }),
+          },
+        ];
+
+        return (
+          <div
+            data-storyboard-slot-add-menu="true"
+            className="w-[210px] rounded-[18px] border border-[#e8edf5] bg-white p-2 shadow-[0_18px_42px_rgba(79,99,145,0.16)]"
+          >
+            {options.map((option, optionIndex) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => {
+                    setStoryboardSlotAddMenuTarget(null);
+                    option.onClick();
+                  }}
+                  className={cn(
+                    "flex h-11 w-full items-center gap-3 rounded-[13px] px-3.5 text-left text-[14px] font-semibold transition-all",
+                    optionIndex === 0
+                      ? "bg-[#7b5cff] text-white hover:bg-[#6b4ef0]"
+                      : "text-[#44516b] hover:bg-[#f6f8fc] hover:text-[#202634]",
+                  )}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      };
+      const renderStoryboardInsertMenu = (sourceIndex) => {
+        const options = [
+          { label: "AI生成", mode: "ai" },
+          { label: "图片库选择", mode: "image" },
+          { label: "视频库选择", mode: "video" },
+        ];
+
+        return (
+          <div
+            data-storyboard-insert-menu="true"
+            className="w-[320px] rounded-[28px] border border-[#eef2f8] bg-white px-8 py-7 shadow-[0_26px_70px_rgba(76,105,160,0.18)]"
+          >
+            <div className="mb-5 text-[22px] font-medium leading-8 text-[#8a93a6]">添加分镜</div>
+            <div className="space-y-2">
+              {options.map((option) => (
+                <button
+                  key={option.mode}
+                  type="button"
+                  onClick={(event) => chooseStoryboardInsertMode(sourceIndex, option.mode, event.currentTarget)}
+                  className="flex h-14 w-full items-center rounded-[16px] px-1 text-left text-[22px] font-medium leading-7 text-black transition-colors hover:bg-[#f6f8fc]"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      };
+      const renderDraftTimelineCardBody = () => (
+        <div className="group relative flex h-full w-full flex-col rounded-[8px] border border-dashed border-[#7b5cff] bg-[#fbf9ff] p-2 text-left shadow-[0_12px_24px_rgba(123,92,255,0.12)]">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              cancelStoryboardLibraryScript();
+            }}
+            disabled={isStoryboardGenerating || isComposerGenerating || isLibraryScriptMeasuring}
+            className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-[7px] bg-white/90 text-[#9aa2b2] shadow-[0_6px_12px_rgba(43,53,79,0.10)] transition-all hover:bg-[#fff2f4] hover:text-[#e45b6b] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="取消新增分镜"
+            title="取消新增分镜"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[6px] bg-[#f1edff]">
+            <div className="absolute inset-0 grid grid-cols-2 gap-px opacity-55">
+              {draftPreviousPreview ? (
+                <img src={draftPreviousPreview} alt="" className="h-full w-full object-cover blur-[1px]" />
+              ) : (
+                <div className="bg-[#eef2fa]" />
+              )}
+              {draftNextPreview ? (
+                <img src={draftNextPreview} alt="" className="h-full w-full object-cover blur-[1px]" />
+              ) : (
+                <div className="bg-[#eef2fa]" />
+              )}
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center bg-white/48 backdrop-blur-[3px]">
+              <div className="rounded-full border border-[#d8ccff] bg-white px-3 py-1 text-[11px] font-semibold text-[#6d4cff]">
+                {isLibraryScriptMeasuring ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="ai-thinking-dot h-1.5 w-1.5 rounded-full bg-[#6d4cff]" />
+                    测算中
+                  </span>
+                ) : isSubmittedScriptCurrent ? (
+                  "待选素材"
+                ) : libraryScriptValue ? (
+                  "待提交"
+                ) : (
+                  "待写脚本"
+                )}
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#d8ccff]" />
+          </div>
+          <div className="flex h-6 items-center justify-between gap-2 px-0.5 pt-1">
+            <div className="min-w-0 truncate text-[12px] font-semibold text-[#5f46d6]">新增分镜</div>
+            <div className="shrink-0 text-[11px] font-semibold text-[#8b7df0]">
+              {draftDurationLabel}
+            </div>
+          </div>
+        </div>
+      );
+      const renderStoryboardLibraryScriptPanel = () => {
+        if (isSubmittedScriptCurrent) {
+          return (
+            <>
+              <div className="relative">
+                <div className="mb-2 flex h-8 items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-baseline gap-1.5">
+                    <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">
+                      口播脚本
+                    </div>
+                    <span className="shrink-0 text-[12px] font-normal leading-4 text-[#848b99]">
+                      {formatPreviewClock(storyboardSubmittedScriptState.durationSeconds)}
+                    </span>
+                  </div>
+                  <IconHintButton
+                    onClick={(event) => openStoryboardScriptPromptComposer(event.currentTarget)}
+                    tooltip="带入输入框生成脚本"
+                    tooltipSide="top"
+                    tooltipAlign="end"
+                    disabled={isStoryboardGenerating || isComposerGenerating}
+                    disabledReason={storyboardBusyTooltip}
+                    buttonClassName="h-8 w-8 rounded-[8px] border-transparent bg-[#f6f7f9] text-[#686e7a] hover:bg-[#eef2ff] hover:text-[#3a5bfd] hover:shadow-none hover:translate-y-0"
+                  />
+                </div>
+                <textarea
+                  value={storyboardLibraryScriptDraft}
+                  onChange={(event) => setStoryboardLibraryScriptDraft(event.target.value)}
+                  rows={6}
+                  spellCheck={false}
+                  style={{ fontSize: 12, lineHeight: "22px" }}
+                  className="min-h-[148px] w-full resize-none rounded-[8px] border border-transparent bg-[#f6f7f9] px-3 py-2.5 !text-[12px] !leading-[22px] text-black outline-none transition-colors placeholder:text-[#848b99] focus:border-[#dbe5ff] focus:bg-white"
+                  placeholder="输入口播脚本"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="mb-2 flex h-6 items-center justify-between gap-3">
+                  <div className="deep-storyboard-title-16 min-w-0 truncate text-[16px] font-semibold leading-[22px] text-black">
+                    素材版本
+                  </div>
+                  <div className="text-[12px] font-normal leading-4 text-[#848b99]">
+                    0/{STORYBOARD_MEDIA_MAX}
+                  </div>
+                </div>
+                <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelStoryboardLibraryScript}
+                    disabled={isStoryboardGenerating || isComposerGenerating || isLibraryScriptMeasuring}
+                    className="inline-flex h-9 items-center justify-center rounded-[12px] border border-[#dbe3f1] bg-white px-3 text-[12px] font-semibold text-[#6f7888] transition-all hover:border-[#cad4e6] hover:bg-[#f7f9fc] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    取消添加
+                  </button>
+                  <div ref={storyboardScriptMaterialTriggerRef} className="relative min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canChooseSubmittedScriptMaterial) return;
+                        setStoryboardMaterialValidationCue(null);
+                        setStoryboardScriptMaterialMenuOpen((prev) => !prev);
+                      }}
+                      disabled={!canChooseSubmittedScriptMaterial}
+                      className={cn(
+                        "inline-flex h-9 w-full items-center justify-center gap-2 rounded-[12px] border text-[12px] font-semibold transition-all",
+                        shouldPulseSubmittedMaterial
+                          ? "border-[#ff9faa] bg-[#fff5f6] text-[#e45b6b] shadow-[0_0_0_4px_rgba(255,92,115,0.12)]"
+                          : canChooseSubmittedScriptMaterial
+                            ? "border-[#ddd2ff] bg-[#f7f4ff] text-[#6d4cff] hover:border-[#c9bbff] hover:bg-[#f1ebff]"
+                            : "cursor-not-allowed border-[#edf1f6] bg-[#f4f6fa] text-[#a1a9b7]",
+                      )}
+                    >
+                      <Plus className="h-4 w-4" />
+                      添加素材
+                    </button>
+                    <FloatingLayer
+                      anchorRef={storyboardScriptMaterialTriggerRef}
+                      open={
+                        storyboardScriptMaterialMenuOpen &&
+                        Boolean(storyboardLibraryScriptTarget) &&
+                        canChooseSubmittedScriptMaterial
+                      }
+                      preferredDirection="down"
+                      align="start"
+                      offset={8}
+                    >
+                      {renderScriptMaterialMenu()}
+                    </FloatingLayer>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        }
+
+        return (
+        <div className="rounded-[18px] border border-[#e3e9f6] bg-[#fbfcff] p-4 shadow-[0_12px_28px_rgba(117,135,170,0.06)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[#5f63ff] shadow-[0_8px_18px_rgba(81,103,180,0.10)]">
+                  <Clapperboard className="h-[18px] w-[18px]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-[16px] font-semibold leading-[22px] text-black">
+                    新增分镜脚本
+                  </div>
+                </div>
+              </div>
+            </div>
+            <IconHintButton
+              onClick={(event) => openStoryboardScriptPromptComposer(event.currentTarget)}
+              tooltip="带入输入框生成脚本"
+              tooltipSide="top"
+              tooltipAlign="end"
+              disabled={isStoryboardGenerating || isComposerGenerating || isLibraryScriptMeasuring}
+              disabledReason={storyboardBusyTooltip || "正在测算脚本时长"}
+              buttonClassName="h-9 w-9 rounded-[10px] border-transparent bg-white text-[#686e7a] shadow-[0_8px_18px_rgba(81,103,180,0.08)] hover:bg-[#eef2ff] hover:text-[#3a5bfd] hover:shadow-none"
+              iconClassName="h-[18px] w-[18px]"
+            />
+          </div>
+
+          <div className="mt-4 rounded-[14px] border border-[#edf1f6] bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="text-[13px] font-semibold text-[#202634]">分镜脚本</label>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                  isLibraryScriptMeasuring ? "bg-[#f4f0ff] text-[#6d4cff]" : "bg-[#f5f7fb] text-[#7a8496]",
+                )}
+              >
+                {isLibraryScriptMeasuring ? (
+                  <>
+                    <span className="ai-thinking-dot h-1.5 w-1.5 rounded-full bg-[#6d4cff]" />
+                    测算中
+                  </>
+                ) : isSubmittedScriptCurrent ? (
+                  formatPreviewClock(storyboardSubmittedScriptState.durationSeconds)
+                ) : "待测算"}
+              </span>
+            </div>
+            <textarea
+              value={storyboardLibraryScriptDraft}
+              onChange={(event) => setStoryboardLibraryScriptDraft(event.target.value)}
+              disabled={isLibraryScriptMeasuring}
+              rows={6}
+              spellCheck={false}
+              className={cn(
+                "min-h-[148px] w-full resize-none rounded-[10px] border border-transparent bg-[#f6f7f9] px-3 py-2.5 text-[13px] leading-6 text-black outline-none transition-colors placeholder:text-[#9aa2b2] focus:border-[#dbe5ff] focus:bg-white",
+                isLibraryScriptMeasuring && "cursor-wait text-[#5f6778]",
+              )}
+              placeholder="粘贴或输入这条分镜的口播/旁白脚本"
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={cancelStoryboardLibraryScript}
+              disabled={isStoryboardGenerating || isComposerGenerating}
+              className="inline-flex h-10 items-center justify-center rounded-[10px] border border-[#e1e7f2] bg-white px-3 text-[13px] font-semibold text-[#687286] transition-all hover:border-[#ffd0d5] hover:bg-[#fff5f6] hover:text-[#e45b6b] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              取消添加
+            </button>
+            <DisabledTooltip
+              disabled={!canSubmitLibraryScript}
+              reason={
+                isLibraryScriptMeasuring
+                  ? "正在测算脚本时长"
+                  : !libraryScriptValue
+                    ? "先填写分镜脚本"
+                    : storyboardBusyTooltip
+              }
+              side="top"
+              align="center"
+              wrapperClassName="inline-flex"
+            >
+              <button
+                type="button"
+                onClick={() => submitStoryboardLibraryScriptDraft(storyboardLibraryScriptDraft, storyboardLibraryScriptTarget)}
+                disabled={!canSubmitLibraryScript}
+                className={cn(
+                  "inline-flex h-10 items-center justify-center rounded-[10px] px-3 text-[13px] font-semibold transition-all",
+                  canSubmitLibraryScript || isLibraryScriptMeasuring
+                    ? "bg-[#3a5bfd] text-white shadow-[0_8px_18px_rgba(58,91,253,0.16)] hover:-translate-y-0.5"
+                    : "cursor-not-allowed bg-[#dfe6f2] text-white/90",
+                )}
+              >
+                {isLibraryScriptMeasuring ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="ai-thinking-dot h-1.5 w-1.5 rounded-full bg-white" />
+                    测算中
+                  </span>
+                ) : (
+                  "提交脚本"
+                )}
+              </button>
+            </DisabledTooltip>
+          </div>
+
+        </div>
+        );
+      };
+      const renderVoiceScriptPanel = () => (
+        <div className="relative">
+          <div className="mb-2 flex h-8 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">
+                口播脚本
+              </div>
+              <span className="shrink-0 text-[12px] font-normal leading-4 text-[#848b99]">
+                {formatPreviewClock(savedVoiceScriptDurationSeconds)}
+              </span>
+            </div>
+            <IconHintButton
+              onClick={(event) =>
+                openRewriteComposer({ type: "subtitle", index: activeStoryboard }, { sourceElement: event.currentTarget })
+              }
+              tooltip="带入输入框重生成"
+              disabled={isStoryboardGenerating || isComposerGenerating}
+              buttonClassName="h-8 w-8 rounded-[8px] border-transparent bg-[#f6f7f9] text-[#686e7a] hover:bg-[#eef2ff] hover:text-[#3a5bfd] hover:shadow-none hover:translate-y-0"
+            />
+          </div>
+          <textarea
+            ref={subtitleTextareaRef}
+            value={storyboardDraft.subtitle || ""}
+            onChange={(e) => handleMentionFieldChange("subtitle", e.target.value, e.target.selectionStart)}
+            onFocus={() => beginManualEditRecord(`step3-${activeStoryboard}-subtitle`, storyboardDraft.subtitle || "")}
+            onBlur={(event) =>
+              finishManualEditRecord({
+                key: `step3-${activeStoryboard}-subtitle`,
+                value: event.target.value,
+                title: `手动修改了${activeStoryboardName}口播脚本`,
+                step: 3,
+                target: activeStoryboardName,
+              })
+            }
+            rows={4}
+            spellCheck={false}
+            style={{ fontSize: 12, lineHeight: "22px" }}
+            className="min-h-[90px] w-full resize-none rounded-[8px] border border-transparent bg-[#f6f7f9] px-3 py-2.5 !text-[12px] !leading-[22px] text-black outline-none transition-colors placeholder:text-[#848b99] focus:border-[#dbe5ff] focus:bg-white"
+            placeholder="输入口播脚本"
+          />
+          {showVoiceScriptSubmitBar ? (
+            <div className="mt-2 min-w-0 rounded-[10px] border border-[#dbe5ff] bg-[#f7faff] p-2 shadow-[0_8px_18px_rgba(58,91,253,0.06)]">
+              <div className="mb-2 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[12px] font-medium leading-5 text-[#3a5bfd]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#3a5bfd]" />
+                {isVoiceScriptSubmitting ? "脚本同步中" : "脚本待提交"}
+              </div>
+              <div
+                className={cn(
+                  "grid min-w-0 gap-2",
+                  isVoiceScriptSubmitBarWide
+                    ? "grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
+                    : "grid-cols-1",
+                )}
+              >
+                <DisabledTooltip
+                  disabled={!canSubmitVoiceScript}
+                  reason={isVoiceScriptSubmitting ? "正在同步新脚本" : storyboardBusyTooltip}
+                  side="top"
+                  align="center"
+                  wrapperClassName="inline-flex"
+                >
+                  <button
+                    type="button"
+                    onClick={resetStoryboardVoiceScriptDraft}
+                    disabled={!canSubmitVoiceScript}
+                    className={cn(
+                      "inline-flex h-8 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border px-2 text-[12px] font-semibold transition-colors",
+                      canSubmitVoiceScript
+                        ? "border-[#dfe6f2] bg-white text-[#687286] hover:border-[#cbd6e8] hover:text-[#202634]"
+                        : "cursor-not-allowed border-[#e9edf4] bg-[#f2f5fa] text-[#a1a9b7]",
+                    )}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                    撤销
+                  </button>
+                </DisabledTooltip>
+                <DisabledTooltip
+                  disabled={!canSubmitVoiceScript}
+                  reason={isVoiceScriptSubmitting ? "正在同步新脚本" : storyboardBusyTooltip}
+                  side="top"
+                  align="center"
+                  wrapperClassName="inline-flex"
+                >
+                  <button
+                    type="button"
+                    onClick={applyStoryboardVoiceScriptDraft}
+                    disabled={!canSubmitVoiceScript}
+                    className={cn(
+                      "inline-flex h-8 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-2 text-[12px] font-semibold transition-all",
+                      canSubmitVoiceScript
+                        ? "bg-[#3a5bfd] text-white shadow-[0_8px_18px_rgba(58,91,253,0.16)] hover:-translate-y-0.5"
+                        : "cursor-not-allowed bg-[#dfe6f2] text-white/90",
+                    )}
+                  >
+                    {isVoiceScriptSubmitting ? (
+                      <span className="ai-thinking-dot h-2 w-2 rounded-full bg-white" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                    {isVoiceScriptSubmitting ? "同步中..." : "提交新脚本"}
+                  </button>
+                </DisabledTooltip>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
+      const renderMediaVersionPanel = () => (
+        <div className="relative">
+          <div className="mb-2 flex h-6 items-center justify-between gap-3">
+            <div className="deep-storyboard-title-16 min-w-0 truncate text-[16px] font-semibold leading-[22px] text-black">
+              素材版本
+            </div>
+            <div className="text-[12px] font-normal leading-4 text-[#848b99]">
+              {activeStoryboardMediaCount}/{STORYBOARD_MEDIA_MAX}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {activeStoryboardMediaAssets.map((media, mediaIndex) => {
+              const selected = mediaIndex === activeStoryboardMediaIndex;
+              const mediaDurationSeconds =
+                getStoryboardDurationSeconds(activeOutline, 6, activeStoryboard, mediaIndex) || savedVoiceScriptDurationSeconds;
+              const sourceDurationSeconds = parseDurationLabelToSeconds(media.sourceDuration || media.duration);
+              const clipStartSeconds = Number(media.clipStartSeconds) || 0;
+              const isUserAdjustableVideo = media.assetType === "video" && media.sourceType !== "ai";
+              const hasClipRange =
+                isUserAdjustableVideo &&
+                Number.isFinite(sourceDurationSeconds) &&
+                sourceDurationSeconds > mediaDurationSeconds + 0.5;
+              const needsClipReview = media.clipReviewStatus === "needs_reclip";
+              const canAdjustClip = isPendingStoryboardClipReviewMedia(media);
+              const mediaTypeLabel =
+                media.assetType === "image" ? "图片" : media.sourceType === "ai" ? "AI生成" : "视频";
+              const clipStatusLabel = canAdjustClip ? getStoryboardClipReviewStatusLabel(media.clipReviewStatus) : "";
+              const isClipPending = Boolean(clipStatusLabel);
+              const clipRangeLabel = hasClipRange
+                ? `节选 ${formatPreviewClock(clipStartSeconds)}-${formatPreviewClock(
+                    clipStartSeconds + mediaDurationSeconds,
+                  )}`
+                : "";
+              const mediaCardTitle =
+                media.sourceType === "ai" ? "AI素材" : media.name || (media.assetType === "image" ? "图片素材" : "视频素材");
+              const clipTooltip = clipStatusLabel ? (
+                <div className="space-y-1 text-left leading-5">
+                  <div className="font-semibold">
+                    {activeStoryboardName} · 素材{getStoryboardMediaLabel(mediaIndex)}
+                  </div>
+                  <div>{media.clipReviewLabel || clipStatusLabel}</div>
+                </div>
+              ) : null;
+              return (
+                <div
+                  key={`${media.id}-${mediaIndex}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectStoryboardMediaVariant(activeStoryboard, mediaIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    selectStoryboardMediaVariant(activeStoryboard, mediaIndex);
+                  }}
+                  className={cn(
+                    "group/media relative grid min-h-[48px] grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 rounded-[8px] border px-2 py-1.5 text-left transition-all",
+                    isClipPending
+                      ? "border-[#ffd08a] bg-[#fff8ec]"
+                      : selected
+                      ? "border-[#3a5bfd] bg-white"
+                      : canAdjustClip
+                        ? "border-[#ffdca9] bg-[#fffaf2] hover:border-[#ffc46d]"
+                        : "border-transparent bg-[#f6f7f9] hover:border-[#dbe5ff]",
+                  )}
+                >
+                  <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-[6px] bg-[#e9edf5]">
+                    <img src={media.preview} alt={media.name} className="h-full w-full object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="h-5 truncate text-[12px] font-medium leading-5 text-black">
+                      素材{getStoryboardMediaLabel(mediaIndex)}：{mediaCardTitle}
+                    </div>
+                    <div className="mt-0.5 flex h-[16px] min-w-0 items-center gap-1.5 text-[11px] leading-4 text-[#848b99]">
+                      <span className="shrink-0">{mediaTypeLabel}</span>
+                      <span className="shrink-0">{formatPreviewClock(mediaDurationSeconds)}</span>
+                    </div>
+                    <div className="mt-0.5 flex min-h-0 min-w-0 items-center gap-1.5">
+                      {clipRangeLabel ? (
+                        <span
+	                          className={cn(
+	                            "min-w-0 truncate text-[10px] font-medium leading-5",
+	                            isClipPending ? "text-[#c97816]" : "text-[#687286]",
+	                          )}
+	                        >
+                          {clipRangeLabel}
+                        </span>
+                      ) : null}
+                      {clipStatusLabel ? (
+                        <HoverTooltip
+                          content={clipTooltip}
+                          side="top"
+                          align="center"
+                          offset={8}
+                          wrapperClassName="min-w-0"
+                        >
+                          <span
+                            className={cn(
+                              "inline-flex h-5 max-w-full items-center gap-1 rounded-full px-1.5 text-[10px] font-semibold leading-5",
+                              "bg-[#fff3df] text-[#c97816]",
+                            )}
+                          >
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{clipStatusLabel}</span>
+                          </span>
+                        </HoverTooltip>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 justify-end">
+                    {canAdjustClip ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openStoryboardReplaceVideoLibrary(activeStoryboard, mediaIndex);
+                        }}
+                        className={cn(
+                          "inline-flex h-8 w-[70px] items-center justify-center whitespace-nowrap rounded-[10px] border text-[11px] font-semibold transition-colors",
+                          "border-[#ffe0ba] bg-[#fff8ec] text-[#c97816] hover:bg-[#fff1d8]",
+                        )}
+                      >
+                        {needsClipReview ? "重新节选" : "确认"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {activeStoryboardMediaCount > 1 ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        requestRemoveStoryboardMediaVariant(activeStoryboard, mediaIndex);
+                      }}
+                      className="absolute right-2 top-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-white/82 text-[#9aa2b2] opacity-0 shadow-[0_4px_10px_rgba(43,53,79,0.08)] transition-all hover:bg-[#fff2f4] hover:text-[#e45b6b] group-hover/media:opacity-100 group-focus-within/media:opacity-100"
+                      aria-label={`移除素材${getStoryboardMediaLabel(mediaIndex)}`}
+                      title={`移除素材${getStoryboardMediaLabel(mediaIndex)}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          {!isActiveStoryboardMediaFull ? (
+          <div ref={storyboardMediaAddTriggerRef} className="relative mt-2">
+            <DisabledTooltip
+              disabled={mediaAddDisabled}
+              reason={mediaAddDisabledReason}
+              side="top"
+              align="center"
+              wrapperClassName="flex w-full"
+            >
+              <button
+                type="button"
+                onClick={() => setStoryboardMediaAddMenuOpen((prev) => !prev)}
+                disabled={mediaAddDisabled}
+                className={cn(
+                  "inline-flex h-9 w-full items-center justify-center gap-2 rounded-[12px] border text-[12px] font-semibold transition-all",
+                  isActiveStoryboardMediaFull
+                    ? "cursor-not-allowed border-[#edf1f6] bg-[#f4f6fa] text-[#a1a9b7]"
+                    : "border-[#ddd2ff] bg-[#f7f4ff] text-[#6d4cff] hover:border-[#c9bbff] hover:bg-[#f1ebff]",
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                添加素材
+              </button>
+            </DisabledTooltip>
+            <FloatingLayer
+              anchorRef={storyboardMediaAddTriggerRef}
+              open={
+                storyboardMediaAddMenuOpen &&
+                !isActiveStoryboardMediaFull &&
+                !isStoryboardGenerating &&
+                !isComposerGenerating
+              }
+              preferredDirection="down"
+              align="start"
+              offset={8}
+            >
+              {renderMediaAddMenu()}
+            </FloatingLayer>
+          </div>
+          ) : null}
+        </div>
+      );
+
+      return (
+        <div className="deep-storyboard-screen flex h-full min-h-0 flex-col overflow-hidden bg-white">
+          {renderBanner()}
+
+          <div
+            ref={(node) => {
+              rightUpdateTargetRefs.current.storyboard = node;
+            }}
+            className={cn(
+              "min-h-0 flex-1 overflow-hidden px-6 pb-5 pt-4 transition-all",
+              isRightUpdateHighlighted("storyboard") && rightUpdateHighlightClass,
+            )}
+          >
+            <div
+              ref={storyboardSplitGridRef}
+              className="deep-storyboard-grid deep-storyboard-grid-resizable grid h-full min-h-0"
+              style={{
+                "--storyboard-settings-width": `${Math.round(storyboardSettingsPanelWidth)}px`,
+                "--storyboard-settings-min": `${Math.round(storyboardSplitAriaBounds.min)}px`,
+                "--storyboard-preview-min": `${Math.round(storyboardSplitAriaBounds.previewMin)}px`,
+                "--storyboard-split-handle-width": `${STORYBOARD_SPLIT_HANDLE_WIDTH}px`,
+              }}
+            >
+              <div
+                className={cn(
+                  "min-h-0 min-w-0 overflow-y-auto pr-2 scrollbar-hide",
+                  isStoryboardGenerating && "pointer-events-none opacity-75",
+              )}
+            >
+              <div className="space-y-4">
+                  {storyboardLibraryScriptTarget ? (
+                    renderStoryboardLibraryScriptPanel()
+                  ) : (
+                    <>
+                      {renderVoiceScriptPanel()}
+                      {renderMediaVersionPanel()}
+
+                      {isActiveStoryboardAiGeneratedMedia ? (
+                        <>
+                      <div className="relative">
+                        <div className="mb-2 flex h-6 items-center gap-1.5">
+                          <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">
+                            素材{activeMediaLabel}出场角色
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {selectedStoryboardRoleIndexes.length ? (
+                            selectedStoryboardRoleIndexes.map((avatarIndex) => {
+                              const character = characters[avatarIndex];
+                              return (
+                                <div
+                                  key={`${character.name}-${avatarIndex}-storyboard-readonly`}
+                                  className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-[8px] bg-[#f6f7f9] px-1.5 pr-2 text-black"
+                                >
+                                  <img
+                                    src={character.avatar}
+                                    alt={character.name}
+                                    className="h-5 w-5 rounded-full object-cover"
+                                  />
+                                  <span className="min-w-0 text-left">
+                                    <span className="block truncate text-[12px] font-normal leading-4">{character.name}</span>
+                                  </span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="inline-flex h-8 items-center rounded-[8px] bg-[#f6f7f9] px-3 text-[12px] font-normal leading-4 text-[#848b99]">
+                              暂无出场角色
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        ref={descMentionAnchorRef}
+                        className="relative"
+                      >
+                        <div className="mb-2 flex h-8 items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="deep-storyboard-title-16 truncate text-[16px] font-semibold leading-[22px] text-black">
+                              素材{activeMediaLabel}画面描述
+                            </div>
+                            <HoverTooltip content="输入 @ 可引用出场角色" side="top" align="start" wrapperClassName="shrink-0">
+                              <AlertCircle className="h-3.5 w-3.5 text-[#848b99]" />
+                            </HoverTooltip>
+                          </div>
+                          <IconHintButton
+                            onClick={(event) =>
+                              openRewriteComposer({ type: "desc", index: activeStoryboard }, { sourceElement: event.currentTarget })
+                            }
+                            tooltip="带入输入框重生成"
+                            disabled={isStoryboardGenerating || isComposerGenerating}
+                            buttonClassName="h-8 w-8 rounded-[8px] border-transparent bg-[#f6f7f9] text-[#686e7a] hover:bg-[#eef2ff] hover:text-[#3a5bfd] hover:shadow-none hover:translate-y-0"
+                          />
+                        </div>
+                        <MentionEditor
+                          textareaRef={descTextareaRef}
+                          value={storyboardDraft.desc || ""}
+                          mentionRegistry={storyboardMentionRegistry}
+                          onChange={(e) =>
+                            handleMentionFieldChange("desc", e.target.value, e.target.selectionStart)
+                          }
+                          onClick={(e) => handleMentionFieldSelect("desc", e)}
+                          onKeyUp={(e) => handleMentionFieldSelect("desc", e)}
+                          onFocus={() => beginManualEditRecord(`step3-${activeStoryboard}-desc`, storyboardDraft.desc || "")}
+                          onBlur={(event) => {
+                            finishManualEditRecord({
+                              key: `step3-${activeStoryboard}-desc`,
+                              value: event.target.value,
+                              title: `手动修改了${activeStoryboardName}画面描述`,
+                              step: 3,
+                              target: activeStoryboardName,
+                            });
+                            window.setTimeout(() => setMentionState(null), 120);
+                          }}
+                          rows={3}
+                          shellClassName="min-h-[88px] rounded-[8px] border border-transparent bg-[#f6f7f9] transition-colors focus-within:border-[#dbe5ff] focus-within:bg-white"
+                          editorClassName="min-h-[88px] px-3 py-2.5 text-[12px] leading-[22px] text-black placeholder:text-[#848b99]"
+                          placeholder="输入画面描述，支持用 @ 引用已选角色"
+                        />
+                        <FloatingLayer
+                          anchorRef={descMentionAnchorRef}
+                          open={mentionState?.field === "desc"}
+                          preferredDirection="down"
+                          align="end"
+                        >
+                          <div className="w-[220px]">
+                            <MentionSuggestionPanel
+                              suggestions={mentionSuggestions}
+                              title="可引用角色"
+                              emptyLabel="没有匹配到角色"
+                              onSelect={(item) => insertMentionReference("desc", item)}
+                            />
+                          </div>
+                        </FloatingLayer>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {shouldShowStoryboardGlobalSubmit ? (
+                  <div className="sticky bottom-0 z-10 -mx-1 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.94)_35%,#fff_100%)] px-1 pt-3">
+                    <DisabledTooltip
+                      disabled={!storyboardDraftDirty || isStoryboardGenerating}
+                      reason={isStoryboardGenerating ? "正在更新分镜，稍等一下" : "还没有可提交的修改"}
+                      side="top"
+                      align="center"
+                      wrapperClassName="flex w-full"
+                    >
+                      <button
+                        type="button"
+                        onClick={applyStoryboardDraft}
+                        disabled={!storyboardDraftDirty || isStoryboardGenerating}
+                        className={cn(
+                          "flex h-9 w-full items-center justify-center rounded-[8px] px-3 text-[13px] font-semibold transition-all",
+                          storyboardDraftDirty && !isStoryboardGenerating
+                            ? "border border-[#dbe5ff] bg-white text-[#3a5bfd]"
+                            : "cursor-not-allowed bg-[#eef2f8] text-[#a1a9b7]",
+                        )}
+                      >
+                        {isStoryboardGenerating ? "生成中..." : "提交修改"}
+                      </button>
+                    </DisabledTooltip>
+                  </div>
+                  ) : null}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div
+                className="relative z-10 flex h-full min-h-0 w-full items-center justify-center"
+                onMouseEnter={() => updateStoryboardSplitHover("divider", true)}
+                onMouseLeave={() => updateStoryboardSplitHover("divider", false)}
+              >
+                <button
+                  type="button"
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="拖拽调整分镜设置和分镜预览宽度"
+                  aria-valuemin={Math.round(storyboardSplitAriaBounds.min)}
+                  aria-valuemax={Math.round(storyboardSplitAriaBounds.max)}
+                  aria-valuenow={Math.round(storyboardSettingsPanelWidth)}
+                  aria-valuetext={`左侧 ${Math.round(storyboardSettingsPanelWidth)} 像素`}
+                  title={`拖拽调整宽度，左侧最小 ${Math.round(storyboardSplitAriaBounds.min)}px，最大 ${Math.round(storyboardSplitAriaBounds.max)}px，双击恢复默认`}
+                  onPointerDown={beginStoryboardSplitResize}
+                  onDoubleClick={resetStoryboardSettingsPanelWidth}
+                  onKeyDown={handleStoryboardSplitKeyDown}
+                  className="group flex h-full w-full cursor-col-resize touch-none items-center justify-center outline-none"
+                >
+                  <span
+                    className={cn(
+                      "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full transition-all duration-200",
+                      storyboardSplitActive
+                        ? "bg-[#7b5cff] opacity-100 shadow-[0_0_0_4px_rgba(123,92,255,0.08),0_0_18px_rgba(123,92,255,0.26)]"
+                        : "bg-[#e4ebf5]",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "relative flex h-12 w-3 items-center justify-center rounded-full border bg-white text-[#9aa2b2] shadow-[0_8px_18px_rgba(79,99,145,0.12)] transition-all duration-200",
+                      storyboardSplitActive
+                        ? "border-[#cdbdff] text-[#7b5cff] shadow-[0_12px_24px_rgba(123,92,255,0.16)]"
+                        : "border-[#e5ebf4] group-hover:border-[#d8ccff] group-hover:text-[#7b5cff]",
+                    )}
+                  >
+                    <MoreHorizontal className="h-3 w-3 rotate-90" />
+                  </span>
+                </button>
+              </div>
+
+              <div className="min-h-0 min-w-0 overflow-y-auto pl-2 scrollbar-hide">
+                <div className="flex min-h-full w-full flex-col">
+                  <div className="mb-2 flex h-8 items-center justify-between gap-3">
+                    <div className="deep-storyboard-title-16 text-[16px] font-semibold leading-[22px] text-black">
+                      {isStoryboardDraftPreview ? "新增分镜预览" : "分镜预览"}
+                    </div>
+                    <div className="rounded-full bg-[#f6f7f9] px-2 py-1 text-[12px] leading-4 text-[#848b99]">
+                      {previewCounterPosition}/{previewCounterTotal}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <div className="rounded-[8px] bg-[#f6f7f9]">
+                      <div
+                        ref={previewCanvasRef}
+                        className={cn(
+                          "relative aspect-[16/9] overflow-hidden rounded-[8px] bg-[#f6f7f9]",
+                          isPipDragging && "select-none",
+                        )}
+                      >
+                        {isStoryboardDraftPreview ? (
+                          <div className="relative h-full w-full overflow-hidden bg-[#eef2fa]">
+                            <div className="absolute inset-0 grid grid-cols-2 gap-px opacity-70">
+                              {draftPreviousPreview ? (
+                                <img src={draftPreviousPreview} alt="" className="h-full w-full object-cover blur-[1px]" />
+                              ) : (
+                                <div className="bg-[#e9eef8]" />
+                              )}
+                              {draftNextPreview ? (
+                                <img src={draftNextPreview} alt="" className="h-full w-full object-cover blur-[1px]" />
+                              ) : (
+                                <div className="bg-[#e9eef8]" />
+                              )}
+                            </div>
+                            <div className="absolute inset-0 bg-white/42 backdrop-blur-[5px]" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+                              <div className="rounded-full border border-[#d8ccff] bg-white/92 px-4 py-2 text-[13px] font-semibold text-[#6d4cff] shadow-[0_10px_24px_rgba(123,92,255,0.12)]">
+                                {isLibraryScriptMeasuring ? (
+                                  <span className="inline-flex items-center gap-2">
+                                    <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#6d4cff]" />
+                                    正在测算脚本时长
+                                  </span>
+                                ) : libraryScriptValue ? (
+                                  "待选择素材"
+                                ) : (
+                                  "待填写脚本"
+                                )}
+                              </div>
+                              <div className="mt-3 max-w-[520px] text-[13px] leading-6 text-[#5f6778]">
+                                {draftPositionLabel}
+                              </div>
+                            </div>
+                          </div>
+                        ) : previewVideoFailed || isPreviewImageAsset ? (
+                          <img src={currentPreview} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <video
+                            ref={previewVideoRef}
+                            src={currentVideoSrc}
+                            poster={currentPreview}
+                            muted
+                            playsInline
+                            preload="auto"
+                            className="h-full w-full object-cover"
+                            onLoadedMetadata={() => {
+                              const video = previewVideoRef.current;
+                              if (!video) return;
+                              const safeTarget = Math.min(previewClipStartSeconds + shotElapsed, Math.max(video.duration - 0.12, 0));
+                              video.currentTime = Number.isFinite(safeTarget) ? safeTarget : 0;
+                            }}
+                            onError={() => setPreviewVideoFailed(true)}
+                          />
+                        )}
+                        <div className="pointer-events-none absolute inset-0 bg-transparent" />
+                        {!isStoryboardDraftPreview && previewStoryboard?.brandLogo ? (
+                          <div
+                            style={previewLogoStyle}
+                            className={cn(
+                              "group/logo absolute flex h-10 w-12 items-center justify-center rounded-[10px] bg-white/92 p-1 shadow-[0_8px_18px_rgba(10,16,28,0.18)] backdrop-blur-[6px]",
+                              "cursor-grab active:cursor-grabbing",
+                              isPipDragging && "shadow-[0_18px_34px_rgba(10,16,28,0.26)]",
+                            )}
+                            onPointerDown={(event) => beginBrandLogoDrag(event, previewStoryboardIndex)}
+                            title="拖拽调整 Logo 位置"
+                          >
+                            <img
+                              src={previewStoryboard.brandLogo}
+                              alt="当前分镜 logo"
+                              className="max-h-full max-w-full object-contain"
+                            />
+                            <button
+                              type="button"
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleClosePreviewBrandLogo(previewStoryboardIndex);
+                              }}
+                              className="pointer-events-none absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/35 bg-[rgba(10,16,28,0.78)] text-white opacity-0 shadow-[0_8px_16px_rgba(10,16,28,0.24)] transition-all hover:bg-[rgba(10,16,28,0.92)] group-hover/logo:pointer-events-auto group-hover/logo:opacity-100 group-focus-within/logo:pointer-events-auto group-focus-within/logo:opacity-100"
+                              aria-label="关闭当前 Logo"
+                              title="关闭 Logo"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : null}
+		                        <div className="absolute left-3 top-3 flex items-center gap-1 overflow-hidden rounded-[4px] bg-black/58 text-[12px] font-medium leading-4 text-white backdrop-blur-[4px]">
+		                          <span className="px-2 py-1">
+                                {isStoryboardDraftPreview ? "新增分镜" : getStoryboardDisplayName(previewStoryboardIndex)}
+                              </span>
+		                          <div className="inline-flex items-center overflow-hidden border-l border-white/20">
+		                            {!isStoryboardDraftPreview && previewMediaAssets.length > 1 ? (
+		                              <button
+	                                type="button"
+	                                onClick={() => stepPreviewMedia(-1)}
+	                                disabled={!canSwitchPreviewMedia}
+		                                className="flex h-6 w-6 items-center justify-center text-white/82 transition-colors hover:bg-white/14 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+	                                aria-label={`切换到上一个素材，当前为素材${getStoryboardMediaLabel(previewMediaIndex)}`}
+	                                title="上一个素材"
+	                              >
+	                                <ChevronLeft className="h-3.5 w-3.5" />
+	                              </button>
+	                            ) : null}
+		                            <span className="whitespace-nowrap px-1.5 py-1">
+		                              {isStoryboardDraftPreview ? "待新增" : `素材${getStoryboardMediaLabel(previewMediaIndex)}`}
+		                            </span>
+	                            {!isStoryboardDraftPreview && previewMediaAssets.length > 1 ? (
+	                              <button
+	                                type="button"
+	                                onClick={() => stepPreviewMedia(1)}
+	                                disabled={!canSwitchPreviewMedia}
+		                                className="flex h-6 w-6 items-center justify-center text-white/82 transition-colors hover:bg-white/14 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+	                                aria-label={`切换到下一个素材，当前为素材${getStoryboardMediaLabel(previewMediaIndex)}`}
+	                                title="下一个素材"
+	                              >
+	                                <ChevronRight className="h-3.5 w-3.5" />
+	                              </button>
+	                            ) : null}
+	                          </div>
+	                          {!isStoryboardDraftPreview && previewMediaNeedsClipReview ? (
+	                            <button
+                              type="button"
+                              onClick={() => {
+                                selectStoryboardMediaVariant(previewStoryboardIndex, previewMediaIndex);
+                                openStoryboardReplaceVideoLibrary(previewStoryboardIndex, previewMediaIndex);
+                              }}
+                              className="ml-1 rounded-full bg-[#fff8ec] px-2 py-0.5 text-[10px] font-bold text-[#c97816]"
+                            >
+	                              {previewMediaClipStatusLabel}
+	                            </button>
+	                          ) : null}
+	                        </div>
+	                        {!isStoryboardDraftPreview && normalizeMentionText(previewStoryboard?.promptText || "", { keepAt: false }).trim() ? (
+                          <div className="absolute inset-x-6 top-16 flex justify-center">
+                            <div
+                              className="max-w-[78%] whitespace-pre-wrap break-words text-center"
+                              style={getPromptTextRenderStyle(previewStoryboard?.promptSettings, 0.3)}
+                            >
+                              {normalizeMentionText(previewStoryboard?.promptText || "", { keepAt: false })}
+                            </div>
+                          </div>
+                        ) : null}
+                        {!isStoryboardDraftPreview && previewStoryboard?.pictureInPictureEnabled && previewPipCharacter && !isGeneratingPreviewShot ? (
+                          <div
+                            style={previewPipStyle}
+                            className={cn(
+                              "group/pip absolute rounded-[14px] border border-white/28 bg-[rgba(12,18,30,0.34)] p-1.5 text-white backdrop-blur-[8px] shadow-[0_12px_24px_rgba(10,16,28,0.18)]",
+                              "cursor-grab active:cursor-grabbing",
+                              isPipDragging && "shadow-[0_18px_34px_rgba(10,16,28,0.26)]",
+                            )}
+                            onPointerDown={(event) => beginPictureInPictureDrag(event, previewStoryboardIndex)}
+                            title="拖拽调整角色画中画位置"
+                          >
+                            <img
+                              src={previewPipCharacter.avatar}
+                              alt={previewPipCharacter.name}
+                              className="h-12 w-12 rounded-[10px] object-cover"
+                            />
+                            <button
+                              type="button"
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleClosePreviewPictureInPicture(previewStoryboardIndex);
+                              }}
+                              className="pointer-events-none absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/28 bg-[rgba(10,16,28,0.78)] text-white opacity-0 shadow-[0_8px_16px_rgba(10,16,28,0.24)] transition-all hover:bg-[rgba(10,16,28,0.92)] group-hover/pip:pointer-events-auto group-hover/pip:opacity-100 group-focus-within/pip:pointer-events-auto group-focus-within/pip:opacity-100"
+                              aria-label="关闭当前分镜角色画中画"
+                              title="关闭角色画中画"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : null}
+	                        <div className="hidden absolute inset-x-4 bottom-4 items-end justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="mt-1 text-[12px] text-white/70">
+                              整片进度 {formatPreviewClock(previewCurrentTime)} / {formatPreviewClock(totalStoryboardDuration)}
+                            </div>
+                          </div>
+                          <div className="rounded-[12px] bg-white/92 px-3 py-2 text-[12px] font-semibold text-[#44516b]">
+                            {previewStoryboard?.duration || "0:00-0:06"}
+                          </div>
+                        </div>
+                        {isStoryboardDraftPreview && libraryScriptValue ? (
+                          <div className="absolute inset-x-8 bottom-[72px] rounded-full bg-[rgba(10,16,28,0.58)] px-4 py-2 text-center text-[12px] font-medium text-white backdrop-blur-[6px]">
+                            {libraryScriptValue}
+                          </div>
+                        ) : null}
+                        {!isStoryboardDraftPreview && globalStoryboardSettings.subtitles && subtitleSettings.enabled && previewMediaContent.subtitle ? (
+                          <div className="absolute inset-x-8 bottom-[72px] rounded-full bg-[rgba(10,16,28,0.58)] px-4 py-2 text-center text-[12px] font-medium text-white backdrop-blur-[6px]">
+                            {normalizeMentionText(previewMediaContent.subtitle, {
+                              keepAt: false,
+                            })}
+                          </div>
+                        ) : null}
+                        {!isStoryboardDraftPreview && isGeneratingPreviewShot ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-[rgba(10,16,28,0.34)] backdrop-blur-[5px]">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-white/92 px-4 py-2 text-[13px] font-semibold text-[#5f46d6] shadow-[0_12px_24px_rgba(10,16,28,0.18)]">
+                              <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+                              当前分镜生成中，暂不可预览
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 flex-1 flex-col bg-white pt-3">
+                    <div className="contents">
+                      <div className="order-1 flex h-11 min-w-0 items-center gap-2.5 rounded-[8px] bg-white px-1">
+                        <button
+                          type="button"
+                          onClick={toggleSequencePlayback}
+                          disabled={isStoryboardDraftPreview}
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3a5bfd] text-white shadow-[0_8px_16px_rgba(58,91,253,0.18)]",
+                            isStoryboardDraftPreview && "cursor-not-allowed bg-[#aeb9d0] shadow-none",
+                          )}
+                          aria-label={previewPlayback.isPlaying && previewPlayback.mode === "sequence" ? "暂停整段预览" : "播放整段预览"}
+                        >
+                          {previewPlayback.isPlaying && previewPlayback.mode === "sequence" ? (
+                            <Pause className="h-[14px] w-[14px] fill-white text-white" />
+                          ) : (
+                            <Play className="h-[14px] w-[14px] fill-white text-white" />
+                          )}
+                        </button>
+                        <div className="shrink-0 text-[12px] font-normal leading-4 text-[#848b99]">
+                          {isStoryboardDraftPreview
+                            ? isLibraryScriptMeasuring
+                              ? "正在测算"
+                              : "待测算"
+                            : `${formatPreviewClock(previewCurrentTime)} / ${formatPreviewClock(totalStoryboardDuration)}`}
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handlePreviewRailSeek}
+                      disabled={isStoryboardDraftPreview}
+                      className={cn(
+                        "order-2 relative mt-1 block h-5 w-full",
+                        isStoryboardDraftPreview && "cursor-not-allowed opacity-55",
+                      )}
+                      aria-label="定位整条视频播放位置"
+                    >
+                      <div className="absolute inset-x-0 top-[9px] h-[4px] rounded-full bg-[#e6ebf4]" />
+                      <div
+                        className="absolute left-0 top-[9px] h-[4px] rounded-full bg-[#3a5bfd]"
+                        style={{ width: `${isStoryboardDraftPreview ? 0 : previewTrackProgress}%` }}
+                      />
+                      <div
+                        className="hidden absolute top-[1px] h-0 w-0 -translate-x-1/2 border-l-[7px] border-r-[7px] border-t-[9px] border-l-transparent border-r-transparent border-t-[#53d4d8]"
+                        style={{ left: `${previewTrackProgress}%` }}
+                      />
+                      <div
+                        className="absolute top-[6px] h-[10px] w-[10px] -translate-x-1/2 rounded-full border-2 border-white bg-[#3a5bfd] shadow-[0_6px_14px_rgba(58,91,253,0.22)]"
+                        style={{ left: `${isStoryboardDraftPreview ? 0 : previewTrackProgress}%` }}
+                      />
+                    </button>
+
+                    <div className="order-3 relative mt-3 min-h-0 overflow-x-auto overflow-y-hidden rounded-[8px] bg-[#f6f7f9] p-3 pb-2 scrollbar-hide">
+                      <div className="flex min-w-max items-stretch pb-1">
+                        {storyboardSlots.map((slot) => {
+                          const { index, outline: item, isEmpty } = slot;
+                          const isDraftEmptySlot =
+                            isStoryboardDraftPreview && !isDraftInsertTarget && storyboardLibraryScriptTarget.index === index;
+                          const timelineItem = storyboardTimeline[index];
+                          const isSelected = !isEmpty && activeStoryboard === index;
+                          const isPreviewing = !isEmpty && previewStoryboardIndex === index;
+                          const isGeneratingSlot =
+                            isStoryboardGenerating && !isInsertStoryboardGenerating && generatingShotIndex === index;
+                          const isGeneratingInsertAfterSlot =
+                            isStoryboardGenerating &&
+                            storyboardGenerationState?.mode === "insert" &&
+                            storyboardGenerationState.afterIndex === index;
+                          const mediaAssets = getStoryboardMediaAssets(item, index);
+                          const mediaIndex = getActiveStoryboardMediaIndex(item, index);
+                          const cardPendingClipReviews = mediaAssets
+                            .map((media, mediaItemIndex) => ({ media, mediaIndex: mediaItemIndex }))
+                            .filter(({ media }) => isPendingStoryboardClipReviewMedia(media));
+                          const cardProgress =
+                            timelineItem && timelineItem.durationSeconds > 0 && previewCurrentTime >= timelineItem.startSeconds
+                              ? Math.min(
+                                  100,
+                                  ((Math.min(previewCurrentTime, timelineItem.endSeconds) - timelineItem.startSeconds) /
+                                    timelineItem.durationSeconds) *
+                                    100,
+                                )
+                              : 0;
+                          const mediaPreview =
+                            mediaAssets[mediaIndex]?.preview ||
+                            storyboardPreviewPool[index % storyboardPreviewPool.length] ||
+                            storyboardPreviewPool[0];
+
+                          return (
+                            <Fragment key={`storyboard-slot-${index}`}>
+                            <div className="h-[116px] w-[160px] shrink-0 min-w-0">
+                              {isEmpty ? (
+                                isDraftEmptySlot ? (
+                                  renderDraftTimelineCardBody()
+                                ) : (
+                                  <div
+                                  className={cn(
+                                    "group flex h-full w-full flex-col justify-between rounded-[8px] border border-dashed p-2 transition-all",
+                                    isGeneratingSlot
+                                      ? "cursor-wait border-[#cdbdff] bg-[#f8f5ff]"
+                                      : "border-[#d9cbff] bg-[#fbf9ff] hover:border-[#bfa7ff] hover:bg-white hover:shadow-[0_12px_22px_rgba(123,92,255,0.10)]",
+                                  )}
+                                >
+                                  {isGeneratingSlot ? (
+                                    <div className="flex h-full flex-col items-center justify-center">
+                                      <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+                                      <span className="mt-3 text-[12px] font-semibold text-[#5f46d6]">生成中</span>
+                                      <span className="mt-1 text-[10px] font-medium text-[#9aa2b2]">
+                                        {getStoryboardDisplayName(index)}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex h-full flex-col justify-between">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-[12px] font-semibold tracking-[0.04em] text-[#9aa2b2]">
+                                            {getStoryboardDisplayName(index)}
+                                          </div>
+                                          <div className="mt-1 truncate text-[14px] font-semibold text-[#3a5bfd]">
+                                            新增分镜
+                                          </div>
+                                        </div>
+                                        <div className="flex shrink-0 items-center">
+                                          <DisabledTooltip
+                                            disabled={isStoryboardGenerating || isComposerGenerating}
+                                            reason={storyboardBusyTooltip}
+                                            side="top"
+                                            align="end"
+                                            wrapperClassName="inline-flex"
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleDismissEmptyStoryboardSlot(index);
+                                              }}
+                                              disabled={isStoryboardGenerating || isComposerGenerating}
+                                              className="inline-flex h-7 items-center gap-1 rounded-[8px] border border-[#e7ebf4] bg-white px-2 text-[11px] font-medium text-[#7c8595] transition-all hover:border-[#ffd0d5] hover:bg-[#fff5f6] hover:text-[#e45b6b] disabled:cursor-not-allowed disabled:opacity-60"
+                                              aria-label={`取消${getStoryboardDisplayName(index)}空槽位`}
+                                              title={`取消${getStoryboardDisplayName(index)}空槽位`}
+                                            >
+                                              <X className="h-3.5 w-3.5" />
+                                              取消
+                                            </button>
+                                          </DisabledTooltip>
+                                        </div>
+                                      </div>
+                                      <div
+                                        ref={(node) => {
+                                          if (node) {
+                                            storyboardSlotAddTriggerRefs.current[index] = node;
+                                          } else {
+                                            delete storyboardSlotAddTriggerRefs.current[index];
+                                          }
+                                        }}
+                                        className="relative"
+                                      >
+                                        <DisabledTooltip
+                                          disabled={isStoryboardGenerating || isComposerGenerating}
+                                          reason={storyboardBusyTooltip}
+                                          side="top"
+                                          align="center"
+                                          wrapperClassName="flex w-full"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (isStoryboardGenerating || isComposerGenerating) return;
+                                              openStoryboardSlotComposer(index, {
+                                                sourceElement: storyboardSlotAddTriggerRefs.current[index],
+                                              });
+                                            }}
+                                            disabled={isStoryboardGenerating || isComposerGenerating}
+                                            className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] border border-[#dbe5ff] bg-white px-3 text-[12px] font-medium text-[#3a5bfd] transition-all hover:border-[#b9c8ff] disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                            新增分镜
+                                          </button>
+                                        </DisabledTooltip>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                )
+                              ) : (
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  if (isStoryboardGenerating) return;
+                                  setActiveStoryboard(index);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter" && event.key !== " ") return;
+                                  event.preventDefault();
+                                  if (isStoryboardGenerating) return;
+                                  setActiveStoryboard(index);
+                                }}
+                                className={cn(
+                                  "group relative flex h-full w-full flex-col rounded-[8px] border bg-white p-1 text-left transition-all",
+		                                  isSelected
+		                                    ? "border-[#3a5bfd]"
+		                                    : "border-transparent hover:border-[#dbe5ff]",
+                                )}
+                              >
+                                <div className="relative min-h-0 flex-1 overflow-hidden rounded-[6px] bg-[#eff3f9]">
+                                  <img
+                                    src={mediaPreview}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                  {cardPendingClipReviews.length ? (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        const nextReview = cardPendingClipReviews[0];
+                                        selectStoryboardMediaVariant(index, nextReview.mediaIndex);
+                                        openStoryboardReplaceVideoLibrary(index, nextReview.mediaIndex);
+                                      }}
+                                      className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#fff8ec] px-2 py-1 text-[10px] font-bold text-[#c97816] shadow-[0_6px_12px_rgba(10,16,28,0.12)]"
+                                      aria-label={`${getStoryboardDisplayName(index)}有 ${cardPendingClipReviews.length} 个素材待确认节选`}
+                                      title={`${getStoryboardDisplayName(index)} · ${cardPendingClipReviews.length} 个素材待确认节选`}
+                                    >
+                                      <AlertCircle className="h-3 w-3" />
+                                      待确认 {cardPendingClipReviews.length}
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteStoryboardSlot(index);
+                                    }}
+                                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(12,18,30,0.72)] text-white opacity-0 shadow-[0_8px_16px_rgba(10,16,28,0.2)] transition-all hover:bg-[rgba(12,18,30,0.9)] group-hover:opacity-100 group-focus-within:opacity-100"
+                                    aria-label={`删除${getStoryboardDisplayName(index)}`}
+                                    title={`删除${getStoryboardDisplayName(index)}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <div className="absolute bottom-2 left-2 flex items-center gap-1">
+                                    {mediaAssets.map((media, mediaItemIndex) => {
+                                      const activeMedia = mediaItemIndex === mediaIndex;
+                                      return (
+                                        <button
+                                          key={`${media.id}-dot-${mediaItemIndex}`}
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            selectStoryboardMediaVariant(index, mediaItemIndex);
+                                          }}
+                                          className={cn(
+	                                            "flex h-5 min-w-5 items-center justify-center rounded-[4px] px-1.5 text-[10px] font-semibold shadow-[0_6px_12px_rgba(10,16,28,0.14)] transition-all",
+	                                            activeMedia
+	                                              ? "bg-white text-[#202634]"
+	                                              : "bg-[rgba(12,18,30,0.58)] text-white/86 hover:bg-[rgba(12,18,30,0.78)]",
+                                          )}
+                                          aria-label={`查看素材${getStoryboardMediaLabel(mediaItemIndex)}`}
+                                          title={`素材${getStoryboardMediaLabel(mediaItemIndex)} · ${media.name}`}
+                                        >
+                                          {getStoryboardMediaLabel(mediaItemIndex)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {mediaAssets.length > 1 ? (
+	                                    <div className="absolute bottom-2 right-2 rounded-[4px] bg-white/92 px-2 py-1 text-[10px] font-medium text-[#44516b] shadow-[0_6px_12px_rgba(10,16,28,0.14)]">
+                                      {mediaAssets.length} 个素材
+                                    </div>
+                                  ) : null}
+                                  <div className="absolute inset-x-0 bottom-0 h-1 bg-white/30">
+                                    <div
+                                      className={cn(
+                                        "h-full rounded-full transition-all",
+	                                        isSelected
+	                                          ? "bg-[linear-gradient(90deg,#53d4d8_0%,#8eb5ff_100%)]"
+	                                          : isPreviewing
+                                            ? "bg-[linear-gradient(90deg,#41c7cf_0%,#53d4d8_100%)]"
+                                            : "bg-[linear-gradient(90deg,#cad4e6_0%,#bac7dc_100%)]",
+                                      )}
+                                      style={{ width: `${cardProgress}%` }}
+                                    />
+                                  </div>
+                                  {isGeneratingSlot ? (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-[rgba(10,16,28,0.34)] backdrop-blur-[4px]">
+                                      <div className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1.5 text-[11px] font-semibold text-[#5f46d6]">
+                                        <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                                        生成中，暂不可预览
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="flex h-6 items-center justify-between gap-2 px-0.5 pt-1">
+                                  <div className="min-w-0 truncate text-[12px] font-semibold text-[#44516b]">
+                                    {getStoryboardDisplayName(index)}
+                                  </div>
+                                  <div className="shrink-0 text-[11px] font-semibold text-[#9aa2b2]">
+                                    {formatPreviewClock(timelineItem?.durationSeconds || 0)}
+                                  </div>
+                                </div>
+                              </div>
+                              )}
+                            </div>
+                            {isStoryboardDraftPreview &&
+                            isDraftInsertTarget &&
+                            storyboardLibraryScriptTarget.afterIndex === index ? (
+                              <div className="h-[116px] w-[160px] shrink-0 min-w-0">
+                                {renderDraftTimelineCardBody()}
+                              </div>
+                            ) : null}
+                            {index < storyboardSlots.length - 1 &&
+                            !(isStoryboardDraftPreview && isDraftInsertTarget && storyboardLibraryScriptTarget.afterIndex === index) ? (
+                              <div
+                                ref={(node) => {
+                                  if (node) {
+                                    storyboardInsertTriggerRefs.current[index] = node;
+                                  } else {
+                                    delete storyboardInsertTriggerRefs.current[index];
+                                  }
+                                }}
+                                className="group/insert relative flex h-[116px] w-6 shrink-0 items-center justify-center"
+                              >
+                                {isGeneratingInsertAfterSlot ? (
+                                  <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex h-9 w-[108px] -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2 rounded-full border border-[#dbe5ff] bg-white text-[12px] font-semibold text-[#5f46d6] shadow-[0_14px_28px_rgba(90,112,160,0.16)]">
+                                    <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
+                                    正在添加
+                                  </div>
+                                ) : (
+                                  <>
+                                    <DisabledTooltip
+                                      disabled={isStoryboardGenerating || isComposerGenerating}
+                                      reason={storyboardBusyTooltip}
+                                      side="top"
+                                      align="center"
+                                      wrapperClassName="inline-flex"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInsertStoryboardSlotAfter(index)}
+                                        disabled={isStoryboardGenerating || isComposerGenerating}
+                                        className={cn(
+                                          "flex h-8 w-8 items-center justify-center rounded-full border border-[#dfe6f2] bg-white text-[#7b5cff] shadow-[0_10px_20px_rgba(90,112,160,0.12)] transition-all hover:border-[#cdbdff] hover:bg-[#f8f5ff] hover:shadow-[0_14px_24px_rgba(123,92,255,0.16)] focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-30",
+                                          storyboardInsertMenuTarget === index ? "opacity-100" : "opacity-0 group-hover/insert:opacity-100",
+                                        )}
+                                        aria-label={`在${getStoryboardDisplayName(index)}后新增分镜`}
+                                        title={`在${getStoryboardDisplayName(index)}后新增分镜`}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    </DisabledTooltip>
+                                  </>
+                                )}
+                              </div>
+                            ) : null}
+                            </Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {renderStepFooter()}
+        </div>
+      );
+    })()
+  );
+
+	  const renderStep4 = () => {
+    const currentStoryboard = outlines[previewStoryboardIndex] || outlines[firstValidStoryboardIndex] || defaultAgentOutlines[0];
+    const currentTimelineItem =
+      storyboardTimeline[previewStoryboardIndex] || activeStoryboardTimeline[0] || storyboardTimeline[0];
+    const currentStoryboardMediaAssets = getStoryboardMediaAssets(currentStoryboard, previewStoryboardIndex);
+    const currentStoryboardMediaIndex =
+      finalCombinationMediaIndexMap[previewStoryboardIndex] ??
+      getActiveStoryboardMediaIndex(currentStoryboard, previewStoryboardIndex);
+    const currentStoryboardMedia =
+      currentStoryboardMediaAssets[currentStoryboardMediaIndex] ||
+      getActiveStoryboardMediaAsset(currentStoryboard, previewStoryboardIndex);
+    const currentStoryboardMediaContent = getStoryboardMediaContent(
+      currentStoryboard,
+      previewStoryboardIndex,
+      currentStoryboardMediaIndex,
+    );
+    const currentPreview =
+      currentStoryboardMedia?.preview ||
+      storyboardPreviewPool[previewStoryboardIndex % storyboardPreviewPool.length] ||
+      storyboardPreviewPool[0];
+    const currentVideoSrc = currentStoryboardMedia?.rawName ? currentPreview : demoVideoUrl;
+    const isCurrentPreviewImageAsset = currentStoryboardMedia?.assetType === "image";
+    const currentPipCharacter =
+      characters[getStoryboardPictureInPictureCharacterIndex(currentStoryboard, currentStoryboardMediaContent)] || null;
+    const currentPipStyle = getPictureInPictureOverlayStyle(currentStoryboard?.pictureInPicturePosition);
+    const currentLogoStyle = getBrandLogoOverlayStyle(currentStoryboard?.brandLogoPosition);
+    const currentPromptStyle = getPromptTextOverlayStyle(currentStoryboard?.promptTextPosition);
+    const currentPromptText = normalizeMentionText(currentStoryboard?.promptText || "", { keepAt: false }).trim();
+    const currentStoryboardName = getStoryboardDisplayName(previewStoryboardIndex);
+    const shotElapsed = currentTimelineItem
+      ? Math.max(0, previewCurrentTime - currentTimelineItem.startSeconds)
+      : 0;
+    const currentClipStartSeconds = Number(currentStoryboardMedia?.clipStartSeconds) || 0;
+    const shotProgress = currentTimelineItem
+      ? Math.min(100, (shotElapsed / currentTimelineItem.durationSeconds) * 100)
+      : 0;
+    const totalProgress = totalStoryboardDuration
+      ? Math.min(100, (previewCurrentTime / totalStoryboardDuration) * 100)
+      : 0;
+    const selectedMusicLabel =
+      currentFinalMusic && currentFinalMusic.id !== "none" ? currentFinalMusic.title : "关闭背景音乐";
+    const finalSettingCardClass =
+      "flex h-[60px] min-w-0 items-center gap-3 rounded-[8px] bg-[#f6f7f9] p-3 text-left transition-all hover:bg-[#eef2ff] disabled:cursor-not-allowed disabled:opacity-60";
+    const finalSettingIconClass =
+      "flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-white text-black";
+    const renderFinalSettingCard = ({
+      title,
+      detail,
+      icon,
+      onClick,
+      disabled = false,
+      ariaLabel,
+      pressed,
+      trailing = null,
+    }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={ariaLabel || title}
+        aria-pressed={typeof pressed === "boolean" ? pressed : undefined}
+        className={finalSettingCardClass}
+      >
+        <span className={finalSettingIconClass}>{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12px] font-semibold leading-4 text-black">{title}</span>
+          <span className="mt-1 block truncate text-[12px] font-normal leading-4 text-[#686e7a]">{detail}</span>
+        </span>
+        {trailing}
+      </button>
+    );
+    const stepFinalCombination = (direction) => {
+      const total = Math.max(storyboardCombinationCount, 1);
+      setActiveFinalCombinationIndex((prev) => (prev + direction + total) % total);
+      setPreviewCurrentTime(0);
+      setPreviewPlayback({ isPlaying: false, mode: "sequence", shotIndex: null });
+	    };
+	
+	    return (
+	      <div className="flex h-full min-h-0 flex-col bg-white">
+	        <div
+	          ref={(node) => {
+	            rightUpdateTargetRefs.current.final = node;
+	          }}
+	          className={cn(
+	            "min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-4 transition-all scrollbar-hide",
+	            isRightUpdateHighlighted("final") && rightUpdateHighlightClass,
+	          )}
+	        >
+	          <div className="mx-auto w-full max-w-[802px]">
+	            <div className="mb-3 flex h-6 items-center justify-between gap-3">
+	              <div className="text-[14px] font-semibold leading-5 text-black">实时预览</div>
+	              <div className="flex h-8 shrink-0 items-center rounded-[8px] bg-[#f6f7f9] px-1 text-[12px] font-medium text-[#1f2430]">
+	                <button
+	                  type="button"
+	                  onClick={() => stepFinalCombination(-1)}
+	                  disabled={storyboardCombinationCount <= 1}
+	                  className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[#8b94a5] transition-all hover:bg-white disabled:opacity-40"
+	                  aria-label="查看上一条组合成片"
+	                  title="上一条"
+	                >
+	                  <ChevronLeft className="h-3.5 w-3.5" />
+	                </button>
+	                <span className="min-w-[58px] text-center">
+	                  组合{safeFinalCombinationIndex + 1}/{storyboardCombinationCount}
+	                </span>
+	                <button
+	                  type="button"
+	                  onClick={() => stepFinalCombination(1)}
+	                  disabled={storyboardCombinationCount <= 1}
+	                  className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[#8b94a5] transition-all hover:bg-white disabled:opacity-40"
+	                  aria-label="查看下一条组合成片"
+	                  title="下一条"
+	                >
+	                  <ChevronRight className="h-3.5 w-3.5" />
+	                </button>
+	              </div>
+	            </div>
+	
+	            <div className="rounded-[8px] bg-[#f6f7f9] p-4">
+	              <div
+	                ref={previewCanvasRef}
+	                className={cn(
+	                  "relative aspect-[16/9] overflow-hidden rounded-[6px] bg-[#101828]",
+	                  isPipDragging && "select-none",
+	                )}
+	              >
+	                {previewVideoFailed || isCurrentPreviewImageAsset ? (
+	                  <img src={currentPreview} alt="" className="h-full w-full object-cover" />
+	                ) : (
+	                  <video
+	                    ref={previewVideoRef}
+	                    src={currentVideoSrc}
+	                    poster={currentPreview}
+	                    muted
+	                    playsInline
+	                    preload="auto"
+	                    className="h-full w-full object-cover"
+	                    onLoadedMetadata={() => {
+	                      const video = previewVideoRef.current;
+	                      if (!video) return;
+	                      const safeTarget = Math.min(currentClipStartSeconds + shotElapsed, Math.max(video.duration - 0.12, 0));
+	                      video.currentTime = Number.isFinite(safeTarget) ? safeTarget : 0;
+	                    }}
+	                    onError={() => setPreviewVideoFailed(true)}
+	                  />
+	                )}
+	                <div className="absolute left-2 top-2 rounded-[4px] bg-[rgba(15,23,42,0.70)] px-2 py-1 text-[12px] font-medium leading-4 text-white">
+	                  成片{safeFinalCombinationIndex + 1}
+	                </div>
+	                {currentStoryboard?.brandLogo ? (
+	                  <div
+	                    style={currentLogoStyle}
+	                    className="group/logo absolute flex h-9 w-11 cursor-grab items-center justify-center rounded-[8px] bg-white/92 p-1 shadow-[0_8px_18px_rgba(10,16,28,0.16)] backdrop-blur-[6px] active:cursor-grabbing"
+	                    onPointerDown={(event) => beginBrandLogoDrag(event, previewStoryboardIndex)}
+	                    title={`拖拽调整${currentStoryboardName} Logo 位置`}
+	                  >
+	                    <img src={currentStoryboard.brandLogo} alt="品牌logo" className="h-full w-full object-contain" />
+	                    <button
+	                      type="button"
+	                      onPointerDown={(event) => event.stopPropagation()}
+	                      onClick={(event) => {
+	                        event.stopPropagation();
+	                        handleClosePreviewBrandLogo(previewStoryboardIndex);
+	                      }}
+	                      className="pointer-events-none absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border border-white/35 bg-[rgba(10,16,28,0.78)] text-white opacity-0 shadow-[0_8px_16px_rgba(10,16,28,0.22)] transition-all hover:bg-[rgba(10,16,28,0.92)] group-hover/logo:pointer-events-auto group-hover/logo:opacity-100 group-focus-within/logo:pointer-events-auto group-focus-within/logo:opacity-100"
+	                      aria-label={`关闭${currentStoryboardName} Logo`}
+	                      title="关闭 Logo"
+	                    >
+	                      <X className="h-3 w-3" />
+	                    </button>
+	                  </div>
+	                ) : null}
+	                {currentPromptText ? (
+	                  <div
+	                    className="pointer-events-none absolute max-w-[78%] whitespace-pre-wrap break-words text-center"
+	                    style={{
+	                      ...currentPromptStyle,
+	                      ...getPromptTextRenderStyle(currentStoryboard?.promptSettings, 0.22),
+	                    }}
+	                  >
+	                    {currentPromptText}
+	                  </div>
+	                ) : null}
+	                {currentStoryboard?.pictureInPictureEnabled && currentPipCharacter ? (
+	                  <div
+	                    style={currentPipStyle}
+	                    className="group/pip absolute cursor-grab rounded-[12px] border border-white/28 bg-[rgba(12,18,30,0.30)] p-1.5 text-white backdrop-blur-[8px] shadow-[0_12px_24px_rgba(10,16,28,0.18)] active:cursor-grabbing"
+	                    onPointerDown={(event) => beginPictureInPictureDrag(event, previewStoryboardIndex)}
+	                    title={`拖拽调整${currentStoryboardName}画中画位置`}
+	                  >
+	                    <img
+	                      src={currentPipCharacter.avatar}
+	                      alt={currentPipCharacter.name}
+	                      className="h-12 w-12 rounded-[8px] object-cover"
+	                    />
+	                    <button
+	                      type="button"
+	                      onPointerDown={(event) => event.stopPropagation()}
+	                      onClick={(event) => {
+	                        event.stopPropagation();
+	                        handleClosePreviewPictureInPicture(previewStoryboardIndex);
+	                      }}
+	                      className="pointer-events-none absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border border-white/35 bg-[rgba(10,16,28,0.78)] text-white opacity-0 shadow-[0_8px_16px_rgba(10,16,28,0.22)] transition-all hover:bg-[rgba(10,16,28,0.92)] group-hover/pip:pointer-events-auto group-hover/pip:opacity-100 group-focus-within/pip:pointer-events-auto group-focus-within/pip:opacity-100"
+	                      aria-label={`关闭${currentStoryboardName}画中画`}
+	                      title="关闭画中画"
+	                    >
+	                      <X className="h-3 w-3" />
+	                    </button>
+	                  </div>
+	                ) : null}
+	                {currentFinalSettings.subtitleSettings.enabled && currentStoryboardMediaContent.subtitle ? (
+	                  <div className="absolute inset-x-8 bottom-8 rounded-full bg-[rgba(10,16,28,0.58)] px-4 py-2 text-center text-[11px] font-medium text-white backdrop-blur-[6px]">
+	                    {normalizeMentionText(currentStoryboardMediaContent.subtitle, {
+	                      keepAt: false,
+	                    })}
+	                  </div>
+	                ) : null}
+	              </div>
+	
+	              <div className="mt-3 flex h-10 items-center gap-3 rounded-[6px] bg-white px-3">
+	                <button
+	                  type="button"
+	                  onClick={toggleSequencePlayback}
+	                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f6f7f9] text-black transition-all hover:bg-[#edf1f7]"
+	                  aria-label={previewPlayback.isPlaying && previewPlayback.mode === "sequence" ? "暂停整段预览" : "播放整段预览"}
+	                >
+	                  {previewPlayback.isPlaying && previewPlayback.mode === "sequence" ? (
+	                    <Pause className="h-3.5 w-3.5 fill-black text-black" />
+	                  ) : (
+	                    <Play className="h-3.5 w-3.5 fill-black text-black" />
+	                  )}
+	                </button>
+	                <div className="shrink-0 text-[12px] font-normal leading-4 text-[#848b99]">
+	                  {formatPreviewClock(previewCurrentTime)} / {formatPreviewClock(totalStoryboardDuration)}
+	                </div>
+	                <button
+	                  type="button"
+	                  onClick={handlePreviewRailSeek}
+	                  className="relative h-5 min-w-0 flex-1"
+	                  aria-label="定位整条视频播放位置"
+	                >
+	                  <span className="absolute inset-x-0 top-[9px] h-[3px] rounded-full bg-[#e6ebf4]" />
+	                  <span
+	                    className="absolute left-0 top-[9px] h-[3px] rounded-full bg-[#8facff]"
+	                    style={{ width: `${totalProgress}%` }}
+	                  />
+	                  <span
+	                    className="absolute top-[6px] h-[9px] w-[9px] -translate-x-1/2 rounded-full bg-[#3a5bfd]"
+	                    style={{ left: `${totalProgress}%` }}
+	                  />
+	                </button>
+	              </div>
+	            </div>
+	
+	            <div className="mt-5 text-[14px] font-semibold leading-5 text-black">成片设置</div>
+	            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(136px,1fr))] gap-3">
+	              {renderFinalSettingCard({
+	                title: "字幕",
+	                detail: currentFinalSettings.subtitleSettings.enabled
+	                  ? `字号${Math.max(12, Math.round((currentFinalSettings.subtitleSettings.size || 80) * 0.175))}px`
+	                  : "已关闭",
+	                icon: <span className="text-[13px] font-bold leading-none">T</span>,
+	                onClick: () => setSubtitleModalOpen(true),
+	                ariaLabel: "配置字幕",
+	              })}
+	              {renderFinalSettingCard({
+	                title: "音乐",
+	                detail: selectedMusicLabel,
+	                icon: <Music2 className="h-4 w-4" strokeWidth={2} />,
+	                onClick: () => setMusicModalOpen(true),
+	                ariaLabel: "配置音乐",
+	              })}
+	              {renderFinalSettingCard({
+	                title: "提示语",
+	                detail: currentPromptText || "待添加",
+	                icon: <FileText className="h-4 w-4" strokeWidth={2} />,
+	                onClick: () => openPromptEditorForStoryboard(previewStoryboardIndex),
+	                disabled: isStoryboardGenerating,
+	                ariaLabel: `编辑${currentStoryboardName}提示语`,
+	              })}
+	              {renderFinalSettingCard({
+	                title: "LOGO",
+	                detail: currentStoryboard?.brandLogo ? "已添加" : "待添加",
+	                icon: <ImageIcon className="h-4 w-4" strokeWidth={2} />,
+	                onClick: () => openLogoPickerForStoryboard(previewStoryboardIndex),
+	                disabled: isStoryboardGenerating,
+	                ariaLabel: `${currentStoryboard?.brandLogo ? "更换" : "添加"}${currentStoryboardName}Logo`,
+	              })}
+	              {renderFinalSettingCard({
+	                title: "画中画",
+	                detail: currentStoryboard?.pictureInPictureEnabled ? "开启" : "关闭",
+	                icon: <MonitorSmartphone className="h-4 w-4" strokeWidth={2} />,
+	                onClick: () => toggleStoryboardPictureInPictureAt(previewStoryboardIndex),
+	                disabled: isStoryboardGenerating,
+	                pressed: Boolean(currentStoryboard?.pictureInPictureEnabled),
+	                ariaLabel: `${currentStoryboard?.pictureInPictureEnabled ? "关闭" : "开启"}${currentStoryboardName}画中画`,
+	                trailing: (
+	                  <span
+	                    className={cn(
+	                      "relative flex h-5 w-9 shrink-0 items-center rounded-full transition-all",
+	                      currentStoryboard?.pictureInPictureEnabled ? "bg-[#3a5bfd]" : "bg-[#d6dde9]",
+	                    )}
+	                  >
+	                    <span
+	                      className={cn(
+	                        "absolute h-4 w-4 rounded-full bg-white shadow-[0_2px_6px_rgba(33,42,61,0.16)] transition-all",
+	                        currentStoryboard?.pictureInPictureEnabled ? "right-0.5" : "left-0.5",
+	                      )}
+	                    />
+	                  </span>
+	                ),
+	              })}
+	            </div>
+	          </div>
+	        </div>
+	        {renderStepFooter()}
+	      </div>
+	    );
+	  };
+
+  const renderHistoryVersionPreview = () => {
+    const snapshot = historyVersionPreview?.snapshot;
+    if (!snapshot) return null;
+
+    const assetList = snapshot.assets || [];
+
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="border-b border-[#e0e8f5] bg-[#fbfcff] px-6 py-3">
+          <div className="flex min-h-10 items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e4e9f2] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#6f7888]">
+                <FileText className="h-3.5 w-3.5" />
+                历史版本
+              </span>
+              <span className="inline-flex shrink-0 rounded-full border border-[#e8edf5] bg-[#f6f7f9] px-2.5 py-1 text-[11px] font-semibold text-[#8a93a6]">
+                只读
+              </span>
+              {historyVersionPreview.createdAt ? (
+                <span className="shrink-0 text-[12px] font-medium text-[#8a93a6]">
+                  {formatHistoryVersionTime(historyVersionPreview.createdAt)}
+                </span>
+              ) : null}
+              <span className="min-w-0 truncate text-[16px] font-semibold text-[#202634]">
+                {snapshot.stepTitle} · 更改前数据
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={closeHistoryVersionPreview}
+              className="inline-flex h-9 shrink-0 items-center rounded-[10px] border border-[#dfe6f2] bg-white px-4 text-[13px] font-semibold text-[#556070] transition-colors hover:border-[#c9d4e6] hover:bg-[#f8fafc]"
+            >
+              退出查看
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 scrollbar-hide">
+          <div className="mx-auto w-full max-w-[980px] space-y-4">
+            {(snapshot.sections || []).map((section) => (
+              <section key={section.title} className="rounded-[14px] border border-[#e6ecf5] bg-white p-3.5">
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <div className="text-[15px] font-semibold leading-5 text-black">{section.title}</div>
+                  <button
+                    type="button"
+                    onClick={() => copyHistoryModule(section.title, formatHistorySectionText(section))}
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border border-[#dfe6f2] bg-white px-3 text-[12px] font-semibold text-[#556070] transition-colors hover:border-[#c9d4e6] hover:bg-[#f8fafc]"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    复制
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {(section.rows || []).map((row, index) => (
+                    <div
+                      key={`${section.title}-${row.label}-${index}`}
+                      className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 rounded-[8px] bg-[#f7f9fc] px-3 py-2 text-[13px] leading-5"
+                    >
+                      <div className="truncate font-semibold text-[#7a8496]">{row.label}</div>
+                      <div className="whitespace-pre-wrap break-words text-[#202634]">{row.value || "暂无"}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {assetList.length ? (
+              <section className="rounded-[14px] border border-[#e6ecf5] bg-white p-3.5">
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="text-[15px] font-semibold leading-5 text-black">历史素材</div>
+                    <div className="text-[12px] font-medium text-[#8a93a6]">{assetList.length} 个</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => downloadHistoryAssets(assetList)}
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border border-[#dfe6f2] bg-white px-3 text-[12px] font-semibold text-[#556070] transition-colors hover:border-[#c9d4e6] hover:bg-[#f8fafc]"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    下载全部素材
+                  </button>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-3">
+                  {assetList.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="group relative overflow-hidden rounded-[12px] border border-[#e8edf5] bg-[#f7f9fc]"
+                    >
+                      <div className="aspect-[16/10] overflow-hidden bg-[#edf2f8]">
+                        {asset.preview ? (
+                          <img src={asset.preview} alt={asset.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[#9aa4b5]">
+                            <ImageIcon className="h-6 w-6" />
+                          </div>
+                        )}
+                      </div>
+                      {asset.preview ? (
+                        <div className="pointer-events-none absolute inset-x-2 top-2 flex justify-end opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                          <a
+                            href={asset.preview}
+                            download={asset.name}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-[9px] bg-white/92 text-[#3a5bfd] shadow-[0_8px_18px_rgba(15,23,42,0.16)] backdrop-blur"
+                            title="下载素材"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </div>
+                      ) : null}
+                      <div className="px-3 py-2">
+                        <div className="truncate text-[13px] font-semibold text-[#202634]">{asset.name}</div>
+                        <div className="mt-0.5 truncate text-[12px] text-[#8a93a6]">{asset.meta || "历史素材"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const compactAgentTitle = summarizeCreativeTheme(
+    theme || businessInfo.businessPoint || businessInfo.triggerPrompt || job.prompt,
+  );
+  const useSingleWorkspaceLayout = !showChatComposer;
+  const isGeneratingStep = Boolean(stepGenerationState);
+  const visualStep = stepGenerationState?.targetStep ?? historyVersionPreview?.step ?? currentStep;
+  const conversationMessages = getVisibleAgentMessages(job.agentMessages);
+  const latestStepNodeIndexByStep = useMemo(() => {
+    const result = {};
+    conversationMessages.forEach((message, index) => {
+      const kind = getAgentMessageKind(message);
+      if (kind === "handoff" && message.display === "card" && typeof message.step === "number") {
+        result[message.step] = index;
+      }
+    });
+    return result;
+  }, [conversationMessages]);
+  const handoffCardVersionByIndex = useMemo(() => {
+    const countsByStep = {};
+    const result = {};
+    conversationMessages.forEach((message, index) => {
+      const kind = getAgentMessageKind(message);
+      if (kind !== "handoff" || message.display !== "card" || typeof message.step !== "number") return;
+      countsByStep[message.step] = (countsByStep[message.step] || 0) + 1;
+      result[index] = countsByStep[message.step];
+    });
+    return result;
+  }, [conversationMessages]);
+  const shouldShowIntroEmptyState = conversationMessages.length === 0;
+  const deepChatRailWidthClass = "deep-chat-rail";
+  const deepSplitActive = Boolean(deepSplitHoverSource) || isDeepSplitDragging;
+  const deepSplitAriaBounds = getDeepModeSplitBounds(
+    deepModeShellRef.current?.getBoundingClientRect().width ||
+      (typeof window !== "undefined" ? getDeepModeInitialShellWidth() : DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH),
+  );
+  const storyboardSplitActive = Boolean(storyboardSplitHoverSource) || isStoryboardSplitDragging;
+  const storyboardSplitAriaBounds = getStoryboardSplitBounds(
+    storyboardSplitGridRef.current?.getBoundingClientRect().width ||
+      deepModeShellRef.current?.getBoundingClientRect().width ||
+      (typeof window !== "undefined" ? window.innerWidth : 900),
+  );
+  const conversationCardWidthClass = "w-full max-w-[490px]";
+  const buildAnalysisPlainText = (message) => {
+    const lines = [];
+    const lead = message.analysisLead?.trim();
+    const summary = (message.analysisSummary || message.content || "").trim();
+
+    if (lead) {
+      lines.push(lead, "");
+    }
+
+    if (summary) {
+      lines.push("意图分析", summary, "");
+    }
+
+    if (message.highlights?.length) {
+      message.highlights.forEach((item) => {
+        lines.push(`${item.label}：${item.value}`);
+      });
+      lines.push("");
+    }
+
+    if (message.steps?.length) {
+      lines.push("任务规划");
+      message.steps.forEach((item, stepIndex) => {
+        lines.push(`${stepIndex + 1}. ${item.title}`);
+        if (item.detail) lines.push(item.detail);
+      });
+      lines.push("");
+    }
+
+    lines.push("以上为 Agent 本轮思考过程，可收起后继续查看结果。");
+
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  };
+  const workspaceHeaderPaddingClass = useSingleWorkspaceLayout ? "px-10 2xl:px-12" : "px-6";
+	  const isCreativeCollectVisualStep = !stepGenerationState && currentStep === 1;
+	  const isCreativePlanVisualStep = !stepGenerationState && currentStep === 2;
+	  const isStoryboardVisualStep = !stepGenerationState && currentStep === 3;
+	  const isFinalSettingsVisualStep = !stepGenerationState && currentStep === 4;
+	  const isCompactFigmaVisualStep =
+	    isCreativeCollectVisualStep || isCreativePlanVisualStep || isStoryboardVisualStep || isFinalSettingsVisualStep;
+  const workspaceScrollClass = isCompactFigmaVisualStep
+    ? "deep-workspace-scroll deep-workspace-scroll-compact h-[calc(100%-64px)] overflow-hidden p-0"
+    : "deep-workspace-scroll h-[calc(100%-64px)] overflow-y-auto px-7 py-6 max-[1500px]:px-4 max-[1500px]:py-5";
+	  const workspaceContentWidthClass = isCompactFigmaVisualStep
+	    ? "flex h-full min-h-0 w-full flex-col"
+	    : cn("mx-auto w-full", useSingleWorkspaceLayout ? "max-w-[1480px]" : "max-w-[1460px]");
+  const getVideoLibraryTargetDurationSeconds = () => {
+    if (!videoLibraryTarget || videoLibraryTarget.mode === "reference") return 6;
+    if (videoLibraryTarget.pendingScript) {
+      return (
+        videoLibraryTarget.scriptDurationSeconds ||
+        estimateStoryboardVoiceScriptDurationSeconds(videoLibraryTarget.pendingScript, 6)
+      );
+    }
+    if (videoLibraryTarget.mode === "insert") return 6;
+    return (
+      getStoryboardDurationSeconds(
+        outlines[videoLibraryTarget.index],
+        6,
+        videoLibraryTarget.index,
+        Number.isInteger(videoLibraryTarget.mediaIndex) ? videoLibraryTarget.mediaIndex : undefined,
+      ) || 6
+    );
+  };
+  const getImageLibraryTargetDurationSeconds = () => {
+    if (!imageLibraryTarget?.pendingScript) return null;
+    return (
+      imageLibraryTarget.scriptDurationSeconds ||
+      estimateStoryboardVoiceScriptDurationSeconds(imageLibraryTarget.pendingScript, 3)
+    );
+  };
+  return (
+    <div
+      ref={deepModeShellRef}
+      className={cn(
+        "deep-mode-shell flex h-full overflow-hidden bg-white",
+        (isDeepSplitDragging || isStoryboardSplitDragging) && "deep-split-resizing",
+      )}
+    >
+      {renderComposerImportCue()}
+      {renderRightUpdateCue()}
+      <AnimatePresence initial={false}>
+        {showChatComposer ? (
+          <motion.div
+            key="deep-chat-rail"
+            initial={{ x: -36, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -36, opacity: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+            style={{ "--deep-chat-rail-width": `${Math.round(deepChatRailWidth)}px` }}
+            className={cn(
+              "flex h-full shrink-0 flex-col bg-white",
+              deepChatRailWidthClass,
+            )}
+          >
+            <div className="flex h-[68px] items-center bg-white px-6 max-[1180px]:px-5">
+              <div className="mr-3 h-1 w-1 rounded-full bg-[#3a5bfd]" />
+              <span className="deep-chat-title truncate text-[16px] font-medium text-black">
+                正在进行「{compactAgentTitle}」深度编排
+              </span>
+            </div>
+
+            <div ref={conversationScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-0 max-[1180px]:px-5">
+              <div className="mb-8 space-y-4">
+              {shouldShowIntroEmptyState ? (
+                <div className="flex w-full justify-start">
+                  <AgentIntroEmptyState mode={currentStep <= 1 ? "collect" : "plan"} />
+                </div>
+              ) : null}
+              {conversationMessages.map((message, index) => {
+                const kind = getAgentMessageKind(message);
+                const isUser = kind === "user";
+                const isReply = kind === "reply";
+                const isEvent = kind === "event";
+                const isHandoff = kind === "handoff";
+                const isHandoffCard = isHandoff && message.display === "card";
+                const isAnalysis = kind === "analysis";
+                const isFailure = kind === "failure";
+                const isGuidance = kind === "guidance";
+                const isCollapsed = message.analysisId
+                  ? (collapsedAnalysisCards[message.analysisId] ?? true)
+                  : false;
+                const isHistoricalStepCard =
+                  isHandoffCard &&
+                  typeof message.step === "number" &&
+                  latestStepNodeIndexByStep[message.step] !== undefined &&
+                  latestStepNodeIndexByStep[message.step] !== index;
+                const isStaleDownstreamStepCard =
+                  isHandoffCard &&
+                  typeof message.step === "number" &&
+                  message.step > maxStepReached;
+                const isReadOnlyStepCard = isHistoricalStepCard || isStaleDownstreamStepCard;
+                const eventMeta = isEvent ? getCreationRecordSourceMeta(message.recordSource) : null;
+                const eventTitle = message.recordTitle || message.content;
+                const eventDescription = message.recordDescription || "";
+                const eventStepLabel =
+                  message.recordStep && (message.recordStepTitle || stepTitleMap[message.recordStep])
+                    ? `第 ${message.recordStep} 步 · ${message.recordStepTitle || stepTitleMap[message.recordStep]}`
+                    : "";
+                const handoffDetail = isHandoff ? splitHandoffDetail(message.focusDetail) : { label: "", content: "" };
+                const handoffCardVersion = isHandoffCard ? handoffCardVersionByIndex[index] || 1 : 1;
+                const handoffStepTitle =
+                  isHandoffCard && typeof message.step === "number" ? stepTitleMap[message.step] : "";
+                const handoffCardTitle = handoffStepTitle
+                  ? `${handoffStepTitle}${handoffCardVersion > 1 ? `版本${handoffCardVersion}` : ""}已生成`
+                  : message.title || message.content;
+
+                return (
+                  <div
+                    key={`${message.role}-${kind}-${index}`}
+                    className={cn(
+                      "w-full",
+                      isUser && "flex justify-end",
+                      isReply && "flex justify-start",
+                      isEvent && "flex justify-start",
+                      isFailure && "flex justify-start",
+                    )}
+                  >
+                    {isEvent ? (
+                      <div className={conversationCardWidthClass}>
+                        <div
+                          className={cn(
+                            "flex items-start gap-3 rounded-[16px] border px-3 py-3 text-left shadow-[0_8px_18px_rgba(117,135,170,0.04)]",
+                            eventMeta.cardClass,
+                          )}
+                        >
+                          <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border", eventMeta.iconClass)}>
+                            <eventMeta.Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="min-w-0 truncate text-[13px] font-semibold leading-5 text-[#202634]">
+                                {eventTitle}
+                              </div>
+                            </div>
+                            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] leading-5 text-[#8a93a6]">
+                              {eventStepLabel ? <span className="shrink-0">{eventStepLabel}</span> : null}
+                              {eventStepLabel && message.recordTarget ? <span className="shrink-0">·</span> : null}
+                              {message.recordTarget ? <span className="truncate">{message.recordTarget}</span> : null}
+                            </div>
+                            {eventDescription ? (
+                              <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-[#697487]">
+                                {eventDescription}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isReply ? (
+                      <div className={conversationCardWidthClass}>
+                        <div className="rounded-[22px] rounded-tl-[8px] border border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)] px-5 py-4 text-[15px] leading-7 text-[#434a5c]">
+                          {message.content}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isFailure ? (
+                      <div className={conversationCardWidthClass}>
+                        <div className="rounded-[22px] rounded-tl-[8px] border border-[#ffe1bd] bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_100%)] px-5 py-4 text-[15px] leading-7 text-[#434a5c] shadow-[0_16px_38px_rgba(190,123,36,0.10)]">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[#fff0de] text-[#f08a24]">
+                              <AlertCircle className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-[#202634]">{message.title || message.content}</div>
+                              <div className="mt-1 text-[14px] leading-6 text-[#5f6778]">
+                                {message.description || "右侧内容没有变化，可以重试。"}
+                              </div>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={!stepGenerationFailure}
+                                  onClick={retryStepGenerationFailure}
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-[12px] bg-[#202634] px-4 text-[13px] font-semibold text-white transition-all hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-45"
+                                >
+                                  <RefreshCcw className="h-3.5 w-3.5" />
+                                  重试
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isAnalysis ? (
+                      <div className={conversationCardWidthClass}>
+                        <div
+                          className={cn(
+                            "overflow-hidden border border-[#dde2ea] bg-[#f3f4f6] text-left transition-all",
+                            isCollapsed ? "inline-flex max-w-full rounded-full" : "rounded-[22px]",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleAnalysisCard(message.analysisId)}
+                            className={cn(
+                              "flex max-w-full items-center gap-2 text-left transition-colors hover:bg-white/52",
+                              isCollapsed ? "min-h-[42px] px-4 py-2 pr-3" : "w-full px-4 py-3",
+                            )}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#10b464]">
+                                <Check className="h-4 w-4 stroke-[2.8]" />
+                              </span>
+                              <div className={cn("min-w-0", isCollapsed ? "flex items-center gap-2" : "")}>
+                                <div className="shrink-0 text-[14px] font-semibold leading-5 text-[#202634]">
+                                  Agent 思考完成
+                                </div>
+                                <div
+                                  className={cn(
+                                    "truncate text-[12px] font-medium leading-5 text-[#7a8496]",
+                                    !isCollapsed && "mt-0.5",
+                                  )}
+                                >
+                                  {message.analysisStatus || "已完成"} · {message.analysisTitle || message.content}
+                                </div>
+                              </div>
+                            </div>
+                            <ChevronDown
+                              className={cn("h-4 w-4 shrink-0 text-[#778294] transition-transform", !isCollapsed && "rotate-180")}
+                            />
+                          </button>
+
+                          {!isCollapsed ? (
+                            <div className="border-t border-[#dedede] px-3 pb-3">
+                              <div className="max-h-[280px] overflow-y-auto whitespace-pre-line rounded-[14px] border border-[#dddddd] bg-white px-4 py-3 text-[13px] leading-6 text-[#30343d]">
+                                {buildAnalysisPlainText(message)}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+	                    {isHandoff ? (
+	                      <div className={conversationCardWidthClass}>
+	                        <div className="space-y-4 px-1">
+                          {isReadOnlyStepCard ? (
+                            <div className="rounded-[16px] bg-[#f7f9fc] px-4 py-3 text-[13px] leading-6 text-[#7a8496]">
+                              可查看更改前数据，并复制或下载历史素材；不支持在此版本上继续编辑。
+                            </div>
+                          ) : (
+                            <div className="space-y-3 text-[15px] leading-7 text-[#3f485b]">
+                              {message.description ? <p>{message.description}</p> : null}
+                              {handoffDetail.content ? (
+                                <p>
+                                  {handoffDetail.label ? (
+                                    <span className="font-semibold text-[#2f394c]">{handoffDetail.label}</span>
+                                  ) : null}
+                                  {handoffDetail.content}
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+
+	                          {isHandoffCard ? (
+	                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isReadOnlyStepCard) {
+                                  openHistoryVersionPreview({ ...message, title: handoffCardTitle }, index);
+                                  return;
+                                }
+                                triggerRightFocusCue(
+                                  message.focusCue || {
+                                    step: message.step || currentStep,
+                                    title: message.focusTitle || "请先看右侧结果",
+                                    detail: message.focusDetail || "右侧内容已经同步更新。",
+                                  },
+                                );
+                              }}
+                              className={cn(
+                                "group flex w-full items-center gap-3 rounded-[22px] border px-4 py-4 text-left transition-all",
+                                isReadOnlyStepCard
+                                  ? "border-[#e1e7f0] bg-[linear-gradient(180deg,#fbfcff_0%,#f6f8fb_100%)] text-[#7a8496] hover:border-[#ccd6e6]"
+                                  : "border-[#bfeeff] bg-[linear-gradient(180deg,#effdff_0%,#e9fbff_100%)] shadow-[0_12px_28px_rgba(19,148,170,0.08)] hover:-translate-y-0.5 hover:border-[#79ddf4]",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+                                  isReadOnlyStepCard ? "text-[#8a93a6]" : "text-[#13a3bf]",
+                                )}
+                              >
+                                {isReadOnlyStepCard ? <FileText className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div
+                                  className={cn(
+                                    "truncate text-[16px] font-bold tracking-[-0.02em]",
+                                    isReadOnlyStepCard ? "text-[#687286]" : "text-[#202634]",
+                                  )}
+                                >
+                                  {isReadOnlyStepCard
+                                    ? `${handoffCardTitle} · 历史版本`
+                                    : handoffCardTitle}
+                                </div>
+                                <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] text-[#647083]">
+                                  {isReadOnlyStepCard ? (
+                                    <>
+                                      <span className="shrink-0 rounded-full bg-[#eef1f6] px-2 py-0.5 text-[11px] font-semibold text-[#7a8496]">
+                                        只读
+                                      </span>
+                                      <span className="truncate">生成时间：2026 年 5 月 21 日 17:22</span>
+                                    </>
+                                  ) : (
+                                    <span className="truncate">生成时间：2026 年 5 月 21 日 17:22</span>
+                                  )}
+                                </div>
+                              </div>
+                              <ChevronRight
+                                className={cn(
+                                  "h-5 w-5 shrink-0 transition-transform group-hover:translate-x-0.5",
+                                  isReadOnlyStepCard ? "text-[#8a93a6]" : "text-[#13a3bf]",
+                                )}
+                              />
+                            </button>
+                          ) : null}
+
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isGuidance ? (
+                      <div className="max-w-[96%]">
+                        <div className="rounded-[24px] border border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)] px-5 py-5 text-[15px] leading-7 text-[#434a5c] shadow-[0_10px_24px_rgba(117,135,170,0.06)]">
+                          <div className="text-[18px] font-semibold tracking-[-0.02em] text-[#202634]">
+                            {message.guidanceTitle || "我帮你留意到一个细节"}
+                          </div>
+                          <div className="mt-2 text-[15px] leading-7 text-[#4d5567]">
+                            {message.guidanceDescription || message.content}
+                          </div>
+                          {message.actions?.length ? (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {message.actions.map((action) => (
+                                <button
+                                  key={action.label}
+                                  type="button"
+                                  onClick={() =>
+                                    handleHandoffAction(
+                                      action,
+                                      message.focusCue || {
+                                        step: message.step || currentStep,
+                                        title: "请先看右侧结果",
+                                        detail: "右侧内容已经同步更新。",
+                                      },
+                                      message.step,
+                                    )
+                                  }
+                                  className="rounded-full border border-[#dfe6f5] bg-white px-4 py-2 text-[13px] font-semibold text-[#46516a] transition-all hover:border-[#cfd9ea]"
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isUser ? (
+                      <UserPromptBubble
+                        content={message.content}
+                        attachments={message.attachments}
+                        className={conversationCardWidthClass}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+              {renderThinkingPanel()}
+              <div ref={conversationEndRef} />
+            </div>
+            </div>
+
+            <div
+              className={cn(
+                "bg-white px-6 pb-6 pt-0 transition-[height] duration-200 ease-out",
+                shouldShowDeepComposerUploads ? "h-[168px]" : "h-[92px]",
+              )}
+            >
+            <div
+              ref={chatMentionAnchorRef}
+              onClick={() => setIsDeepComposerExpanded(true)}
+              onDragEnter={handleDeepComposerDragEnter}
+              onDragOver={handleDeepComposerDragOver}
+              onDragLeave={handleDeepComposerDragLeave}
+              onDrop={handleDeepComposerDrop}
+              className={cn(
+                "relative flex min-h-0 flex-col rounded-[20px] border border-[#e3e5e8] bg-white shadow-[0_18px_45px_rgba(76,105,160,0.14)] transition-all duration-200",
+                shouldShowDeepComposerUploads ? "h-[144px] p-3" : "h-[68px] p-0",
+                (isGeneratingStep || isComposerGenerating) && "opacity-75",
+                isComposerImportHighlight &&
+                  "border-[#b99bff] bg-[#fbf8ff] shadow-[0_0_0_4px_rgba(123,92,255,0.13),0_22px_58px_rgba(123,92,255,0.2)]",
+              )}
+            >
+              <AnimatePresence initial={false}>
+                {isComposerImportHighlight ? (
+                  <motion.div
+                    key="composer-import-highlight"
+                    className="pointer-events-none absolute inset-[-5px] z-30 rounded-[26px] border border-[#a889ff]"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: [0, 1, 0.32], scale: [0.98, 1.018, 1] }}
+                    exit={{ opacity: 0, scale: 1 }}
+                    transition={{ duration: 1.08, ease: "easeOut" }}
+                  />
+                ) : null}
+              </AnimatePresence>
+              {isDeepUploadDragging ? (
+                <div className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-[20px] border border-dashed border-[#7b5cff] bg-[#f8f5ff]/88 text-[13px] font-semibold text-[#6d4cff] backdrop-blur-[6px]">
+                  拖拽图片或视频上传
+                </div>
+              ) : null}
+              <input
+                ref={deepUploadInputRef}
+                type="file"
+                accept={deepUploadAccept}
+                multiple
+                className="hidden"
+                onChange={handleDeepFilePick}
+              />
+
+              {shouldShowDeepComposerUploads ? (
+                deepUploadAssets.length > 0 ? (
+                  <div className="relative mb-2 h-12 min-h-0">
+                    {deepAttachmentScrollState.canScrollLeft ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeepAttachmentScroll("left")}
+                        className="absolute left-2 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6edf7] bg-white/92 text-[#687181] shadow-[0_8px_20px_rgba(99,116,151,0.16)]"
+                        aria-label="向左查看素材"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                    {deepAttachmentScrollState.canScrollRight ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeepAttachmentScroll("right")}
+                        className="absolute right-2 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6edf7] bg-white/92 text-[#687181] shadow-[0_8px_20px_rgba(99,116,151,0.16)]"
+                        aria-label="向右查看素材"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    ) : null}
+
+                    <div
+                      ref={deepAttachmentScrollerRef}
+                      onScroll={updateDeepAttachmentScrollState}
+                      className="flex items-start gap-3 overflow-x-auto pb-1 pr-1 scrollbar-hide scroll-smooth"
+                    >
+                      <div ref={deepUploadTriggerRef} className="relative shrink-0">
+                        <DisabledTooltip
+                          disabled={Boolean(historyVersionPreview) || deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX}
+                          reason={historyVersionPreview ? "历史版本只读，不能追加素材" : `最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材`}
+                          side="top"
+                          align="start"
+                          wrapperClassName="inline-flex"
+                        >
+                          <UploadTile
+                            size="compact"
+                            disabled={Boolean(historyVersionPreview) || deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX}
+                            onClick={() => {
+                              if (historyVersionPreview) return;
+                              if (deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX) {
+                                onNotify?.({
+                                  type: "warning",
+                                  title: "素材已达上限",
+                                  description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+                                });
+                                return;
+                              }
+                              setIsDeepComposerExpanded(true);
+                              setDeepUploadMenuOpen((prev) => !prev);
+                            }}
+                          />
+                        </DisabledTooltip>
+                        <FloatingLayer
+                          anchorRef={deepUploadTriggerRef}
+                          open={deepUploadMenuOpen}
+                          preferredDirection="up"
+                          offset={14}
+                        >
+                          <UploadSourceMenu
+                            onPickImageLibrary={handleOpenDeepImageLibrary}
+                            onPickImageLocal={() => handleOpenDeepUpload("image")}
+                            onPickVideoLibrary={handleOpenDeepVideoLibrary}
+                            onPickVideoLocal={() => handleOpenDeepUpload("video")}
+                          />
+                        </FloatingLayer>
+                      </div>
+                      {deepUploadAssets.map((item) => (
+                        <ComposerAttachmentCard key={item.id} item={item} size="compact" />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-2 flex h-12 min-h-0 items-start gap-3">
+                    <div ref={deepUploadTriggerRef} className="relative shrink-0">
+                      <DisabledTooltip
+                        disabled={Boolean(historyVersionPreview) || deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX}
+                        reason={historyVersionPreview ? "历史版本只读，不能追加素材" : `最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材`}
+                        side="top"
+                        align="start"
+                        wrapperClassName="inline-flex"
+                      >
+                        <UploadTile
+                          size="compact"
+                          disabled={Boolean(historyVersionPreview) || deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX}
+                          onClick={() => {
+                            if (historyVersionPreview) return;
+                            if (deepUploadAssets.length >= DEEP_COMPOSER_UPLOAD_MAX) {
+                              onNotify?.({
+                                type: "warning",
+                                title: "素材已达上限",
+                                description: `深度创编输入框最多添加 ${DEEP_COMPOSER_UPLOAD_MAX} 个素材。`,
+                              });
+                              return;
+                            }
+                            setIsDeepComposerExpanded(true);
+                            setDeepUploadMenuOpen((prev) => !prev);
+                          }}
+                        />
+                      </DisabledTooltip>
+                      <FloatingLayer
+                        anchorRef={deepUploadTriggerRef}
+                        open={deepUploadMenuOpen}
+                        preferredDirection="up"
+                        offset={14}
+                      >
+                        <UploadSourceMenu
+                          onPickImageLibrary={handleOpenDeepImageLibrary}
+                          onPickImageLocal={() => handleOpenDeepUpload("image")}
+                          onPickVideoLibrary={handleOpenDeepVideoLibrary}
+                          onPickVideoLocal={() => handleOpenDeepUpload("video")}
+                        />
+                      </FloatingLayer>
+                    </div>
+                  </div>
+                )
+              ) : null}
+
+              <div
+                className={cn(
+                  "min-h-0 min-w-0 flex-1",
+                  shouldShowDeepComposerUploads ? "pb-10" : "pb-0",
+                  (isGeneratingStep || isComposerGenerating) && "pointer-events-none",
+                )}
+              >
+                <MentionEditor
+                  textareaRef={inputRef}
+                  value={draft}
+                  mentionRegistry={mentionRegistry}
+                  onChange={(e) => handleMentionFieldChange("chat", e.target.value, e.target.selectionStart)}
+                  onClick={(e) => handleMentionFieldSelect("chat", e)}
+                  onKeyDown={handleDeepComposerKeyDown}
+                  onKeyUp={(e) => handleMentionFieldSelect("chat", e)}
+                  onFocus={(e) => {
+                    setIsDeepComposerExpanded(true);
+                    handleMentionFieldSelect("chat", e);
+                  }}
+                  onBlur={() => window.setTimeout(() => setMentionState(null), 120)}
+                  rows={shouldShowDeepComposerUploads ? 2 : 1}
+                  disabled={Boolean(historyVersionPreview)}
+                  shellClassName="h-full"
+                  editorClassName={cn(
+                    "h-full min-h-0 overflow-y-auto pr-16 text-[14px] leading-[26px] text-[#202634] scrollbar-hide placeholder:text-[#686e7a]",
+                    shouldShowDeepComposerUploads ? "px-1 py-1" : "px-4 py-5",
+                  )}
+                  placeholder={
+                    historyVersionPreview
+                      ? "正在查看历史版本，可复制或下载，不支持在此编辑"
+                      : planComposerTarget !== null
+                      ? getPlanComposerPlaceholder(planComposerTarget)
+                      : rewriteTarget !== null
+                      ? rewriteTarget.type === "roles"
+                        ? "输入角色修改要求"
+                        : rewriteTarget.type === "title"
+                          ? "输入标题修改要求"
+                          : rewriteTarget.type === "desc"
+                            ? "输入画面修改要求"
+                            : rewriteTarget.type === "subtitle"
+                              ? "输入口播脚本修改要求"
+                              : "输入修改要求"
+                      : regenerateTarget !== null
+                      ? regenerateTarget.type === "add"
+                        ? "输入新角色要求"
+                        : "输入角色重生成要求"
+                      : storyboardAddTarget !== null && !isStoryboardLibraryScriptTarget(storyboardAddTarget)
+                      ? `输入${getStoryboardDisplayName(storyboardAddTarget.index)}生成要求`
+                      : currentStep === 1
+                        ? "补充任务要求"
+                        : currentStep === 4
+                          ? "补充成片要求"
+                          : isCreativePlanVisualStep
+                            ? "请输入创意描述词..."
+                            : "补充修改要求"
+                  }
+                />
+              </div>
+              <div className="pointer-events-none absolute bottom-4 right-4 z-20 mt-0 flex items-end gap-3">
+                <FloatingLayer
+                  anchorRef={chatMentionAnchorRef}
+                  open={mentionState?.field === "chat"}
+                  preferredDirection="up"
+                >
+                  <div className="pointer-events-auto w-[320px]">
+                    <MentionSuggestionPanel
+                      suggestions={mentionSuggestions}
+                      title="角色引用"
+                      emptyLabel="没有匹配到角色"
+                      onSelect={(item) => insertMentionReference("chat", item)}
+                    />
+                  </div>
+                </FloatingLayer>
+                <DisabledTooltip
+                  disabled={Boolean(historyVersionPreview) || isGeneratingStep || isComposerGenerating}
+                  reason={historyVersionPreview ? "历史版本只读，不能发送修改" : getBusyDisabledReason()}
+                  side="top"
+                  align="end"
+                  wrapperClassName="pointer-events-auto inline-flex"
+                >
+                  <button
+                    ref={deepSubmitButtonRef}
+                    disabled={Boolean(historyVersionPreview) || isGeneratingStep || isComposerGenerating}
+                    onClick={() => {
+                      if (historyVersionPreview) return;
+                      if (isGeneratingStep || isComposerGenerating) return;
+                      const submitDraft = getDeepComposerSubmitDraft();
+                      if (!hasDeepComposerSubmission || !submitDraft) {
+                        onNotify?.({
+                          type: "warning",
+                          title: "还不能发送",
+                          description: "先输入修改要求，或添加图片、视频素材。",
+                        });
+                        return;
+                      }
+                      const normalizedSubmitDraft = normalizeMentionText(submitDraft, { keepAt: true }).trim();
+                      if (handleStepJumpPrompt(normalizedSubmitDraft)) return;
+                    if (planComposerTarget !== null) {
+                      if (submitPlanComposerPrompt(submitDraft, planComposerTarget)) {
+                        resetDeepComposerInput();
+                      }
+                      return;
+                    }
+                    if (storyboardAddTarget !== null && !isStoryboardLibraryScriptTarget(storyboardAddTarget)) {
+                      if (submitStoryboardSlotPrompt(submitDraft, storyboardAddTarget)) {
+                        resetDeepComposerInput();
+                      }
+                      return;
+                    }
+                    if (rewriteTarget !== null) {
+                      const targetIndex = rewriteTarget.index;
+                      const normalizedDraft = normalizeMentionText(submitDraft, { keepAt: true }).trim();
+                      if (!normalizedDraft) return;
+                      if (handleOffTopicPrompt(normalizedDraft)) return;
+                      const currentOutline = outlines[targetIndex];
+                      if (!currentOutline) return;
+                      const fallbackPrompt =
+                        rewriteTarget.type === "roles" ? "请给我一组更合适的出场角色组合。" : "请给我一个更合适的新版本。";
+                      const cleanPrompt = normalizedDraft.replace(
+                        /^(重写|重设)第\s*\d+\s*段(?:「.*?」|的镜头标题|的画面描述|的(?:口播|分镜)脚本|的出场角色)?，?要求[:：]?\s*/u,
+                        "",
+                      );
+                      const effectivePrompt = cleanPrompt || fallbackPrompt;
+                      const { patch, summary } = buildFieldRewritePatch(
+                        rewriteTarget,
+                        currentOutline,
+                        effectivePrompt,
+                      );
+                      const userPrompt = `${getRewriteDraftPrefix(rewriteTarget, currentOutline)}${effectivePrompt}`;
+                      const storyboardFlow = buildStoryboardSemanticFlow(effectivePrompt, targetIndex);
+                      const applyRewritePatch = () => {
+                        updateOutline(targetIndex, patch);
+                        setRecentOutlineChange({ type: "single", index: targetIndex, stamp: Date.now() });
+                        setActiveStoryboard(targetIndex);
+                        markDownstreamDirty(3);
+                        jumpPreviewToShot(targetIndex, { play: false });
+                        triggerRightUpdateFeedback(
+                          { type: "storyboard" },
+                          rewriteTarget.type === "subtitle" ? "AI 素材已重生" : "分镜已更新",
+                        );
+                      };
+
+                      if (rewriteTarget.type === "subtitle") {
+                        clearStoryboardGenerationTimer();
+                        setStoryboardGenerationState({ shotIndex: targetIndex, mode: "media" });
+                        storyboardGenerationTimerRef.current = window.setTimeout(() => {
+                          applyRewritePatch();
+                          setStoryboardGenerationState(null);
+                          storyboardGenerationTimerRef.current = null;
+                        }, 850);
+                      } else {
+                        applyRewritePatch();
+                      }
+                      appendSemanticConversation({
+                        userContent: userPrompt,
+                        replyContent: storyboardFlow.replyContent,
+                        analysisPayload: storyboardFlow.analysisPayload,
+                        handoffPayload: {
+                          ...storyboardFlow.handoffPayload,
+                          description: `${summary} 先看右侧当前分镜是否已经更贴合你的要求。`,
+                        },
+                      });
+                      resetDeepComposerInput();
+                      setRewriteTarget(null);
+                      return;
+                    }
+                    if (regenerateTarget !== null) {
+                      const replacements = [
+                        "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=400&fit=crop",
+                        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop",
+                        "https://images.unsplash.com/photo-1542204625-de293a2f8ff0?w=400&h=400&fit=crop",
+                        "https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=400&fit=crop",
+                      ];
+                      const normalizedDraft = normalizeMentionText(submitDraft, { keepAt: true }).trim();
+                      if (!normalizedDraft) return;
+                      if (handleOffTopicPrompt(normalizedDraft)) return;
+                      if (regenerateTarget.type === "add") {
+                        if (characters.length >= MAX_SCENE_CHARACTER_COUNT) {
+                          appendOperationFeedback(`最多支持 ${MAX_SCENE_CHARACTER_COUNT} 个出场角色。`, { type: "warning" });
+                          return;
+                        }
+                        const nextIndex = characters.length;
+                        const nextAvatar = replacements[(nextIndex + normalizedDraft.length) % replacements.length];
+                        const generatedName = `新角色${nextIndex + 1}`;
+                        commitCharacters((prev) => [
+                          ...prev,
+                          {
+                            name: generatedName,
+                            trait: "按提示词生成",
+                            avatar: nextAvatar,
+                            sourceType: CHARACTER_SOURCE_AI,
+                            libraryCharacterId: null,
+                            isVoiceover: false,
+                            voiceId: null,
+                          },
+                        ]);
+                        setRecentCharacterChange({
+                          index: nextIndex,
+                          label: generatedName,
+                          mode: "regenerate",
+                          stamp: Date.now(),
+                        });
+                        triggerRightUpdateFeedback({ type: "characters", index: nextIndex }, "角色已新增");
+                        markOutlineSyncRequired({ type: "add", label: generatedName });
+                        const characterFlow = buildCharacterSemanticFlow(normalizedDraft, generatedName);
+                        appendSemanticConversation({
+                          userContent: `请新增一个角色，要求：${normalizedDraft}`,
+                          replyContent: characterFlow.replyContent,
+                          analysisPayload: characterFlow.analysisPayload,
+                          handoffPayload: characterFlow.handoffPayload,
+                        });
+                      } else {
+                        const targetIndex = regenerateTarget.index;
+                        const targetName = characters[targetIndex]?.name;
+                        const nextAvatar = replacements[(targetIndex + normalizedDraft.length) % replacements.length];
+                        handleReplaceCharacter(targetIndex, { avatar: nextAvatar });
+                        setRecentCharacterChange({
+                          index: targetIndex,
+                          label: targetName,
+                          mode: "regenerate",
+                          stamp: Date.now(),
+                        });
+                        triggerRightUpdateFeedback({ type: "characters", index: targetIndex }, "角色已更新");
+                        markOutlineSyncRequired({ type: "replace", label: targetName });
+                        const characterFlow = buildCharacterSemanticFlow(normalizedDraft, `角色「${targetName}」`);
+                        appendSemanticConversation({
+                          userContent: `请重新生成角色「${targetName}」，要求：${normalizedDraft}`,
+                          replyContent: characterFlow.replyContent,
+                          analysisPayload: characterFlow.analysisPayload,
+                          handoffPayload: characterFlow.handoffPayload,
+                        });
+                      }
+                      resetDeepComposerInput();
+                      setRegenerateTarget(null);
+                      return;
+                    }
+                      handleChatSubmit(submitDraft);
+                    }}
+                    className={cn(
+                      "pointer-events-auto ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] text-white shadow-[0_10px_26px_rgba(58,91,253,0.28)]",
+                      (historyVersionPreview || isGeneratingStep || isComposerGenerating) && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <ArrowUp className="h-[18px] w-[18px]" />
+                  </button>
+                </DisabledTooltip>
+              </div>
+            </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {showChatComposer ? (
+        <div
+          className="relative z-20 flex h-full w-px shrink-0 cursor-col-resize items-center justify-center"
+          onMouseEnter={() => updateDeepSplitHover("divider", true)}
+          onMouseLeave={() => updateDeepSplitHover("divider", false)}
+        >
+          <button
+            type="button"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="拖拽调整对话区宽度"
+            aria-valuemin={Math.round(deepSplitAriaBounds.min)}
+            aria-valuemax={Math.round(deepSplitAriaBounds.max)}
+            aria-valuenow={Math.round(deepChatRailWidth)}
+            title="拖拽调整左右区域宽度，双击恢复默认"
+            onPointerDown={beginDeepSplitResize}
+            onDoubleClick={resetDeepChatRailWidth}
+            onKeyDown={handleDeepSplitKeyDown}
+            className="group absolute left-1/2 flex h-full w-3 -translate-x-1/2 cursor-col-resize items-center justify-center outline-none"
+          >
+	            <span
+	              className={cn(
+	                "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full transition-all duration-200",
+	                deepSplitActive
+	                  ? "bg-[#7b5cff] opacity-100 shadow-[0_0_0_4px_rgba(123,92,255,0.08),0_0_18px_rgba(123,92,255,0.28)]"
+	                  : "bg-[#e8edf5] opacity-100",
+	              )}
+	            />
+          </button>
+        </div>
+      ) : null}
+
+      <motion.div
+        initial={{ x: 120, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.32, ease: "easeOut" }}
+        className="deep-workspace min-w-0 flex-1 overflow-hidden border-l border-[#e0e8f5] bg-white"
+      >
+        <div
+          className={cn(
+            "deep-workspace-header flex h-[64px] items-center justify-between border-b border-[#e0e8f5] bg-white",
+            workspaceHeaderPaddingClass,
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-3 overflow-x-auto pr-3 scrollbar-hide">
+            {steps.map((step, index) => {
+              const isDone = step.no < visualStep;
+              const isCurrent = step.no === visualStep;
+              const isLocked = stepGenerationState ? true : step.no > maxStepReached;
+              const isDirty = Boolean(downstreamStatus?.dirtySteps.includes(step.no));
+              return (
+                <div key={step.no} className="flex shrink-0 items-center gap-3">
+                  <DisabledTooltip
+                    disabled={isLocked}
+                    reason={stepGenerationState ? "正在生成，暂时不能切换" : "先完成前面的步骤"}
+                    side="bottom"
+                    align="center"
+                    wrapperClassName="inline-flex"
+                  >
+                    <button
+                      onClick={() => jumpToStep(step.no)}
+                      disabled={isLocked}
+                      className={cn("flex items-center gap-2 py-2 pl-2 pr-3 text-left", isLocked && "cursor-not-allowed")}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-6 w-6 items-center justify-center rounded-full border text-[14px] font-normal leading-[20px]",
+                          isDirty && !isCurrent && !isDone
+                            ? "border-[#ffd7a6] bg-[#fff4e8] text-[#d97706]"
+                            : isDone
+                            ? "border-[#e3edff] bg-[#e3edff] text-[#3a5bfd]"
+                            : isCurrent
+                              ? "border-[#3a5bfd] bg-[#3a5bfd] text-white"
+                              : "border-[#e0e8f5] bg-white text-[#838995]",
+                        )}
+                      >
+                        {isDone ? <Check className="h-3.5 w-3.5" /> : step.no}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "deep-step-label text-[16px] font-medium leading-[22px]",
+                            isDirty && !isCurrent && !isDone
+                              ? "text-[#d97706]"
+                              : isCurrent || isDone
+                                ? "text-black"
+                                : "text-[#686e7a]",
+                          )}
+                        >
+                          {step.title}
+                        </div>
+                        {isDirty ? (
+                          <span className="inline-flex rounded-full border border-[#ffd7a6] bg-[#fff4e8] px-2 py-0.5 text-[10px] font-semibold text-[#d97706]">
+                            待更新
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  </DisabledTooltip>
+                  {index < steps.length - 1 ? <div className="h-px w-[58px] bg-[#e0e8f5]" /> : null}
+                </div>
+              );
+            })}
+          </div>
+
+          <HoverTooltip content="退出深度创编模式" side="bottom" align="end">
+            <button
+              onClick={handleRequestExitDeepMode}
+              className="flex h-9 w-9 items-center justify-center rounded-[8px] text-black transition-all hover:bg-[#f6f7f9]"
+              aria-label="退出深度创编模式"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </HoverTooltip>
+        </div>
+
+	        <div ref={workspaceScrollRef} className={workspaceScrollClass}>
+	          <div className={workspaceContentWidthClass}>
+	            {!historyVersionPreview ? renderDownstreamStatusBanner() : null}
+	            <div className={cn(isCompactFigmaVisualStep ? "min-h-0 flex-1" : "contents")}>
+	              {stepGenerationState ? renderGeneratingStepContent() : null}
+	              {!stepGenerationState && historyVersionPreview ? renderHistoryVersionPreview() : null}
+	              {!stepGenerationState && !historyVersionPreview && currentStep === 1 ? renderStep1() : null}
+	              {!stepGenerationState && !historyVersionPreview && currentStep === 2 ? renderStep2() : null}
+	              {!stepGenerationState && !historyVersionPreview && currentStep === 3 ? renderStep3() : null}
+	              {!stepGenerationState && !historyVersionPreview && currentStep === 4 ? renderStep4() : null}
+	            </div>
+	          </div>
+	        </div>
+      </motion.div>
+
+      <SaveStep1ChangesModal
+        open={saveStep1ExitDialogOpen}
+        onClose={() => setSaveStep1ExitDialogOpen(false)}
+        onDiscard={handleDiscardStep1ChangesAndExit}
+        onSave={handleSaveStep1ChangesAndExit}
+      />
+      <OverwriteConfirmModal
+        open={Boolean(overwriteConfirmDialog)}
+        title={overwriteConfirmDialog?.title}
+        description={overwriteConfirmDialog?.description}
+        affectedText={overwriteConfirmDialog?.affectedText}
+        confirmLabel={overwriteConfirmDialog?.confirmLabel}
+        onClose={closeOverwriteConfirmDialog}
+        onConfirm={confirmOverwriteRegeneration}
+      />
+      <DigitalHumanLibraryModal
+        open={libraryTarget !== null}
+        onClose={() => setLibraryTarget(null)}
+        onConfirm={(selected) => {
+          if (libraryTarget === null) return;
+          if (libraryTarget >= characters.length) {
+            commitCharacters((prev) => [
+              ...prev,
+              buildLibraryCharacterFromSelection(selected, characters.length),
+            ]);
+            setRecentCharacterChange({
+              index: characters.length,
+              label: selected.name,
+              mode: "library",
+              stamp: Date.now(),
+            });
+            markOutlineSyncRequired({ type: "add", label: selected.name });
+          } else {
+            handleReplaceCharacter(libraryTarget, {
+              ...buildLibraryCharacterFromSelection(selected, libraryTarget, {
+                isVoiceover: Boolean(characters[libraryTarget]?.isVoiceover),
+                preferredVoiceId: characters[libraryTarget]?.voiceId || null,
+              }),
+            });
+            setRecentCharacterChange({
+              index: libraryTarget,
+              label: selected.name,
+              mode: "library",
+              stamp: Date.now(),
+            });
+            markOutlineSyncRequired({ type: "replace", label: selected.name });
+          }
+          setLibraryTarget(null);
+        }}
+      />
+      <MusicPickerModal
+        open={musicModalOpen}
+        selectedTrackId={currentStep === 4 ? currentFinalSettings.selectedMusicId : selectedMusicId}
+        volume={currentStep === 4 ? currentFinalSettings.musicVolume : musicVolume}
+        favoriteOnly={currentStep === 4 ? currentFinalSettings.favoriteMusicOnly : favoriteMusicOnly}
+        onClose={() => setMusicModalOpen(false)}
+        onConfirm={handleConfirmMusicSettings}
+      />
+      <SubtitleEditorModal
+        open={subtitleModalOpen}
+        settings={currentStep === 4 ? currentFinalSettings.subtitleSettings : subtitleSettings}
+        onClose={() => setSubtitleModalOpen(false)}
+        onConfirm={handleConfirmSubtitleSettings}
+      />
+      <VoicePickerModal
+        open={voiceBindingTargetIndex !== null}
+        selectedVoiceId={voiceBindingCharacter?.voiceId}
+        title={voiceBindingCharacter ? `配置「${voiceBindingCharacter.name}」的口播音色` : "配置口播音色"}
+        onClose={() => setVoiceBindingTargetIndex(null)}
+        onConfirm={handleConfirmCharacterVoice}
+      />
+      <LogoLibraryModal
+        open={logoPickerOpen}
+        selectedLogo={storyboardDraft.brandLogo}
+        myImages={logoLibraryMyImages}
+        stockImages={logoLibraryStockImages}
+        onClose={() => setLogoPickerOpen(false)}
+        onConfirm={handleConfirmBrandLogo}
+        onUpload={handleLogoLibraryUpload}
+        onNotify={onNotify}
+      />
+      <LogoLibraryModal
+        open={imageLibraryTarget !== null}
+        selectedLogo={
+          imageLibraryTarget?.mode === "replace"
+            ? getActiveStoryboardMediaAsset(outlines[imageLibraryTarget.index], imageLibraryTarget.index)?.preview
+            : null
+        }
+        myImages={logoLibraryMyImages}
+        stockImages={logoLibraryStockImages}
+        title="图片库"
+        selectedHeading="已选图片（1/1）"
+        emptyMineDescription="支持本地上传，也可以从图片库选择海报、主视觉或参考图。"
+        durationHintSeconds={getImageLibraryTargetDurationSeconds()}
+        durationHintLabel="脚本时长"
+        durationHintDescription="选择图片后会作为新增分镜时长。"
+        confirmLabel={
+          imageLibraryTarget?.mode === "reference"
+            ? "添加图片"
+            : imageLibraryTarget?.mode === "add"
+            ? "添加图片素材"
+            : imageLibraryTarget?.mode === "storyboard" || imageLibraryTarget?.mode === "insert"
+              ? "用图片新增分镜"
+              : "替换为图片"
+        }
+        onClose={() => setImageLibraryTarget(null)}
+        onConfirm={confirmImageLibrarySelection}
+        onUpload={handleLogoLibraryUpload}
+        onNotify={onNotify}
+      />
+      <PromptEditorModal
+        open={promptModalOpen}
+        value={storyboardDraft.promptText}
+        settings={storyboardDraft.promptSettings}
+        position={storyboardDraft.promptTextPosition}
+        title="当前分镜提示语"
+        description={`${getStoryboardDisplayName(activeStoryboard)}提示语`}
+        previewImage={
+          getActiveStoryboardMediaAsset(outlines[activeStoryboard], activeStoryboard)?.preview ||
+          storyboardPreviewPool[activeStoryboard % storyboardPreviewPool.length] ||
+          storyboardPreviewPool[0]
+        }
+        storyboardName={getStoryboardDisplayName(activeStoryboard)}
+        onClose={() => setPromptModalOpen(false)}
+        onConfirm={handleConfirmPromptText}
+      />
+      <VideoSegmentLibraryModal
+        open={videoLibraryTarget !== null}
+        targetName={
+          videoLibraryTarget?.mode === "reference"
+            ? "输入框"
+            : videoLibraryTarget?.mode === "add"
+              ? `${getStoryboardDisplayName(videoLibraryTarget.index)}素材版本`
+              : videoLibraryTarget
+                ? getStoryboardDisplayName(videoLibraryTarget.index)
+                : "当前分镜"
+        }
+        usage={
+          videoLibraryTarget?.mode === "reference"
+            ? "reference"
+            : videoLibraryTarget?.mode === "add"
+              ? "asset"
+            : videoLibraryTarget?.mode === "replace"
+              ? "replace"
+              : "storyboard"
+        }
+        targetDurationSeconds={getVideoLibraryTargetDurationSeconds()}
+        durationHintLabel={videoLibraryTarget?.pendingScript ? "脚本时长" : "分镜时长"}
+        durationHintDescription={
+          videoLibraryTarget?.pendingScript
+            ? "选择视频后会按这个时长截取片段。"
+            : "下一步选择用于这个分镜的视频片段。"
+        }
+        showDurationHint={Boolean(videoLibraryTarget?.pendingScript)}
+        videos={storyboardVideoLibraryItems}
+        initialVideo={
+          videoLibraryTarget?.mode === "replace" && Number.isInteger(videoLibraryTarget.mediaIndex)
+            ? getStoryboardMediaAssets(outlines[videoLibraryTarget.index], videoLibraryTarget.index)[
+                videoLibraryTarget.mediaIndex
+              ] || null
+            : null
+        }
+        initialClipStartSeconds={
+          videoLibraryTarget?.mode === "replace" && Number.isInteger(videoLibraryTarget.mediaIndex)
+            ? Number(
+                getStoryboardMediaAssets(outlines[videoLibraryTarget.index], videoLibraryTarget.index)[
+                  videoLibraryTarget.mediaIndex
+                ]?.clipStartSeconds,
+              ) || 0
+            : 0
+        }
+        startInClipStage={videoLibraryTarget?.mode === "replace" && Number.isInteger(videoLibraryTarget.mediaIndex)}
+        onClose={() => setVideoLibraryTarget(null)}
+        onConfirm={confirmVideoLibrarySelection}
+        onNotify={onNotify}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteRoleDialog)}
+        title="确认删除"
+        description={
+          deleteRoleDialog
+            ? deleteRoleDialog.isVoiceover && deleteRoleDialog.fallbackVoiceoverName
+              ? `确定删除角色「${deleteRoleDialog.name}」吗？上方角色列表会立即移除，下方剧本大纲会保持上次同步版本，点击「同步剧本」后再整体更新；口播角色会自动切换为「${deleteRoleDialog.fallbackVoiceoverName}」。`
+              : `确定删除角色「${deleteRoleDialog.name}」吗？上方角色列表会立即移除，下方剧本大纲会保持上次同步版本，点击「同步剧本」后再整体更新。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="删除"
+        onClose={() => setDeleteRoleDialog(null)}
+        onConfirm={handleConfirmRemoveCharacter}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteStoryboardDialog)}
+        title="确认删除分镜"
+        description={
+          deleteStoryboardDialog
+            ? `确定删除${deleteStoryboardDialog.name}吗？删除后该位置会保留为空槽位，可继续根据诉求新增分镜。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="删除"
+        onClose={() => setDeleteStoryboardDialog(null)}
+        onConfirm={confirmDeleteStoryboardSlot}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteStoryboardMediaDialog)}
+        title="确认删除素材"
+        description={
+          deleteStoryboardMediaDialog
+            ? `确定删除${deleteStoryboardMediaDialog.storyboardName}的素材${deleteStoryboardMediaDialog.mediaLabel}「${deleteStoryboardMediaDialog.mediaName}」吗？删除后该分镜会切换到剩余素材版本，已配置的成片组合也会随之更新。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="删除"
+        onClose={() => setDeleteStoryboardMediaDialog(null)}
+        onConfirm={confirmRemoveStoryboardMediaVariant}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteBrandLogoDialog)}
+        title="确认移除 Logo"
+        description={
+          deleteBrandLogoDialog
+            ? `确定移除${deleteBrandLogoDialog.name}的 Logo 吗？该分镜预览和成片中的 Logo 展示会一起取消。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="移除"
+        onClose={() => setDeleteBrandLogoDialog(null)}
+        onConfirm={confirmRemoveBrandLogo}
+      />
+    </div>
+  );
+}
+
+function GeneratePage({
+  jobs,
+  prompt,
+  setPrompt,
+  onSubmit,
+  isGenerating,
+  onStopGenerating,
+  composerConfig,
+  setComposerConfig,
+  composerAttachments,
+  setComposerAttachments,
+  openMenu,
+  setOpenMenu,
+  onConfirmAgent,
+  deepModeJobId,
+  onEnterDeepMode,
+  onExitDeepMode,
+  onSendDeepMessage,
+  onUpdateDeepProgress,
+  onUpdateDeepState,
+  onStepFlowAction,
+  onExportVideo,
+  onCreateVideoVariant,
+  onRegenerateJob,
+  onReuseImageJob,
+  onOpenImageDetail,
+  onOpenImageEditor,
+  onConvertImageToVideo,
+  onApplyCutout,
+  onApplyExpand,
+  onDeleteImage,
+  promptPresets,
+  onApplyPreset,
+  onCreatePreset,
+  onEditPreset,
+  onDuplicatePreset,
+  onDeletePreset,
+  onOpenImageLibrary,
+  onOpenVideoLibrary,
+  onNotify,
+  scrollContainerRef,
+  latestJobRef,
+}) {
+  const [overlayExpanded, setOverlayExpanded] = useState(false);
+  const deepModeJob = jobs.find((item) => item.id === deepModeJobId);
+  const collapseOverlay = () => {
+    setOverlayExpanded(false);
+    setOpenMenu(null);
+  };
+  const groupedJobs = useMemo(() => {
+    const groups = jobs.reduce((acc, job) => {
+      const key = job.createdDay || getDateKey(new Date());
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(job);
+      return acc;
+    }, {});
+
+    return Object.entries(groups)
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .map(([key, items]) => ({
+        key,
+        label: getDateLabel(key),
+        items: [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
+      }));
+	  }, [jobs]);
+  const hasGeneratedJobs = jobs.length > 0;
+
+  useEffect(() => {
+    if (!overlayExpanded) return undefined;
+    const scrollToBottom = () => {
+      const node = scrollContainerRef?.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+    };
+    const rafId = window.requestAnimationFrame(scrollToBottom);
+    const timer = window.setTimeout(scrollToBottom, 240);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timer);
+    };
+  }, [overlayExpanded, scrollContainerRef]);
+
+  if (deepModeJob) {
+    return (
+      <DeepModeView
+        job={deepModeJob}
+        onExit={onExitDeepMode}
+        onSendMessage={onSendDeepMessage}
+        onProgressChange={onUpdateDeepProgress}
+        onStateChange={onUpdateDeepState}
+        onStepFlowAction={onStepFlowAction}
+        onExportVideo={onExportVideo}
+        onNotify={() => null}
+      />
+    );
+  }
+
+	  return (
+	    <div className="generate-page-shell relative flex h-full flex-col overflow-hidden">
+	      {(overlayExpanded || openMenu) ? (
+	        <button
+          className="fixed inset-0 z-20 cursor-default"
+          onClick={collapseOverlay}
+          onWheel={collapseOverlay}
+          onTouchMove={collapseOverlay}
+        />
+      ) : null}
+
+	      <div
+	        ref={scrollContainerRef}
+	        className={cn(
+	          "relative z-10 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-hide",
+	          hasGeneratedJobs ? "pt-[72px]" : "pt-[100px]",
+	        )}
+	      >
+	        <div className="mx-auto flex w-full max-w-[1342px] justify-center px-4 sm:px-6">
+	          <div className="w-full max-w-[830px]">
+	            {!hasGeneratedJobs ? (
+	              <>
+	                <div className="grid grid-cols-1 gap-[2px] overflow-hidden rounded-[2px] md:grid-cols-2">
+	                {showcaseImages.map((image, index) => (
+	                  <div key={image + index} className="aspect-[4/2.2]">
+	                    <img src={image} alt="" className="h-full w-full object-cover" />
+	                  </div>
+	                ))}
+	                </div>
+	
+	                <ActionRow />
+	              </>
+	            ) : null}
+
+	            <div className={cn(hasGeneratedJobs ? "mt-0" : "mt-8")}>
+	              {groupedJobs.map((group) => (
+	                <section key={group.key} className="mb-8">
+	                  {!hasGeneratedJobs ? (
+	                    <h2 className="mb-3 text-[20px] font-medium leading-[28px] tracking-[-0.02em] text-black">{group.label}</h2>
+	                  ) : null}
+	                  {group.items.map((job) => {
+	                    const isLatest = job.id === jobs[jobs.length - 1]?.id;
+	                    return (
+                      <div key={job.id} data-job-id={job.id} ref={isLatest ? latestJobRef : null}>
+                        {job.mode === "agent" &&
+                        (job.status === "agent_deep" || job.status === "agent_confirming") ? (
+                          <AgentDeepSummaryCard job={job} onResume={onEnterDeepMode} />
+                        ) : (
+                          <JobCard
+                            job={job}
+                            onCreateVideoVariant={onCreateVideoVariant}
+                            onRegenerateJob={onRegenerateJob}
+                            onReuseImageJob={onReuseImageJob}
+                            onOpenImageDetail={onOpenImageDetail}
+                            onOpenImageEditor={onOpenImageEditor}
+                            onConvertImageToVideo={onConvertImageToVideo}
+                            onApplyCutout={onApplyCutout}
+                            onApplyExpand={onApplyExpand}
+                            onDeleteImage={onDeleteImage}
+                            onSaveImageToRawLibrary={(_, imageIndex) => {
+                              onNotify?.({
+                                type: "success",
+                                title: "已保存到原料库",
+                                description: `图片 ${imageIndex + 1} 已保存到原料库。`,
+                              });
+                            }}
+                            onSaveVideoToRawLibrary={(_, scope, videoIndex, total) => {
+                              onNotify?.({
+                                type: "success",
+                                title: scope === "all" ? "已保存全部视频到原料库" : "已保存到原料库",
+                                description:
+                                  scope === "all"
+                                    ? `本组 ${total} 条视频已保存到原料库。`
+                                    : `第 ${videoIndex + 1} 条视频已保存到原料库。`,
+                              });
+                            }}
+                            onNotify={onNotify}
+                          />
+                        )}
+	                      </div>
+	                    );
+	                  })}
+	                </section>
+	              ))}
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+	
+	      <div className="pointer-events-none relative z-30 flex shrink-0 justify-center bg-white px-3 pb-6 pt-0 sm:px-6">
+        <div className="pointer-events-auto">
+          {overlayExpanded ? (
+            <div className="w-[830px] max-w-[calc(100vw-112px)] max-[640px]:max-w-[calc(100vw-84px)]">
+              <InputComposer
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSubmit={onSubmit}
+                isGenerating={isGenerating}
+                onStopGenerating={onStopGenerating}
+                composerConfig={composerConfig}
+                setComposerConfig={setComposerConfig}
+                composerAttachments={composerAttachments}
+                setComposerAttachments={setComposerAttachments}
+                openMenu={openMenu}
+                setOpenMenu={setOpenMenu}
+                promptPresets={promptPresets}
+                onApplyPreset={onApplyPreset}
+                onCreatePreset={onCreatePreset}
+                onEditPreset={onEditPreset}
+                onDuplicatePreset={onDuplicatePreset}
+                onDeletePreset={onDeletePreset}
+                onOpenImageLibrary={onOpenImageLibrary}
+                onOpenVideoLibrary={onOpenVideoLibrary}
+                onNotify={onNotify}
+                variant="overlay"
+              />
+            </div>
+          ) : (
+            <HomeCollapsedDock
+              composerAttachments={composerAttachments}
+              prompt={prompt}
+              onExpand={() => setOverlayExpanded(true)}
+              isGenerating={isGenerating}
+              onStopGenerating={onStopGenerating}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToolThumb({ thumb }) {
+  if (thumb?.type === "icon") {
+    const Icon = thumb.icon || Sparkles;
+    const toneClass =
+      thumb.tone === "purple"
+        ? "from-[#ede8ff] to-[#d9d1ff] text-[#7b5cff]"
+        : thumb.tone === "cyan"
+          ? "from-[#e8f9ff] to-[#cfefff] text-[#36a3ff]"
+          : "from-[#edf4ff] to-[#dce9ff] text-[#4f6bff]";
+
+    return (
+      <div className={cn("flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[16px] bg-gradient-to-br", toneClass)}>
+        <Icon className="h-8 w-8" strokeWidth={2} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[72px] w-[72px] overflow-hidden rounded-[16px] bg-[#f6f7f9]">
+      <img src={thumb?.src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+    </div>
+  );
+}
+
+function ToolCard({ item, compact = false, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(item)}
+      className={cn(
+        "group flex w-full items-center justify-between rounded-[16px] border border-[#e3e5e8] bg-white px-4 transition-all hover:border-[#d6e2ff] hover:shadow-[0_10px_24px_rgba(77,104,170,0.08)]",
+        compact ? "h-[96px]" : "h-[104px]",
+      )}
+    >
+      <div className="min-w-0 pr-4 text-left">
+        <div className="text-[16px] font-semibold leading-[22px] text-[#000000]">{item.title}</div>
+        <div className="mt-3 text-[12px] leading-[16px] text-[#9aa2b2]">{item.desc}</div>
+      </div>
+      <ToolThumb thumb={item.thumb} />
+    </button>
+  );
+}
+
+function ToolsPage({ activeTool, onOpenTool, onBackTool }) {
+  if (activeTool) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,#f7faff_0%,#fbfdff_100%)]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#5f46d6] shadow-[0_12px_24px_rgba(123,92,255,0.12)]">
+              <span className="ai-thinking-dot h-2.5 w-2.5 rounded-full bg-[#7b5cff]" />
+              正在加载工具台
+            </div>
+          </div>
+        }
+      >
+        <ToolWorkbenchPage tool={activeTool} onBack={onBackTool} />
+      </Suspense>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto pb-16 pt-[76px] scrollbar-hide">
+      <div className="mx-auto max-w-[1257px] px-4 sm:px-6">
+        <div className="space-y-8">
+          {toolsSections.map((section, index) => (
+            <section key={section.title} className={cn(index === 0 ? "pt-2" : "")}>
+              <h2 className="text-[16px] font-semibold leading-[22px] text-[#000000]">{section.title}</h2>
+              <div className="mt-[12px] grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {section.items.map((item) => (
+                  <ToolCard
+                    key={item.id}
+                    item={item}
+                    compact={section.compact}
+                    onClick={onOpenTool}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function railItem(active, Icon, label) {
+  return (
+    <>
+      <div
+        className={cn(
+          "flex h-6 w-6 items-center justify-center transition-all",
+          active ? "text-[#3a5bfd]" : "text-[#111827]",
+        )}
+      >
+        <Icon
+          className={cn(active ? "h-[18px] w-[18px]" : "h-5 w-5")}
+          strokeWidth={active ? 2.1 : 2}
+          fill={active ? "currentColor" : "none"}
+        />
+      </div>
+      <span
+        className={cn(
+          "app-rail-label text-[12px] font-medium leading-[16px]",
+          active ? "text-[#3a5bfd]" : "text-[#111827]",
+        )}
+      >
+        {label}
+      </span>
+    </>
+  );
+}
+
+export default function App() {
+  const [activePage, setActivePage] = useState("home");
+  const [activeTool, setActiveTool] = useState(null);
+  const [prompt, setPrompt] = useState("");
+  const [jobs, setJobs] = useState(initialJobs);
+  const [promptPresets, setPromptPresets] = useState([]);
+  const [presetEditorState, setPresetEditorState] = useState({ open: false, preset: null });
+  const [deepModeJobId, setDeepModeJobId] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [composerConfig, setComposerConfig] = useState(INITIAL_COMPOSER_CONFIG);
+  const [composerAttachments, setComposerAttachments] = useState(INITIAL_COMPOSER_ATTACHMENTS);
+  const [homeResetKey, setHomeResetKey] = useState(0);
+  const [imageDetailState, setImageDetailState] = useState(null);
+  const [homeImageLibraryOpen, setHomeImageLibraryOpen] = useState(false);
+  const [homeVideoLibraryOpen, setHomeVideoLibraryOpen] = useState(false);
+  const [deleteImageDialog, setDeleteImageDialog] = useState(null);
+  const [deletePresetDialog, setDeletePresetDialog] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const generationTimers = useRef({});
+  const toastTimers = useRef({});
+  const nextResultImages = useMemo(() => resultSets, []);
+  const generateScrollRef = useRef(null);
+  const latestJobRef = useRef(null);
+  const hasPendingGeneration = jobs.some(isPendingGenerationJob);
+  const dismissToast = (toastId) => {
+    if (toastTimers.current[toastId]) {
+      window.clearTimeout(toastTimers.current[toastId]);
+      delete toastTimers.current[toastId];
+    }
+    setToasts((prev) => prev.filter((item) => item.id !== toastId));
+  };
+  const notify = ({ type = "info", title, description = "", duration = 3200 }) => {
+    if (!title) return null;
+    const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const nextToast = { id, type, title, description };
+    setToasts((prev) => [...prev.slice(-3), nextToast]);
+    toastTimers.current[id] = window.setTimeout(() => dismissToast(id), duration);
+    return id;
+  };
+  const composerLibraryMyImages = useMemo(
+    () =>
+      (composerAttachments.uploads || [])
+        .filter((item) => item.assetType === "image")
+        .map((item) => ({
+          id: item.id,
+          name: item.rawName || item.name,
+          tokenName: item.name,
+          preview: item.preview,
+          meta: item.rawName ? "本地上传" : item.name,
+        })),
+    [composerAttachments.uploads],
+  );
+  const composerLibraryStockImages = useMemo(
+    () => [
+      { id: "composer-stock-hero", name: "课程主视觉", preview: featureHeroImage, meta: "图片库素材" },
+      { id: "composer-stock-clip", name: "片段海报", preview: featureClipImage, meta: "图片库素材" },
+      { id: "composer-stock-voice", name: "讲解角色", preview: featureVoiceImage, meta: "图片库素材" },
+      { id: "composer-stock-gallery", name: "成片封面", preview: galleryFinishedImage, meta: "图片库素材" },
+      { id: "composer-stock-finished", name: "成片案例", preview: showcaseImages[0], meta: "公共图片库" },
+      { id: "composer-stock-product", name: "营销场景", preview: showcaseImages[1], meta: "公共图片库" },
+    ],
+    [],
+  );
+
+  const buildAgentFormFromJob = (job) => {
+    const sourceState = buildAgentState(job.agentForm, job.agentState);
+    return {
+      triggerPrompt: sourceState.businessInfo.triggerPrompt,
+      businessPoint: sourceState.businessInfo.businessPoint,
+      audience: sourceState.businessInfo.audience,
+      conversionGuidance: sourceState.businessInfo.conversionGuidance,
+      style: sourceState.businessInfo.style,
+      videoType: sourceState.businessInfo.videoType,
+      narratorType: sourceState.businessInfo.narratorType,
+      materialTypes: sourceState.businessInfo.materialTypes,
+      materialType: sourceState.businessInfo.materialType,
+      videoScene: sourceState.businessInfo.videoScene,
+      videoRatio: sourceState.businessInfo.videoRatio,
+      scriptStyle: sourceState.businessInfo.scriptStyle,
+      additionalInfo: sourceState.businessInfo.additionalInfo,
+    };
+  };
+
+  const getVersionRootId = (job) => job.versionRootId || job.id;
+
+  const getNextVersionNumber = (allJobs, rootId) => {
+    const currentMax = allJobs.reduce((max, item) => {
+      const itemRootId = item.versionRootId || item.id;
+      if (itemRootId !== rootId) return max;
+      return Math.max(max, item.versionNumber || 1);
+    }, 1);
+    return currentMax + 1;
+  };
+
+  const clearGenerationTimer = (jobId) => {
+    const timer = generationTimers.current[jobId];
+    if (!timer) return;
+    window.clearTimeout(timer);
+    delete generationTimers.current[jobId];
+  };
+
+  useEffect(() => {
+    jobs.forEach((job) => {
+      if ((job.status !== "generating" && job.status !== "generating_video") || generationTimers.current[job.id]) return;
+      generationTimers.current[job.id] = window.setTimeout(() => {
+        setJobs((prev) =>
+          prev.map((item) =>
+            item.id === job.id
+              ? job.status === "generating_video"
+                ? {
+                    ...item,
+                    status: "done_video",
+                    resultVideoUrl: demoVideoUrl,
+                    videoPoster:
+                      item.videoPoster ||
+                      nextResultImages[item.createdAt % nextResultImages.length]?.[0] ||
+                      showcaseImages[0],
+                  }
+                : {
+                    ...item,
+                    status: "done",
+                    resultImages:
+                      nextResultImages[item.createdAt % nextResultImages.length] || nextResultImages[0],
+                  }
+              : item,
+          ),
+        );
+        notify({
+          type: "success",
+          title: job.status === "generating_video" ? "视频生成完成" : "生成完成",
+          description: job.status === "generating_video" ? "成片已经出现在生成列表中。" : "结果已经出现在生成列表中。",
+        });
+        delete generationTimers.current[job.id];
+      }, job.status === "generating_video" ? 1400 : 1200);
+    });
+  }, [jobs, nextResultImages]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(generationTimers.current).forEach((timer) => window.clearTimeout(timer));
+      Object.values(toastTimers.current).forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activePage !== "generate" || deepModeJobId) return;
+    const timer = window.setTimeout(() => {
+      latestJobRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      generateScrollRef.current?.scrollTo({
+        top: generateScrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [activePage, jobs.length, deepModeJobId]);
+
+  const handleSubmit = () => {
+    const hasComposerAttachments = Boolean(
+      composerAttachments.uploads.length ||
+        composerAttachments.landingPage ||
+        composerAttachments.voiceScript,
+    );
+    const value = prompt.trim() || (hasComposerAttachments ? "请参考已添加素材生成内容。" : "");
+    if (!value) {
+      notify({
+        type: "warning",
+        title: "还不能提交",
+        description: "先输入创意描述，或添加图片、视频、落地页、脚本素材。",
+      });
+      return;
+    }
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再提交新的生成请求。",
+      });
+      return;
+    }
+    const createdDay = getDateKey(new Date());
+    const nextJobId = `job-${Date.now()}`;
+    const nextAgentForm = buildAgentFormFromComposer(value, composerConfig, composerAttachments);
+    const promptAttachmentSnapshot = cloneComposerAttachments(composerAttachments);
+    const promptImageAttachments = getImagePromptAttachments(promptAttachmentSnapshot);
+
+    setJobs((prev) => [
+      ...prev,
+      composerConfig.mode === "agent"
+        ? {
+            id: nextJobId,
+            prompt: value,
+            imageRatio:
+              composerConfig.agentRatio === "自动"
+                ? "9:16"
+                : composerConfig.agentRatio,
+            imageResolution: normalizeComposerScene(composerConfig.agentScene),
+            imageCount: 2,
+            resultImages: [],
+            status: "agent_deep",
+            createdAt: prev.length + 1,
+            createdDay,
+            mode: "agent",
+            promptAttachments: promptAttachmentSnapshot,
+            agentForm: nextAgentForm,
+            agentState: buildAgentState(nextAgentForm),
+            agentProgress: { currentStep: 1, maxStepReached: 1 },
+            agentMessages: [
+              createAgentMessage(value, { role: "user", attachments: promptImageAttachments }),
+              createAgentMessage(DEEP_MODE_ENTRY_GUIDANCE, { kind: "reply" }),
+            ],
+          }
+        : {
+            id: nextJobId,
+            prompt: value,
+            imageRatio:
+              composerConfig.mode === "video"
+                ? composerConfig.videoRatio
+                : composerConfig.imageRatio,
+            imageResolution:
+              composerConfig.mode === "video"
+                ? normalizeComposerScene(composerConfig.videoScene)
+                : composerConfig.imageResolution,
+            imageCount: composerConfig.mode === "image" ? composerConfig.imageCount : 4,
+            resultImages: [],
+            status: "generating",
+            createdAt: prev.length + 1,
+            createdDay,
+            mode: composerConfig.mode,
+            promptAttachments: promptAttachmentSnapshot,
+          },
+    ]);
+    setPrompt("");
+    setActivePage("generate");
+    setDeepModeJobId(composerConfig.mode === "agent" ? nextJobId : null);
+    setComposerAttachments(INITIAL_COMPOSER_ATTACHMENTS);
+    setOpenMenu(null);
+    notify({
+      type: "info",
+      title: composerConfig.mode === "agent" ? "已进入深度创编" : "任务已提交",
+      description: composerConfig.mode === "agent" ? "先确认创意收集信息，再继续生成方案。" : "正在生成结果，完成后会自动出现在列表里。",
+    });
+  };
+
+  const handleOpenHomeImageLibrary = () => {
+    setOpenMenu(null);
+    setHomeImageLibraryOpen(true);
+  };
+
+  const handleConfirmHomeImageLibrary = (image) => {
+    if (!image?.preview) {
+      notify({
+        type: "warning",
+        title: "请选择图片",
+        description: "从左侧图片列表选择后再添加。",
+      });
+      return;
+    }
+    const existingUpload = composerAttachments.uploads.find(
+      (item) => item.id === image.id || item.preview === image.preview,
+    );
+    let tokenName = existingUpload?.name || image.tokenName;
+
+    if (!tokenName) {
+      if (composerAttachments.uploads.length >= COMPOSER_UPLOAD_MAX) {
+        notify({
+          type: "warning",
+          title: "素材已达上限",
+          description: `当前输入框最多添加 ${COMPOSER_UPLOAD_MAX} 个素材。`,
+        });
+        return;
+      }
+      const imageCount = composerAttachments.uploads.filter((item) => item.assetType === "image").length;
+      tokenName = `图片${imageCount + 1}`;
+      setComposerAttachments((prev) => ({
+        ...prev,
+        uploads: [
+          ...prev.uploads,
+          {
+            id: `composer-image-library-${Date.now()}`,
+            assetType: "image",
+            name: tokenName,
+            rawName: image.name,
+            preview: image.preview,
+          },
+        ],
+      }));
+    }
+
+    setPrompt((prev) => appendMentionTokenToText(prev, tokenName));
+    setHomeImageLibraryOpen(false);
+    notify({
+      type: "success",
+      title: "图片已添加",
+      description: "已带入输入框，可继续补充或直接发送。",
+    });
+  };
+
+  const handleComposerImageLibraryUpload = (files) => {
+    const sourceFiles = Array.from(files || []);
+    const imageFiles = sourceFiles.filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) return [];
+
+    const baseImageCount = composerAttachments.uploads.filter((item) => item.assetType === "image").length;
+    const remainingSlots = Math.max(0, COMPOSER_UPLOAD_MAX - composerAttachments.uploads.length);
+    if (!remainingSlots) {
+      notify({
+        type: "warning",
+        title: "素材已达上限",
+        description: `当前输入框最多添加 ${COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+      return [];
+    }
+
+    const nextUploads = imageFiles.slice(0, remainingSlots).map((file, index) => ({
+      id: `composer-image-upload-${Date.now()}-${index}`,
+      assetType: "image",
+      name: `图片${baseImageCount + index + 1}`,
+      rawName: file.name,
+      preview: URL.createObjectURL(file),
+    }));
+
+    if (imageFiles.length > nextUploads.length) {
+      notify({
+        type: "warning",
+        title: "已截取可添加数量",
+        description: `当前输入框最多保留 ${COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+    }
+
+    setComposerAttachments((prev) => ({
+      ...prev,
+      uploads: [...prev.uploads, ...nextUploads],
+    }));
+
+    return nextUploads.map((item) => ({
+      id: item.id,
+      name: item.rawName || item.name,
+      tokenName: item.name,
+      preview: item.preview,
+      meta: "本地上传",
+    }));
+  };
+
+  const handleOpenHomeVideoLibrary = () => {
+    setOpenMenu(null);
+    setHomeVideoLibraryOpen(true);
+  };
+
+  const handleConfirmHomeVideoLibrary = (video) => {
+    if (!video?.preview) {
+      notify({
+        type: "warning",
+        title: "请选择视频",
+        description: "从左侧视频列表选择后再添加。",
+      });
+      return;
+    }
+    if (composerAttachments.uploads.length >= COMPOSER_UPLOAD_MAX) {
+      notify({
+        type: "warning",
+        title: "素材已达上限",
+        description: `当前输入框最多添加 ${COMPOSER_UPLOAD_MAX} 个素材。`,
+      });
+      return;
+    }
+    const videoCount = composerAttachments.uploads.filter((item) => item.assetType === "video").length;
+    const tokenName = `视频${videoCount + 1}`;
+    setComposerAttachments((prev) => {
+      return {
+        ...prev,
+        uploads: [
+          ...prev.uploads,
+          {
+            id: `composer-video-library-${Date.now()}`,
+            assetType: "video",
+            name: tokenName,
+            rawName: video.name,
+            preview: video.preview,
+          },
+        ],
+      };
+    });
+    setPrompt((prev) => {
+      return appendMentionTokenToText(prev, tokenName);
+    });
+    setHomeVideoLibraryOpen(false);
+    notify({
+      type: "success",
+      title: "视频已添加",
+      description: "已带入输入框，可继续补充或直接发送。",
+    });
+  };
+
+  const handleStopGenerating = () => {
+    setJobs((prev) => {
+      const pendingIds = prev.filter(isPendingGenerationJob).map((item) => item.id);
+      pendingIds.forEach(clearGenerationTimer);
+      return prev.filter((item) => !pendingIds.includes(item.id));
+    });
+    notify({
+      type: "info",
+      title: "已停止生成",
+      description: "正在生成中的任务已取消。",
+    });
+  };
+
+  const handleApplyPreset = (preset) => {
+    setPrompt((prev) => (prev.trim() ? `${prev}\n${preset.content}` : preset.content));
+  };
+
+  const handleCreatePreset = () => {
+    setOpenMenu(null);
+    setPresetEditorState({ open: true, preset: null });
+  };
+
+  const handleEditPreset = (preset) => {
+    setOpenMenu(null);
+    setPresetEditorState({ open: true, preset });
+  };
+
+  const handleDuplicatePreset = (preset) => {
+    setPromptPresets((prev) => [
+      {
+        id: `preset-${Date.now()}`,
+        name: `${preset.name} 副本`,
+        content: preset.content,
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleDeletePreset = (presetId) => {
+    const preset = promptPresets.find((item) => item.id === presetId);
+    setDeletePresetDialog({
+      presetId,
+      name: preset?.name || "当前提示词",
+    });
+  };
+
+  const confirmDeletePreset = () => {
+    if (!deletePresetDialog) return;
+    const { presetId } = deletePresetDialog;
+    setDeletePresetDialog(null);
+    setPromptPresets((prev) => prev.filter((item) => item.id !== presetId));
+    notify({
+      type: "success",
+      title: "提示词已删除",
+      description: "已从预设列表中移除。",
+    });
+  };
+
+  const handleSavePreset = (values) => {
+    setPromptPresets((prev) => {
+      if (presetEditorState.preset) {
+        return prev.map((item) =>
+          item.id === presetEditorState.preset.id
+            ? { ...item, name: values.name, content: values.content }
+            : item,
+        );
+      }
+
+      return [
+        {
+          id: `preset-${Date.now()}`,
+          name: values.name,
+          content: values.content,
+        },
+        ...prev,
+      ];
+    });
+    setPresetEditorState({ open: false, preset: null });
+  };
+
+  const handleConfirmAgent = (jobId, form) => {
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? {
+              ...item,
+              status: "agent_deep",
+              agentForm: form,
+              agentState: buildAgentState(form),
+              agentProgress: { currentStep: 2, maxStepReached: 2 },
+              agentMessages: [
+                ...getVisibleAgentMessages(item.agentMessages),
+                createAgentMessage("我已确认以上业务信息。", { role: "user" }),
+              ],
+            }
+          : item,
+      ),
+    );
+    setDeepModeJobId(jobId);
+    setActivePage("generate");
+  };
+
+  const handleExitDeepMode = () => {
+    setDeepModeJobId(null);
+    setActivePage("generate");
+  };
+
+  const handleUpdateDeepProgress = (jobId, progress) => {
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? {
+              ...item,
+              agentProgress: progress,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const handleUpdateDeepState = (jobId, nextState) => {
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? {
+              ...item,
+              agentState: nextState,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const handleStepFlowAction = (jobId, payload) => {
+    const userMessage = getStepFlowUserMessage(payload);
+    const nextMessage =
+      payload.to === "export"
+        ? "成片设置已经确认，开始进入视频合成。你现在会回到外层任务流，并看到这条视频任务进入生成中。"
+        : null;
+
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? {
+              ...item,
+              agentMessages: [
+                ...(item.agentMessages || []),
+                ...(userMessage ? [createAgentMessage(userMessage, { role: "user" })] : []),
+                ...(nextMessage ? [createAgentMessage(nextMessage)] : []),
+              ],
+            }
+          : item,
+      ),
+    );
+  };
+
+  const handleExportVideo = (jobId) => {
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再提交成片合成。",
+      });
+      return;
+    }
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? (() => {
+              const agentState = buildAgentState(item.agentForm, item.agentState);
+              const combinationSummary = getStoryboardCombinationSummary(agentState.outlines);
+              const generatedVideoCount = Math.max(1, combinationSummary.count || 1);
+
+              return {
+              ...item,
+              status: "generating_video",
+              mode: "video",
+              imageRatio: item.imageRatio || "9:16",
+              imageResolution: item.imageResolution || "信息流",
+                generatedVideoCount,
+                storyboardCombinationExpression: combinationSummary.expression,
+                videoPoster:
+                  getActiveStoryboardMediaAsset(agentState.outlines?.[0], 0)?.preview ||
+                  item.agentState?.characters?.[0]?.avatar ||
+                  showcaseImages[0],
+              };
+            })()
+          : item,
+      ),
+    );
+    setDeepModeJobId(null);
+    setActivePage("generate");
+  };
+
+  const handleSendDeepMessage = (jobId, content) => {
+    setJobs((prev) =>
+      prev.map((item) =>
+        item.id === jobId
+          ? (() => {
+              const existingMessages = [...(item.agentMessages || [])];
+
+              if (typeof content === "object" && content?.action === "hideFailureMessages") {
+                const { targetStep, mode, fromStep } = content;
+                return {
+                  ...item,
+                  agentMessages: existingMessages.map((message) => {
+                    if (getAgentMessageKind(message) !== "failure") return message;
+                    const isSameFailure =
+                      message.targetStep === targetStep &&
+                      message.mode === mode &&
+                      message.fromStep === fromStep;
+                    return isSameFailure ? { ...message, conversationVisibility: "hidden" } : message;
+                  }),
+                };
+              }
+
+              if (typeof content === "object" && content?.content) {
+                const { role, kind, content: messageContent, ...rest } = content;
+                return {
+                  ...item,
+                  agentMessages: [
+                    ...existingMessages,
+                    createAgentMessage(messageContent, {
+                      role: role || "assistant",
+                      kind,
+                      ...rest,
+                    }),
+                  ],
+                };
+              }
+
+              const nextContent = String(content || "").trim();
+              if (!nextContent) return item;
+
+              return {
+                ...item,
+                agentMessages: [
+                  ...existingMessages,
+                  createAgentMessage(nextContent, { role: "user" }),
+                ],
+              };
+            })()
+          : item,
+      ),
+    );
+  };
+
+  const handleCreateVideoVariant = (jobId) => {
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再创建新版本。",
+      });
+      return;
+    }
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    const createdDay = getDateKey(new Date());
+    const nextId = `job-${Date.now()}`;
+    const versionRootId = getVersionRootId(sourceJob);
+    const sourceVersionNumber = sourceJob.versionNumber || 1;
+
+    setJobs((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        prompt: sourceJob.prompt,
+        imageRatio: sourceJob.imageRatio || "9:16",
+        imageResolution: sourceJob.imageResolution || "信息流",
+        imageCount: sourceJob.imageCount || 4,
+        resultImages: [],
+        status: "agent_deep",
+        createdAt: prev.length + 1,
+        createdDay,
+        mode: "agent",
+        versionRootId,
+        versionNumber: getNextVersionNumber(prev, versionRootId),
+        relationType: "derived",
+        sourceVersionNumber,
+        promptAttachments: sourceJob.promptAttachments || null,
+        agentForm: buildAgentFormFromJob(sourceJob),
+        agentState: buildAgentState(sourceJob.agentForm, sourceJob.agentState),
+        agentProgress: { currentStep: 3, maxStepReached: 3 },
+        agentMessages: [
+          createAgentMessage(`基于当前成片继续改编，保留原视频不覆盖。`, { role: "user" }),
+          createAgentMessage(
+            `已基于视频 V${sourceVersionNumber} 创建新版本草稿，并直接进入「分镜设计」。你可以继续查看和调整这条任务的分镜，原视频会保留不变。`,
+          ),
+        ],
+      },
+    ]);
+
+    setDeepModeJobId(nextId);
+    setActivePage("generate");
+    notify({
+      type: "success",
+      title: "新版本草稿已创建",
+      description: "已进入分镜设计，可继续改编。",
+    });
+  };
+
+  const handleRegenerateJob = (jobId) => {
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再重新生成。",
+      });
+      return;
+    }
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    const createdDay = getDateKey(new Date());
+    const nextId = `job-${Date.now()}`;
+    const isVideoJob = sourceJob.mode === "video" || sourceJob.status === "done_video";
+
+    setJobs((prev) => {
+      if (isVideoJob) {
+        const versionRootId = getVersionRootId(sourceJob);
+        const sourceVersionNumber = sourceJob.versionNumber || 1;
+        return [
+          ...prev,
+          {
+            ...sourceJob,
+            id: nextId,
+            status: "generating_video",
+            createdAt: prev.length + 1,
+            createdDay,
+            mode: "video",
+            versionRootId,
+            versionNumber: getNextVersionNumber(prev, versionRootId),
+            relationType: "rerun",
+            sourceVersionNumber,
+            resultVideoUrl: null,
+            videoPoster: sourceJob.videoPoster || sourceJob.agentState?.characters?.[0]?.avatar || showcaseImages[0],
+          },
+        ];
+      }
+
+      return [
+        ...prev,
+        {
+          ...sourceJob,
+          id: nextId,
+          status: "generating",
+          createdAt: prev.length + 1,
+          createdDay,
+          resultImages: [],
+        },
+      ];
+    });
+
+    setActivePage("generate");
+    notify({
+      type: "info",
+      title: "重新生成已提交",
+      description: "完成后会保留为新的结果。",
+    });
+  };
+
+  const handleReuseImageJob = (jobId) => {
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    setPrompt(sourceJob.prompt);
+    setComposerConfig((prev) => ({
+      ...prev,
+      mode: "image",
+      imageRatio: sourceJob.imageRatio || prev.imageRatio,
+      imageResolution: sourceJob.imageResolution || prev.imageResolution,
+      imageCount: sourceJob.imageCount || prev.imageCount,
+    }));
+    setComposerAttachments(INITIAL_COMPOSER_ATTACHMENTS);
+    setActivePage("generate");
+  };
+
+  const handleOpenImageEditor = (jobId) => {
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    setImageDetailState(null);
+    setDeepModeJobId(null);
+    setOpenMenu(null);
+    setPrompt(sourceJob.prompt);
+    setComposerConfig((prev) => ({
+      ...prev,
+      mode: "image",
+      imageRatio: sourceJob.imageRatio || prev.imageRatio,
+      imageResolution: sourceJob.imageResolution || prev.imageResolution,
+      imageCount: 1,
+    }));
+    setComposerAttachments(INITIAL_COMPOSER_ATTACHMENTS);
+    setActivePage("generate");
+  };
+
+  const createDerivedToolImageJob = (jobId, toolLabel, promptSuffix) => {
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再使用工具处理。",
+      });
+      return;
+    }
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    const createdDay = getDateKey(new Date());
+    const nextId = `job-${Date.now()}`;
+
+    setJobs((prev) => [
+      ...prev,
+      {
+        ...sourceJob,
+        id: nextId,
+        prompt: `${sourceJob.prompt}，${promptSuffix}`,
+        imageCount: 1,
+        resultImages: [],
+        status: "generating",
+        createdAt: prev.length + 1,
+        createdDay,
+        mode: "image",
+        toolLabel,
+      },
+    ]);
+    setImageDetailState(null);
+    setDeepModeJobId(null);
+    setActivePage("generate");
+    notify({
+      type: "info",
+      title: "工具处理已提交",
+      description: `${toolLabel}任务已加入生成列表。`,
+    });
+  };
+
+  const handleConvertImageToVideo = (jobId, imageIndex = 0) => {
+    if (hasPendingGeneration) {
+      notify({
+        type: "warning",
+        title: "已有任务生成中",
+        description: "当前任务完成后再基于图片生成视频。",
+      });
+      return;
+    }
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    const createdDay = getDateKey(new Date());
+    const nextId = `job-${Date.now()}`;
+    const sourcePoster = sourceJob.resultImages?.[imageIndex] || sourceJob.resultImages?.[0] || showcaseImages[0];
+
+    setJobs((prev) => [
+      ...prev,
+      {
+        ...sourceJob,
+        id: nextId,
+        prompt: `${sourceJob.prompt}，请基于当前图片延展生成视频`,
+        status: "generating_video",
+        createdAt: prev.length + 1,
+        createdDay,
+        mode: "video",
+        resultImages: [],
+        resultVideoUrl: null,
+        videoPoster: sourcePoster,
+        toolLabel: "基于当前图片生成视频",
+      },
+    ]);
+    setImageDetailState(null);
+    setDeepModeJobId(null);
+    setActivePage("generate");
+    notify({
+      type: "info",
+      title: "图生视频已提交",
+      description: "完成后会出现在生成列表中。",
+    });
+  };
+
+  const handleLocateImageJob = (jobId) => {
+    setImageDetailState(null);
+    setDeepModeJobId(null);
+    setActivePage("generate");
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-job-id="${jobId}"]`);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
+
+  const deleteImageResult = (jobId, imageIndex) => {
+    setJobs((prev) =>
+      prev.flatMap((item) => {
+        if (item.id !== jobId) return [item];
+        const images = item.resultImages || [];
+        if (!images.length) return [item];
+        const nextImages = images.filter((_, index) => index !== imageIndex);
+        if (!nextImages.length) return [];
+        return [
+          {
+            ...item,
+            resultImages: nextImages,
+            imageCount: nextImages.length,
+          },
+        ];
+      }),
+    );
+    setImageDetailState((prev) => {
+      if (!prev || prev.jobId !== jobId) return prev;
+      return null;
+    });
+  };
+
+  const handleDeleteImage = (jobId, imageIndex) => {
+    const targetJob = jobs.find((item) => item.id === jobId);
+    const totalImages = targetJob?.resultImages?.length || targetJob?.imageCount || 0;
+    setDeleteImageDialog({
+      jobId,
+      imageIndex,
+      totalImages,
+      resultLabel: targetJob?.status === "done" ? `图片 ${imageIndex + 1}` : "当前结果",
+    });
+  };
+
+  const confirmDeleteImage = () => {
+    if (!deleteImageDialog) return;
+    const { jobId, imageIndex } = deleteImageDialog;
+    setDeleteImageDialog(null);
+    deleteImageResult(jobId, imageIndex);
+    notify({
+      type: "success",
+      title: "图片已删除",
+      description: "已从生成结果中移除。",
+    });
+  };
+
+  const handleLogoClick = () => {
+    setActiveTool(null);
+    setActivePage("home");
+    setPrompt("");
+    setOpenMenu(null);
+    setDeepModeJobId(null);
+    setImageDetailState(null);
+    setComposerConfig(INITIAL_COMPOSER_CONFIG);
+    setComposerAttachments(INITIAL_COMPOSER_ATTACHMENTS);
+    setHomeResetKey((prev) => prev + 1);
+  };
+
+  const handleOpenImageDetail = (jobId, imageIndex = 0) => {
+    setOpenMenu(null);
+    setImageDetailState({
+      jobId,
+      imageIndex,
+      showMetaMenu: false,
+    });
+  };
+
+  const handleCloseImageDetail = () => {
+    setImageDetailState(null);
+  };
+
+  const handleMoveImageDetail = (direction) => {
+    setImageDetailState((prev) => {
+      if (!prev) return prev;
+      const targetJob = jobs.find((item) => item.id === prev.jobId);
+      const total = targetJob?.resultImages?.length || 0;
+      if (!total) return prev;
+      const nextIndex = (prev.imageIndex + direction + total) % total;
+      return {
+        ...prev,
+        imageIndex: nextIndex,
+      };
+    });
+  };
+
+  const handleToggleImageMeta = () => {
+    setImageDetailState((prev) =>
+      prev
+        ? {
+            ...prev,
+            showMetaMenu: !prev.showMetaMenu,
+          }
+        : prev,
+    );
+  };
+
+  const handleOpenTool = (tool) => {
+    setDeepModeJobId(null);
+    setOpenMenu(null);
+    if (tool?.id === "tool-image-one-click") {
+      setActiveTool(tool);
+      setActivePage("tools");
+      return;
+    }
+    setActiveTool(null);
+    if (tool?.composerMode) {
+      setComposerConfig((prev) => ({
+        ...prev,
+        mode: tool.composerMode,
+      }));
+    }
+    setActivePage(tool?.targetPage || "home");
+  };
+
+  const navItems = [
+    { id: "home", label: "首页", icon: Home },
+    { id: "generate", label: "生成", icon: Sparkles },
+    { id: "tools", label: "工具", icon: Grid2x2 },
+    { id: "market", label: "市场", icon: Store },
+    { id: "assets", label: "资产", icon: FolderOpen },
+  ];
+
+  const selectedImageDetailJob = imageDetailState
+    ? jobs.find((item) => item.id === imageDetailState.jobId)
+    : null;
+  const isDeepModeActive = activePage === "generate" && Boolean(deepModeJobId);
+
+  useEffect(() => {
+    if (!isDeepModeActive || !toasts.length) return;
+    Object.values(toastTimers.current).forEach((timer) => window.clearTimeout(timer));
+    toastTimers.current = {};
+    setToasts([]);
+  }, [isDeepModeActive, toasts.length]);
+
+  useEffect(() => {
+    if (!imageDetailState) return;
+    const targetJob = jobs.find((item) => item.id === imageDetailState.jobId);
+    if (!targetJob?.resultImages?.length) {
+      setImageDetailState(null);
+    }
+  }, [imageDetailState, jobs]);
+
+  return (
+    <div
+      className={cn(
+        "app-shell relative flex h-full overflow-hidden",
+        isDeepModeActive
+          ? "bg-[linear-gradient(180deg,#f9fbff_0%,#f5f8ff_100%)]"
+          : "bg-[radial-gradient(circle_at_2%_0%,rgba(214,238,255,0.95),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(236,231,255,0.9),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#ffffff_34%,#fbfcff_100%)]",
+      )}
+    >
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-50 flex h-[68px] items-center px-6">
+        <button
+          type="button"
+          onClick={handleLogoClick}
+          className="pointer-events-auto flex h-8 items-center rounded-[8px] transition-opacity hover:opacity-80"
+          aria-label="返回首页"
+        >
+          <AppLogo compact={activePage !== "home"} />
+        </button>
+      </header>
+      <aside
+        className={cn(
+          "app-rail flex w-[76px] shrink-0 flex-col items-center bg-white/0 px-0 py-0",
+        )}
+      >
+        <div className="h-[68px] w-full shrink-0" />
+
+        <div className="flex w-full flex-1 flex-col items-center justify-start gap-7 pt-[66px] max-[640px]:gap-5">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                if (item.id === "home" || item.id === "generate" || item.id === "tools") {
+                  setActiveTool(null);
+                  setActivePage(item.id);
+                }
+              }}
+              className="flex w-[44px] flex-col items-center gap-1"
+            >
+              {railItem(activePage === item.id, item.icon, item.label)}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col items-center gap-5 pb-7">
+          <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f7ff] text-[18px] font-medium text-[#4f6bff]">
+            S
+          </button>
+          <Bell className="h-5 w-5 text-[#111827]" />
+          <Mail className="h-5 w-5 text-[#111827]" />
+          <Heart className="h-5 w-5 text-[#111827]" />
+          <Undo2 className="h-5 w-5 text-[#111827]" />
+        </div>
+      </aside>
+
+      <main className={cn("app-main min-w-0 flex-1", isDeepModeActive ? "overflow-auto" : "overflow-hidden")}>
+        {activePage === "home" ? (
+          <HomePage
+            key={homeResetKey}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            onSubmit={handleSubmit}
+            isGenerating={hasPendingGeneration}
+            onStopGenerating={handleStopGenerating}
+            composerConfig={composerConfig}
+            setComposerConfig={setComposerConfig}
+            composerAttachments={composerAttachments}
+            setComposerAttachments={setComposerAttachments}
+            openMenu={openMenu}
+            setOpenMenu={setOpenMenu}
+            promptPresets={promptPresets}
+            onApplyPreset={handleApplyPreset}
+            onCreatePreset={handleCreatePreset}
+            onEditPreset={handleEditPreset}
+            onDuplicatePreset={handleDuplicatePreset}
+            onDeletePreset={handleDeletePreset}
+            onOpenImageLibrary={handleOpenHomeImageLibrary}
+            onOpenVideoLibrary={handleOpenHomeVideoLibrary}
+            onNotify={notify}
+          />
+        ) : activePage === "tools" ? (
+          <ToolsPage
+            activeTool={activeTool}
+            onOpenTool={handleOpenTool}
+            onBackTool={() => setActiveTool(null)}
+          />
+        ) : (
+          <GeneratePage
+            jobs={jobs}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            onSubmit={handleSubmit}
+            isGenerating={hasPendingGeneration}
+            onStopGenerating={handleStopGenerating}
+            composerConfig={composerConfig}
+            setComposerConfig={setComposerConfig}
+            composerAttachments={composerAttachments}
+            setComposerAttachments={setComposerAttachments}
+            openMenu={openMenu}
+            setOpenMenu={setOpenMenu}
+            onConfirmAgent={handleConfirmAgent}
+            deepModeJobId={deepModeJobId}
+            onEnterDeepMode={setDeepModeJobId}
+            onExitDeepMode={handleExitDeepMode}
+            onSendDeepMessage={handleSendDeepMessage}
+            onUpdateDeepProgress={handleUpdateDeepProgress}
+            onUpdateDeepState={handleUpdateDeepState}
+            onStepFlowAction={handleStepFlowAction}
+            onExportVideo={handleExportVideo}
+            onCreateVideoVariant={handleCreateVideoVariant}
+            onRegenerateJob={handleRegenerateJob}
+            onReuseImageJob={handleReuseImageJob}
+            onOpenImageDetail={handleOpenImageDetail}
+            onOpenImageEditor={handleOpenImageEditor}
+            onConvertImageToVideo={handleConvertImageToVideo}
+            onApplyCutout={(jobId) =>
+              createDerivedToolImageJob(jobId, "基于当前图片智能抠图", "请只保留主体并完成智能抠图")
+            }
+            onApplyExpand={(jobId) =>
+              createDerivedToolImageJob(jobId, "基于当前图片智能扩图", "请在保持主体构图的前提下完成智能扩图")
+            }
+            onDeleteImage={handleDeleteImage}
+            promptPresets={promptPresets}
+            onApplyPreset={handleApplyPreset}
+            onCreatePreset={handleCreatePreset}
+            onEditPreset={handleEditPreset}
+            onDuplicatePreset={handleDuplicatePreset}
+            onDeletePreset={handleDeletePreset}
+            onOpenImageLibrary={handleOpenHomeImageLibrary}
+            onOpenVideoLibrary={handleOpenHomeVideoLibrary}
+            onNotify={notify}
+            scrollContainerRef={generateScrollRef}
+            latestJobRef={latestJobRef}
+          />
+        )}
+      </main>
+
+      {selectedImageDetailJob ? (
+        <ImageDetailModal
+          job={selectedImageDetailJob}
+          activeIndex={imageDetailState.imageIndex}
+          showMetaMenu={imageDetailState.showMetaMenu}
+          onClose={handleCloseImageDetail}
+          onPrev={() => handleMoveImageDetail(-1)}
+          onNext={() => handleMoveImageDetail(1)}
+          onToggleMeta={handleToggleImageMeta}
+          onLocateJob={handleLocateImageJob}
+          onOpenEditor={handleOpenImageEditor}
+          onConvertToVideo={handleConvertImageToVideo}
+          onApplyCutout={(jobId) =>
+            createDerivedToolImageJob(jobId, "基于当前图片智能抠图", "请只保留主体并完成智能抠图")
+          }
+          onApplyExpand={(jobId) =>
+            createDerivedToolImageJob(jobId, "基于当前图片智能扩图", "请在保持主体构图的前提下完成智能扩图")
+          }
+          onRegenerateJob={handleRegenerateJob}
+          onReuseImageJob={handleReuseImageJob}
+        />
+      ) : null}
+
+      <PresetPromptModal
+        open={presetEditorState.open}
+        initialValue={presetEditorState.preset}
+        onClose={() => setPresetEditorState({ open: false, preset: null })}
+        onConfirm={handleSavePreset}
+      />
+      <LogoLibraryModal
+        open={homeImageLibraryOpen}
+        selectedLogo={null}
+        myImages={composerLibraryMyImages}
+        stockImages={composerLibraryStockImages}
+        title="图片库"
+        selectedHeading="已选图片（1/1）"
+        emptyMineDescription="支持本地上传，也可以从图片库选择参考图。"
+        confirmLabel="添加图片"
+        onClose={() => setHomeImageLibraryOpen(false)}
+        onConfirm={handleConfirmHomeImageLibrary}
+        onUpload={handleComposerImageLibraryUpload}
+        onNotify={notify}
+      />
+      <VideoSegmentLibraryModal
+        open={homeVideoLibraryOpen}
+        targetName="输入框"
+        usage="reference"
+        videos={storyboardVideoLibraryItems}
+        onClose={() => setHomeVideoLibraryOpen(false)}
+        onConfirm={handleConfirmHomeVideoLibrary}
+        onNotify={notify}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteImageDialog)}
+        title="确认删除图片"
+        description={
+          deleteImageDialog
+            ? deleteImageDialog.totalImages <= 1
+              ? "确定删除这张生成图片吗？这是该任务的最后一张图片，删除后整个结果会从列表中移除。"
+              : `确定删除${deleteImageDialog.resultLabel}吗？删除后不可恢复，当前详情预览也会关闭。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="删除"
+        onClose={() => setDeleteImageDialog(null)}
+        onConfirm={confirmDeleteImage}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deletePresetDialog)}
+        title="确认删除提示词"
+        description={
+          deletePresetDialog
+            ? `确定删除提示词「${deletePresetDialog.name}」吗？删除后不会再出现在预设列表中。`
+            : ""
+        }
+        cancelLabel="取消"
+        confirmLabel="删除"
+        onClose={() => setDeletePresetDialog(null)}
+        onConfirm={confirmDeletePreset}
+      />
+      {!isDeepModeActive ? <ToastViewport toasts={toasts} onDismiss={dismissToast} /> : null}
+    </div>
+  );
+}

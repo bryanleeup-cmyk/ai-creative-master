@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 创编大师 UI 信息状态层级</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #eef3fb;
+        color: #202634;
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          Arial,
+          sans-serif;
+      }
+
+      .page {
+        width: 1440px;
+        min-height: 1820px;
+        margin: 0 auto;
+        padding: 44px;
+        background:
+          linear-gradient(180deg, rgba(247, 250, 255, 0.96) 0%, rgba(240, 245, 252, 0.98) 100%);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        gap: 28px;
+        align-items: stretch;
+        margin-bottom: 28px;
+      }
+
+      .hero-main,
+      .count-panel,
+      .group {
+        border: 1px solid #dde6f4;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 46px rgba(87, 106, 145, 0.1);
+      }
+
+      .hero-main {
+        min-height: 218px;
+        border-radius: 28px;
+        padding: 30px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 0 12px;
+        color: #4f6bff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-size: 34px;
+        line-height: 1.18;
+        letter-spacing: 0;
+      }
+
+      .hero-main p {
+        margin: 0;
+        max-width: 820px;
+        color: #647083;
+        font-size: 16px;
+        line-height: 1.8;
+      }
+
+      .count-panel {
+        border-radius: 28px;
+        padding: 24px;
+      }
+
+      .count-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .metric {
+        border-radius: 18px;
+        background: #f7f9fc;
+        padding: 16px 12px;
+        text-align: center;
+      }
+
+      .metric strong {
+        display: block;
+        color: #3a5bfd;
+        font-size: 34px;
+        line-height: 1;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 8px;
+        color: #687286;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 20px;
+      }
+
+      .legend span,
+      .tag {
+        display: inline-flex;
+        height: 26px;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #dfe7f5;
+        background: #fff;
+        padding: 0 10px;
+        color: #687286;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+
+      .group {
+        overflow: hidden;
+        border-radius: 26px;
+      }
+
+      .group-header {
+        display: flex;
+        min-height: 78px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 1px solid #edf1f6;
+        padding: 20px 24px;
+      }
+
+      .group-title {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .level {
+        display: inline-flex;
+        height: 36px;
+        min-width: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: #f2f6ff;
+        color: #3a5bfd;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.3;
+      }
+
+      .group-subtitle {
+        margin-top: 4px;
+        color: #7a8496;
+        font-size: 13px;
+      }
+
+      .samples {
+        display: grid;
+        gap: 14px;
+        padding: 22px 24px 24px;
+      }
+
+      .sample-row {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .sample-meta {
+        padding-top: 7px;
+      }
+
+      .sample-name {
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .sample-desc {
+        margin-top: 6px;
+        color: #8a93a6;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .rail {
+        border-radius: 22px;
+        background: #fff;
+        padding: 16px;
+      }
+
+      .user-wrap {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .user-bubble {
+        max-width: 360px;
+        border-radius: 16px 6px 16px 16px;
+        background: #f6f7f9;
+        padding: 13px 16px;
+        color: #202634;
+        box-shadow: 0 8px 22px rgba(100, 119, 156, 0.08);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .source-label,
+      .pill-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .source-label {
+        margin-bottom: 8px;
+        border: 1px solid #cbeaf2;
+        background: #f7feff;
+        color: #1394aa;
+      }
+
+      .dot {
+        height: 6px;
+        width: 6px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .analysis-card,
+      .reply-card,
+      .handoff-card,
+      .guidance-card,
+      .event-card,
+      .status-banner,
+      .focus-banner,
+      .toast,
+      .tooltip,
+      .thinking-card,
+      .intro-card,
+      .modal-card {
+        border: 1px solid #e8edf5;
+        background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+        box-shadow: 0 10px 24px rgba(117, 135, 170, 0.06);
+      }
+
+      .analysis-card {
+        border-color: #dceff5;
+        border-radius: 24px;
+        background: linear-gradient(180deg, #f7feff 0%, #f2fbff 100%);
+        padding: 18px;
+      }
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .icon-box {
+        display: inline-flex;
+        height: 40px;
+        width: 40px;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        border-radius: 16px;
+        border: 1px solid #cbeaf2;
+        background: #fff;
+        color: #1394aa;
+        font-weight: 900;
+      }
+
+      .card-title {
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .card-sub {
+        margin-top: 2px;
+        color: #7d8798;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .analysis-body {
+        margin-top: 14px;
+        border-top: 1px solid #d7edf4;
+        padding-top: 14px;
+        color: #3f485b;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .chip-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        border: 1px solid #dfeaf2;
+        background: rgba(255, 255, 255, 0.86);
+        padding: 6px 10px;
+        color: #687386;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .reply-label {
+        display: inline-flex;
+        margin-bottom: 8px;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 5px 10px;
+        color: #5e6f96;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .reply-card,
+      .thinking-card {
+        border-radius: 22px 22px 22px 8px;
+        padding: 16px 18px;
+        color: #434a5c;
+        font-size: 14px;
+        line-height: 1.75;
+      }
+
+      .thinking-card {
+        max-width: 420px;
+      }
+
+      .progress {
+        margin-top: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: #faf7ff;
+        padding: 7px 12px;
+        color: #7b5cff;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .pulse {
+        height: 10px;
+        width: 10px;
+        border-radius: 999px;
+        background: #7b5cff;
+      }
+
+      .handoff-card {
+        border-radius: 22px;
+        border-color: #bfeeff;
+        background: linear-gradient(180deg, #effdff 0%, #e9fbff 100%);
+        padding: 16px;
+      }
+
+      .handoff-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .handoff-icon {
+        display: flex;
+        height: 48px;
+        width: 48px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        background: #fff;
+        color: #13a3bf;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .handoff-card.history {
+        border-color: #e1e7f0;
+        background: linear-gradient(180deg, #fbfcff 0%, #f6f8fb 100%);
+        color: #687286;
+      }
+
+      .guidance-card {
+        border-radius: 24px;
+        padding: 18px;
+      }
+
+      .guidance-card h3 {
+        margin: 10px 0 8px;
+        font-size: 18px;
+      }
+
+      .guidance-card p {
+        margin: 0;
+        color: #4d5567;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .event-card {
+        display: flex;
+        gap: 12px;
+        border-radius: 16px;
+        padding: 13px;
+      }
+
+      .event-card.manual {
+        border-color: #dce7ff;
+        background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(243, 247, 255, 0.94) 100%);
+      }
+
+      .event-card.dialogue {
+        border-color: #dceff5;
+        background: linear-gradient(180deg, rgba(247, 254, 255, 0.98) 0%, rgba(242, 251, 255, 0.94) 100%);
+      }
+
+      .event-card.system {
+        border-color: #e2e7ef;
+        background: linear-gradient(180deg, rgba(252, 253, 255, 0.98) 0%, rgba(247, 249, 252, 0.94) 100%);
+      }
+
+      .event-card.flow {
+        border-color: #ebe3ff;
+        background: linear-gradient(180deg, rgba(252, 249, 255, 0.98) 0%, rgba(247, 243, 255, 0.94) 100%);
+      }
+
+      .event-icon {
+        display: flex;
+        height: 32px;
+        width: 32px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #dfe8ff;
+        background: #fff;
+        color: #3a5bfd;
+        font-weight: 900;
+      }
+
+      .event-content {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .event-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .badge {
+        border-radius: 999px;
+        background: #fff;
+        padding: 3px 8px;
+        color: #3a5bfd;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .event-detail {
+        margin-top: 4px;
+        color: #8a93a6;
+        font-size: 12px;
+      }
+
+      .status-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-radius: 18px;
+        border-color: #ffe0b8;
+        background: #fffaf2;
+        padding: 14px 16px;
+      }
+
+      .status-left {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .warn-icon {
+        display: flex;
+        height: 36px;
+        width: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: #fff;
+        color: #d97706;
+        font-weight: 900;
+      }
+
+      .orange-chip {
+        border-radius: 999px;
+        border: 1px solid #ffd7a6;
+        background: #fff;
+        padding: 5px 10px;
+        color: #d97706;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .focus-banner {
+        border-radius: 22px;
+        border-color: #dce8ff;
+        background: linear-gradient(180deg, #f7fbff 0%, #f2f8ff 100%);
+        padding: 18px;
+      }
+
+      .focus-banner h3 {
+        margin: 12px 0 4px;
+        font-size: 18px;
+      }
+
+      .focus-banner p {
+        margin: 0;
+        color: #637089;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .toast {
+        display: flex;
+        min-height: 56px;
+        align-items: center;
+        gap: 12px;
+        border: 0;
+        border-radius: 16px;
+        padding: 14px 18px;
+        box-shadow:
+          0 8px 16px 4px rgba(0, 71, 194, 0.08),
+          0 7px 14px 2px rgba(0, 71, 194, 0.07),
+          0 1px 8px rgba(0, 71, 194, 0.05);
+      }
+
+      .toast-dot {
+        display: flex;
+        height: 18px;
+        width: 18px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #009940;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .tooltip {
+        display: inline-block;
+        max-width: 360px;
+        border: 0;
+        border-radius: 12px;
+        background: #202634;
+        padding: 9px 12px;
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.5;
+        box-shadow: 0 12px 24px rgba(32, 38, 52, 0.18);
+      }
+
+      .flight-cue {
+        position: relative;
+        height: 86px;
+        border-radius: 18px;
+        background:
+          linear-gradient(90deg, rgba(123, 92, 255, 0.08), rgba(83, 212, 216, 0.08));
+        overflow: hidden;
+      }
+
+      .flight-cue::before {
+        content: "";
+        position: absolute;
+        left: 34px;
+        top: 50px;
+        height: 3px;
+        width: 310px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(123, 92, 255, 0), #7b5cff 48%, rgba(168, 137, 255, 0.18));
+        transform: rotate(-8deg);
+      }
+
+      .floating-pill {
+        position: absolute;
+        left: 172px;
+        top: 24px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        border: 1px solid #d9ceff;
+        background: #fff;
+        padding: 9px 13px;
+        color: #5f46d6;
+        font-size: 12px;
+        font-weight: 800;
+        box-shadow: 0 18px 40px rgba(92, 70, 214, 0.2);
+      }
+
+      .intro-card {
+        border-radius: 28px;
+        padding: 16px;
+      }
+
+      .intro-inner {
+        position: relative;
+        height: 150px;
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid #e9edf8;
+        background:
+          linear-gradient(#edf2fb 1px, transparent 1px),
+          linear-gradient(90deg, #edf2fb 1px, transparent 1px),
+          linear-gradient(180deg, #fbfdff 0%, #f6f8ff 100%);
+        background-size: 28px 28px, 28px 28px, auto;
+      }
+
+      .intro-node {
+        position: absolute;
+        border-radius: 20px;
+        border: 1px solid #dce8ff;
+        background: #fff;
+        padding: 14px;
+        box-shadow: 0 14px 30px rgba(79, 107, 255, 0.12);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .intro-node.center {
+        left: 50%;
+        top: 34px;
+        transform: translateX(-50%);
+        border-color: #e4dcff;
+        text-align: center;
+      }
+
+      .intro-node.left {
+        left: 22px;
+        top: 42px;
+      }
+
+      .intro-node.right {
+        right: 22px;
+        top: 42px;
+      }
+
+      .skeleton {
+        display: grid;
+        gap: 10px;
+        border-radius: 18px;
+        background: #fff;
+        padding: 16px;
+      }
+
+      .sk-line,
+      .sk-block {
+        overflow: hidden;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #eef2f8 0%, #f8fafc 45%, #eef2f8 100%);
+      }
+
+      .sk-line {
+        height: 14px;
+      }
+
+      .sk-block {
+        height: 70px;
+      }
+
+      .composer-state {
+        position: relative;
+        min-height: 76px;
+        border-radius: 20px;
+        border: 1px solid #b99bff;
+        background: #fbf8ff;
+        padding: 16px;
+        box-shadow:
+          0 0 0 4px rgba(123, 92, 255, 0.13),
+          0 22px 58px rgba(123, 92, 255, 0.2);
+      }
+
+      .composer-drop {
+        display: flex;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        border: 1px dashed #7b5cff;
+        background: rgba(248, 245, 255, 0.88);
+        color: #6d4cff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .modal-card {
+        overflow: hidden;
+        border-radius: 28px;
+      }
+
+      .modal-head,
+      .modal-foot {
+        display: flex;
+        min-height: 60px;
+        align-items: center;
+        justify-content: space-between;
+        background: #fff;
+        padding: 16px 20px;
+        font-weight: 800;
+      }
+
+      .modal-body {
+        background: #f6f7f9;
+        padding: 16px 20px;
+      }
+
+      .modal-inner {
+        border-radius: 12px;
+        background: #fff;
+        padding: 14px;
+        color: #4e596f;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .button {
+        border-radius: 10px;
+        background: linear-gradient(98deg, #0099e5, #3a5bfd 49%, #794dff);
+        padding: 10px 16px;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      .split-samples {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="hero-main">
+          <div class="eyebrow">AI 创编大师 · UI 信息状态层级</div>
+          <h1>当前页面共有 16 个样式家族，展开后 29 个常用状态变体</h1>
+          <p>
+            划分原则：真正表达“用户与 Agent 对话推进”的进入左侧对话流；只表示校验、待同步、聚焦、拖拽、提示的留在工作区或全局浮层。这样左侧负责叙事，右侧负责当前任务状态。
+          </p>
+        </div>
+        <aside class="count-panel">
+          <div class="sample-name">总数口径</div>
+          <div class="count-grid">
+            <div class="metric"><strong>16</strong><span>样式家族</span></div>
+            <div class="metric"><strong>29</strong><span>状态变体</span></div>
+            <div class="metric"><strong>5</strong><span>信息层级</span></div>
+          </div>
+          <div class="legend">
+            <span>左侧对话流</span>
+            <span>工作区局部状态</span>
+            <span>全局浮层</span>
+            <span>空/加载态</span>
+          </div>
+        </aside>
+      </section>
+
+      <div class="layout">
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L1</span>
+              <div>
+                <h2>用户输入与原始指令</h2>
+                <div class="group-subtitle">进入左侧，对齐右侧，代表用户明确说过的话</div>
+              </div>
+            </div>
+            <span class="tag">1 个家族 / 2 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">用户气泡</div>
+                <div class="sample-desc">普通指令、带素材指令共用此形态</div>
+              </div>
+              <div class="rail user-wrap">
+                <div>
+                  <div class="source-label"><span class="dot"></span>对话指令</div>
+                  <div class="user-bubble">把第二段镜头节奏再紧凑一些，保留资深女性教师和成功学员。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L2</span>
+              <div>
+                <h2>Agent 理解与过程</h2>
+                <div class="group-subtitle">解释“我如何理解/正在处理”，信息密度高于普通回复</div>
+              </div>
+            </div>
+            <span class="tag">3 个家族 / 5 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">语义理解卡片</div>
+                <div class="sample-desc">可折叠，含意图、任务规划、标签</div>
+              </div>
+              <div class="analysis-card">
+                <div class="card-top">
+                  <div class="icon-box">✦</div>
+                  <div>
+                    <div class="card-title">语义理解完成</div>
+                    <div class="card-sub">本轮已完成 · 调整方案规划</div>
+                  </div>
+                </div>
+                <div class="analysis-body">
+                  识别为对当前方案的局部修改，需要保持角色同步规则，并更新右侧可见结果。
+                  <div class="chip-line">
+                    <span class="chip">目标：方案规划</span>
+                    <span class="chip">范围：角色/大纲</span>
+                    <span class="chip">风险：待同步</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">生成中气泡</div>
+                <div class="sample-desc">左侧临时过程，可展开步骤；失败时转橙色</div>
+              </div>
+              <div>
+                <div class="reply-label">生成中</div>
+                <div class="thinking-card">
+                  <strong>正在生成分镜设计</strong>
+                  <br />
+                  正在拆解镜头、分配出场角色，并准备右侧预览。
+                  <div class="progress"><span class="pulse"></span>2/4 步</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">页面骨架屏</div>
+                <div class="sample-desc">右侧生成内容时使用，不进入对话流</div>
+              </div>
+              <div class="skeleton">
+                <div class="sk-line" style="width: 52%"></div>
+                <div class="sk-block"></div>
+                <div class="sk-line" style="width: 88%"></div>
+                <div class="sk-line" style="width: 66%"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L3</span>
+              <div>
+                <h2>结果交付与继续引导</h2>
+                <div class="group-subtitle">告诉用户“右侧已经完成了什么，以及下一步看哪里”</div>
+              </div>
+            </div>
+            <span class="tag">4 个家族 / 6 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">阶段结果卡</div>
+                <div class="sample-desc">主交付卡，点击聚焦右侧；历史版本变灰</div>
+              </div>
+              <div class="split-samples">
+                <div class="handoff-card">
+                  <div class="handoff-main">
+                    <div class="handoff-icon">✓</div>
+                    <div>
+                      <div class="card-title">右侧剧本大纲已一键更新</div>
+                      <div class="card-sub">现在先看右侧剧本大纲</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="handoff-card history">
+                  <div class="handoff-main">
+                    <div class="handoff-icon">□</div>
+                    <div>
+                      <div class="card-title">方案规划 · 历史版本</div>
+                      <div class="card-sub">只读 · 可查看更改前数据</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">AI 回复气泡</div>
+                <div class="sample-desc">简短文本解释，不承载复杂结构</div>
+              </div>
+              <div>
+                <div class="reply-label">AI 回复</div>
+                <div class="reply-card">我会先保留当前剧本版本，等你点击「同步剧本」后再一起更新角色与大纲。</div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">Agent 提醒卡</div>
+                <div class="sample-desc">主动发现风险或建议，弱于阶段结果</div>
+              </div>
+              <div class="guidance-card">
+                <span class="pill-label" style="background: #eef3ff; color: #5e6f96">Agent 提醒</span>
+                <h3>我帮你留意到一个细节</h3>
+                <p>当前分镜出现了未选择角色的 @ 引用，保存前建议先清理。</p>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">右侧聚焦提示</div>
+                <div class="sample-desc">工作区顶部蓝色提示，提醒先看右侧</div>
+              </div>
+              <div class="focus-banner">
+                <span class="pill-label" style="background: #fff; color: #4f6bff">请先看右侧</span>
+                <h3>右侧方案已更新</h3>
+                <p>右侧内容已经同步更新，可以先确认结果再继续修改。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L4</span>
+              <div>
+                <h2>操作记录与审计信息</h2>
+                <div class="group-subtitle">记录“发生过什么”，但不应该记录临时待同步状态</div>
+              </div>
+            </div>
+            <span class="tag">1 个家族 / 4 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">操作记录卡</div>
+                <div class="sample-desc">按来源分手动、对话、系统、流程推进</div>
+              </div>
+              <div class="samples" style="padding: 0">
+                <div class="event-card manual">
+                  <div class="event-icon">✎</div>
+                  <div class="event-content">
+                    <div class="event-title">手动更新了角色设定 <span class="badge">手动修改</span></div>
+                    <div class="event-detail">第 2 步 · 方案规划 · 角色设定</div>
+                  </div>
+                </div>
+                <div class="event-card dialogue">
+                  <div class="event-icon">✦</div>
+                  <div class="event-content">
+                    <div class="event-title">按对话重写第二段 <span class="badge" style="color: #1394aa">对话指令</span></div>
+                    <div class="event-detail">第 3 步 · 分镜设计 · 画面描述</div>
+                  </div>
+                </div>
+                <div class="event-card system">
+                  <div class="event-icon">⌘</div>
+                  <div class="event-content">
+                    <div class="event-title">视频节选已同步时长 <span class="badge" style="color: #687286">系统同步</span></div>
+                    <div class="event-detail">第 3 步 · 分镜设计 · 素材版本</div>
+                  </div>
+                </div>
+                <div class="event-card flow">
+                  <div class="event-icon">✓</div>
+                  <div class="event-content">
+                    <div class="event-title">进入分镜设计 <span class="badge" style="color: #7b5cff">流程推进</span></div>
+                    <div class="event-detail">第 3 步 · 分镜设计</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group full">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L5</span>
+              <div>
+                <h2>局部状态、全局提示与临时反馈</h2>
+                <div class="group-subtitle">不进入左侧叙事流，只服务当前操作、校验、引导和系统反馈</div>
+              </div>
+            </div>
+            <span class="tag">5 个家族 / 9 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">待同步/脏状态横幅</div>
+                <div class="sample-desc">截图里红框那类应归到这里，不进左侧</div>
+              </div>
+              <div class="status-banner">
+                <div class="status-left">
+                  <div class="warn-icon">!</div>
+                  <div>
+                    <div class="card-title">剧本待同步 <span class="orange-chip">角色已更新</span> <span class="orange-chip">剧本大纲</span></div>
+                    <div class="card-sub">保留上次同步版本，点击「同步剧本」后一起更新。</div>
+                  </div>
+                </div>
+                <span class="orange-chip">同步剧本</span>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">Toast 轻提示</div>
+                <div class="sample-desc">全局成功、信息、警告、错误四种颜色</div>
+              </div>
+              <div class="split-samples">
+                <div class="toast">
+                  <span class="toast-dot">✓</span>
+                  <div>
+                    <div class="card-title">保存成功</div>
+                    <div class="card-sub">结果已经更新到右侧。</div>
+                  </div>
+                </div>
+                <div class="toast">
+                  <span class="toast-dot" style="background: #f27318">!</span>
+                  <div>
+                    <div class="card-title">请先同步剧本</div>
+                    <div class="card-sub">角色变化需要整体更新。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">Tooltip/禁用说明</div>
+                <div class="sample-desc">悬浮解释，不改变页面状态</div>
+              </div>
+              <div class="rail">
+                <span class="tooltip">先同步剧本，再调整角色。</span>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">飞行动效胶囊</div>
+                <div class="sample-desc">素材导入、右侧更新的瞬时路径提示</div>
+              </div>
+              <div class="flight-cue">
+                <div class="floating-pill">✓ 大纲已更新</div>
+              </div>
+            </div>
+
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">输入框拖拽/导入高亮</div>
+                <div class="sample-desc">只属于输入区，不应写进消息列表</div>
+              </div>
+              <div class="composer-state">
+                <div class="composer-drop">拖拽图片或视频上传</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">L0</span>
+              <div>
+                <h2>空状态与首次引导</h2>
+                <div class="group-subtitle">没有对话时显示，帮助用户理解当前阶段</div>
+              </div>
+            </div>
+            <span class="tag">1 个家族 / 2 变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">引导卡</div>
+                <div class="sample-desc">创意收集/方案规划两种文案</div>
+              </div>
+              <div class="intro-card">
+                <div class="intro-inner">
+                  <div class="intro-node left">想法<br />聊清楚</div>
+                  <div class="intro-node center">先把方向<br />聊清楚</div>
+                  <div class="intro-node right">表单<br />补要求</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="level">UI</span>
+              <div>
+                <h2>弹窗确认类</h2>
+                <div class="group-subtitle">高优先级中断操作，采用统一白头/浅底/底部动作栏</div>
+              </div>
+            </div>
+            <span class="tag">1 个家族 / 1 基础变体</span>
+          </div>
+          <div class="samples">
+            <div class="sample-row">
+              <div class="sample-meta">
+                <div class="sample-name">Modal 卡片</div>
+                <div class="sample-desc">保存、删除、选择库等共用结构</div>
+              </div>
+              <div class="modal-card">
+                <div class="modal-head">保存当前修改？ <span>×</span></div>
+                <div class="modal-body">
+                  <div class="modal-inner">保存后会更新当前步骤内容，但不会自动推进到下一步。</div>
+                </div>
+                <div class="modal-foot">
+                  <span class="tag">继续编辑</span>
+                  <span class="button">保存并退出</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

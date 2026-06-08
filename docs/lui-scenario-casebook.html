@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LUI 场景案例板</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #edf3fb;
+        color: #202634;
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          Arial,
+          sans-serif;
+      }
+
+      .page {
+        width: 1440px;
+        min-height: 3560px;
+        margin: 0 auto;
+        padding: 42px;
+        background: linear-gradient(180deg, #f9fbff 0%, #eef4fb 100%);
+      }
+
+      .hero,
+      .case,
+      .legend {
+        border: 1px solid #dce5f3;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 18px 46px rgba(87, 106, 145, 0.1);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 460px;
+        gap: 24px;
+        border-radius: 30px;
+        padding: 30px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        border-radius: 999px;
+        background: #eef3ff;
+        padding: 0 12px;
+        color: #4f6bff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-size: 36px;
+        line-height: 1.18;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 780px;
+        color: #647083;
+        font-size: 16px;
+        line-height: 1.8;
+      }
+
+      .legend {
+        border-radius: 24px;
+        padding: 22px;
+      }
+
+      .legend-title {
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .legend-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 14px;
+        background: #f6f8fc;
+        padding: 10px;
+        color: #5f687a;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #3a5bfd;
+      }
+
+      .section-title {
+        margin: 30px 0 14px;
+        font-size: 24px;
+        font-weight: 900;
+      }
+
+      .cases {
+        display: grid;
+        gap: 18px;
+      }
+
+      .case {
+        overflow: hidden;
+        border-radius: 28px;
+      }
+
+      .case-head {
+        display: grid;
+        grid-template-columns: 210px 1fr 230px;
+        gap: 18px;
+        align-items: center;
+        border-bottom: 1px solid #edf1f6;
+        padding: 18px 22px;
+      }
+
+      .case-id {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .num {
+        display: inline-flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 13px;
+        background: #eef3ff;
+        color: #3a5bfd;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .case-desc {
+        color: #647083;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .status {
+        justify-self: end;
+        display: inline-flex;
+        height: 30px;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #dfe7f5;
+        background: #fff;
+        padding: 0 12px;
+        color: #687286;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .status.good {
+        border-color: #d9f0e4;
+        background: #f6fcf8;
+        color: #10a663;
+      }
+
+      .status.warn {
+        border-color: #ffe0b8;
+        background: #fffaf2;
+        color: #d97706;
+      }
+
+      .status.stop {
+        border-color: #e8edf5;
+        background: #f7f9fc;
+        color: #8a93a6;
+      }
+
+      .case-body {
+        display: grid;
+        grid-template-columns: 320px 1fr 320px;
+        gap: 18px;
+        padding: 20px 22px 22px;
+      }
+
+      .col {
+        min-height: 170px;
+        border-radius: 22px;
+        background: #f8fafc;
+        padding: 16px;
+      }
+
+      .col-title {
+        margin-bottom: 12px;
+        color: #202634;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .context-box {
+        display: grid;
+        gap: 10px;
+      }
+
+      .context-line {
+        border-radius: 16px;
+        background: #fff;
+        padding: 12px;
+        color: #4e596f;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .context-line strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #202634;
+      }
+
+      .lui {
+        display: grid;
+        gap: 10px;
+      }
+
+      .arrow {
+        justify-self: center;
+        color: #a1abbc;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .bubble {
+        width: fit-content;
+        max-width: 520px;
+        border-radius: 16px 6px 16px 16px;
+        background: #f6f7f9;
+        padding: 12px 16px;
+        color: #202634;
+        font-size: 14px;
+        line-height: 1.7;
+        box-shadow: 0 8px 22px rgba(100, 119, 156, 0.08);
+      }
+
+      .bubble.user {
+        justify-self: end;
+      }
+
+      .bubble.ai {
+        justify-self: start;
+        border: 1px solid #e8edf5;
+        border-radius: 18px 18px 18px 8px;
+        background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+      }
+
+      .thinking {
+        display: inline-flex;
+        width: fit-content;
+        max-width: 560px;
+        align-items: center;
+        gap: 9px;
+        border: 1px solid #dde2ea;
+        border-radius: 999px;
+        background: #f7f8fa;
+        padding: 9px 13px;
+        color: #202634;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .check {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #e9f8f1;
+        color: #10a663;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .thinking.expanded {
+        display: block;
+        width: 100%;
+        border-radius: 20px;
+        background: #fff;
+        padding: 13px;
+      }
+
+      .thinking-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 900;
+      }
+
+      .thinking-detail {
+        margin-top: 10px;
+        border-top: 1px solid #e7ebf2;
+        padding-top: 10px;
+        color: #667083;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .loading {
+        width: fit-content;
+        border: 1px solid #e8edf5;
+        border-radius: 18px 18px 18px 8px;
+        background: #fff;
+        padding: 13px 16px;
+        color: #4c5567;
+        font-size: 13px;
+      }
+
+      .loading-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 9px;
+        border-radius: 999px;
+        background: #faf7ff;
+        padding: 6px 10px;
+        color: #7b5cff;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #7b5cff;
+      }
+
+      .result {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        border: 1px solid #bfeeff;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #effdff 0%, #e9fbff 100%);
+        padding: 15px;
+        box-shadow: 0 12px 28px rgba(19, 148, 170, 0.08);
+      }
+
+      .result.history {
+        border-color: #e1e7f0;
+        background: linear-gradient(180deg, #fbfcff 0%, #f6f8fb 100%);
+        color: #687286;
+      }
+
+      .result-icon {
+        display: flex;
+        width: 44px;
+        height: 44px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        background: #fff;
+        color: #13a3bf;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .result-title,
+      .record-title,
+      .local-title,
+      .failure-title {
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .result-sub,
+      .record-sub,
+      .local-sub,
+      .failure-sub {
+        margin-top: 4px;
+        color: #6f7888;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .record {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        border: 1px solid #dce7ff;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(243, 247, 255, 0.94) 100%);
+        padding: 13px;
+      }
+
+      .record-icon {
+        display: flex;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #dfe8ff;
+        background: #fff;
+        color: #3a5bfd;
+        font-weight: 900;
+      }
+
+      .failure {
+        border: 1px solid #ffe1bd;
+        border-radius: 20px;
+        background: linear-gradient(180deg, #fffaf4 0%, #fff 100%);
+        padding: 14px;
+      }
+
+      .failure-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .btn {
+        display: inline-flex;
+        height: 32px;
+        align-items: center;
+        border-radius: 11px;
+        border: 1px solid #dfe7f5;
+        background: #fff;
+        padding: 0 12px;
+        color: #556070;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .btn.primary {
+        border-color: #202634;
+        background: #202634;
+        color: #fff;
+      }
+
+      .right-state {
+        display: grid;
+        gap: 10px;
+      }
+
+      .right-card {
+        border: 1px solid #e2e8f2;
+        border-radius: 18px;
+        background: #fff;
+        padding: 13px;
+      }
+
+      .right-card.good {
+        border-color: #d9f0e4;
+        background: #f7fffb;
+      }
+
+      .right-card.warn {
+        border-color: #ffe0b8;
+        background: #fffaf2;
+      }
+
+      .right-card.blue {
+        border-color: #dce8ff;
+        background: #f7fbff;
+      }
+
+      .right-card.readonly {
+        border-color: #e1e7f0;
+        background: #f7f9fc;
+      }
+
+      .right-title {
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .right-sub {
+        margin-top: 4px;
+        color: #6f7888;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .empty {
+        border: 1px dashed #d7dfec;
+        border-radius: 16px;
+        background: #f8fafc;
+        padding: 12px;
+        color: #8a93a6;
+        font-size: 12px;
+        font-weight: 900;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">LUI 场景案例板 · 用户上下文连接版</div>
+          <h1>每一种 LUI 回复样式，都必须回答：用户刚才说了什么，系统为什么这样回</h1>
+          <p>
+            下面不是抽象组件表，而是按真实用户上下文串起来：用户输入或右侧操作触发什么判断，左侧 LUI 显示什么，右侧工作区发生什么。设计时只要对照这些案例，就知道该用气泡、思考条、结果卡、失败卡还是完全不进 LUI。
+          </p>
+        </div>
+        <aside class="legend">
+          <div class="legend-title">图例</div>
+          <div class="legend-grid">
+            <div class="legend-item"><span class="legend-dot"></span>用户气泡：用户说了什么</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#10a663"></span>思考条：Agent 为什么这么做</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#13a3bf"></span>结果卡：右侧生成了什么</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#d97706"></span>局部状态：只留右侧</div>
+          </div>
+        </aside>
+      </section>
+
+      <div class="section-title">A. 正常推进类：用户有效表达创作需求</div>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">01</span>首页输入创作需求</div>
+            <div class="case-desc">用户从首页输入一句创作需求，进入深度创编第一步。此时 LUI 要让用户知道“我理解了，并把结果放到右侧”。</div>
+            <span class="status good">完整链路</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户说</strong>我要创作一个雅思培训广告。</div>
+                <div class="context-line"><strong>系统判断</strong>有效创作需求，会生成右侧业务信息/方案入口。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">我要创作一个雅思培训广告。</div>
+                <div class="arrow">↓</div>
+                <div class="thinking"><span class="check">✓</span>Agent 思考完成 · 已识别创作意图</div>
+                <div class="arrow">↓</div>
+                <div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧创意收集已生成</div><div class="result-sub">现在先看右侧业务信息</div></div></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card good"><div class="right-title">右侧显示业务信息表单</div><div class="right-sub">可确认、可编辑、可补充素材。</div></div>
+                <div class="right-card blue"><div class="right-title">下一步按钮</div><div class="right-sub">确认后进入方案规划。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">02</span>确认进入下一步</div>
+            <div class="case-desc">用户点击“确认业务信息/下一步”，这不是新需求，但会触发生成下一步。LUI 要展示生成过程和节点结果。</div>
+            <span class="status good">按钮触发</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户操作</strong>点击「确认业务信息，生成方案规划」。</div>
+                <div class="context-line"><strong>系统判断</strong>当前步骤完成，允许进入方案规划。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">我已确认以上业务信息。</div>
+                <div class="arrow">↓</div>
+                <div class="loading">正在生成方案规划<div class="loading-pill"><span class="pulse"></span>拆解主题、角色与剧本大纲</div></div>
+                <div class="arrow">↓</div>
+                <div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧方案规划已生成</div><div class="result-sub">现在先看右侧方案规划</div></div></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card good"><div class="right-title">右侧切到方案规划</div><div class="right-sub">出现创意主题、角色设定、剧本大纲。</div></div>
+                <div class="right-card blue"><div class="right-title">结果卡可点击</div><div class="right-sub">点击后聚焦右侧方案区域。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">03</span>对当前方案提修改</div>
+            <div class="case-desc">用户在 LUI 里提出明确修改。这里应该出现用户气泡、轻量思考、生成中、右侧更新结果卡。</div>
+            <span class="status good">对话改稿</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户说</strong>把第二段镜头节奏再紧凑一些，角色出场少一点。</div>
+                <div class="context-line"><strong>系统判断</strong>有效局部修改，会更新右侧分镜/大纲。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">把第二段镜头节奏再紧凑一些，角色出场少一点。</div>
+                <div class="thinking expanded">
+                  <div class="thinking-head"><span class="check">✓</span>Agent 思考完成 · 已分析修改范围</div>
+                  <div class="thinking-detail">意图：调整第二段节奏与出场角色。任务：重写第二段画面描述和角色分配。默认收起，用户点击才展开。</div>
+                </div>
+                <div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧分镜已更新</div><div class="result-sub">现在先看第二段分镜</div></div></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card good"><div class="right-title">高亮第二段分镜</div><div class="right-sub">画面描述、角色芯片一起更新。</div></div>
+                <div class="right-card blue"><div class="right-title">允许继续追问</div><div class="right-sub">用户可继续说“再短一点”。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="section-title">B. 边界类：用户说了，但不应该进入完整 Agent 链路</div>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">04</span>偏题对话</div>
+            <div class="case-desc">用户聊天气、闲聊、股票等，与当前视频创作无关。只用气泡温和拉回，不展示思考和结果卡。</div>
+            <span class="status stop">只回气泡</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户说</strong>今天上海天气怎么样？</div>
+                <div class="context-line"><strong>系统判断</strong>偏题，不更新右侧。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">今天上海天气怎么样？</div>
+                <div class="bubble ai">可以和我聊当前视频创作相关的内容，比如主题、角色、分镜、口播或成片设置。</div>
+                <div class="empty">不出现：Agent 思考 / 生成中 / 结果卡</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card readonly"><div class="right-title">右侧保持不变</div><div class="right-sub">不产生任何 GUI 更新。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">05</span>越界对话</div>
+            <div class="case-desc">用户要求当前步骤不支持的能力。LUI 告诉他当前能做什么，右侧可高亮当前可操作区域。</div>
+            <span class="status stop">能力提示</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>当前步骤</strong>方案规划。</div>
+                <div class="context-line"><strong>用户说</strong>直接帮我导出成片。</div>
+                <div class="context-line"><strong>系统判断</strong>越界，成片导出需要先完成分镜与成片设置。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">直接帮我导出成片。</div>
+                <div class="bubble ai">当前还在方案规划阶段，可以先确认主题、角色和剧本大纲；完成分镜与成片设置后再导出。</div>
+                <div class="empty">不出现：节点结果卡</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card blue"><div class="right-title">高亮“继续生成分镜”</div><div class="right-sub">引导用户完成当前可做动作。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">06</span>未解锁对话</div>
+            <div class="case-desc">用户试图跳过前置信息。LUI 给原因，右侧指向必须补齐的字段，不做思考和生成。</div>
+            <span class="status stop">前置提示</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>当前状态</strong>业务信息缺少目标受众。</div>
+                <div class="context-line"><strong>用户说</strong>直接生成分镜吧。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">直接生成分镜吧。</div>
+                <div class="bubble ai">请先补全当前步骤的目标受众，确认业务信息后我再继续生成方案和分镜。</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card warn"><div class="right-title">高亮缺失字段</div><div class="right-sub">目标受众为空，下一步按钮保持禁用。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="section-title">C. 右侧操作类：用户没有“说话”，不应该硬塞进左侧对话</div>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">07</span>右侧手动改字段</div>
+            <div class="case-desc">用户直接在右侧改主题、角色、分镜文本。这不是对话，通常不产生用户气泡。重要变更可弱化成操作记录。</div>
+            <span class="status">弱记录</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户操作</strong>在右侧把主题从“雅思提分”改成“雅思口语训练”。</div>
+                <div class="context-line"><strong>系统判断</strong>手动 GUI 编辑，不是自然语言输入。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="record"><div class="record-icon">✎</div><div><div class="record-title">手动更新了创意主题</div><div class="record-sub">第 2 步 · 方案规划 · 创意主题</div></div></div>
+                <div class="empty">不出现：用户气泡 / Agent 思考</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card good"><div class="right-title">字段即时更新</div><div class="right-sub">如果影响后续步骤，右侧出现局部待更新状态。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">08</span>删除角色导致剧本待同步</div>
+            <div class="case-desc">这就是你截图里的情况。它不是一条对话，也不是结果交付，而是右侧当前步骤脏状态。</div>
+            <span class="status warn">不进 LUI 主流</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户操作</strong>删除角色「焦虑家长」。</div>
+                <div class="context-line"><strong>系统判断</strong>角色列表已变，但剧本大纲按规则不能立即变，要用户手动同步。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="empty">不出现：已删除角色卡</div>
+                <div class="empty">不出现：Agent 思考</div>
+                <div class="empty">不出现：结果卡</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card warn"><div class="right-title">剧本待同步</div><div class="right-sub">角色已更新，剧本大纲保持上次同步版本。显示「同步剧本」按钮。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">09</span>点击同步剧本</div>
+            <div class="case-desc">用户主动解决待同步状态。这里可以进入生成链路，因为它会真正更新右侧剧本大纲。</div>
+            <span class="status good">同步生成</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户操作</strong>点击「同步剧本」。</div>
+                <div class="context-line"><strong>系统判断</strong>根据最新角色重写大纲，右侧会更新。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">同步剧本。</div>
+                <div class="loading">正在同步角色变化<div class="loading-pill"><span class="pulse"></span>重排角色出场与剧情关系</div></div>
+                <div class="result"><div class="result-icon">✓</div><div><div class="result-title">右侧剧本大纲已同步</div><div class="result-sub">现在先看角色出场和剧情关系</div></div></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card good"><div class="right-title">剧本大纲更新</div><div class="right-sub">角色芯片和文案一起更新，待同步横幅消失。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="section-title">D. 异常、历史和只读类：需要清楚地告诉用户当前能不能继续</div>
+      <div class="cases">
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">10</span>生成失败</div>
+            <div class="case-desc">异步生成失败时，旧结果必须保留。LUI 不给结果卡，而是失败卡，用户可重试或修改。</div>
+            <span class="status warn">失败恢复</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户说</strong>重新生成分镜设计。</div>
+                <div class="context-line"><strong>系统状态</strong>服务超时/生成失败。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="bubble user">重新生成分镜设计。</div>
+                <div class="thinking"><span class="check">✓</span>Agent 思考完成 · 已规划生成步骤</div>
+                <div class="failure">
+                  <div class="failure-title">分镜设计生成失败</div>
+                  <div class="failure-sub">当前方案规划已保留，右侧内容没有变化。</div>
+                  <div class="failure-actions"><span class="btn primary">重试</span><span class="btn">修改方案</span><span class="btn">取消</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card readonly"><div class="right-title">保留旧结果</div><div class="right-sub">不展示半成品，不清空原内容。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">11</span>查看历史版本</div>
+            <div class="case-desc">点击历史节点时，不是新对话。LUI 可以展示历史版本卡，右侧进入只读预览。</div>
+            <span class="status">只读查看</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>用户操作</strong>点击左侧旧的「方案规划已生成」卡。</div>
+                <div class="context-line"><strong>系统判断</strong>查看历史，不允许在该版本继续编辑。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="result history"><div class="result-icon">□</div><div><div class="result-title">方案规划 · 历史版本</div><div class="result-sub">只读 · 可查看更改前数据</div></div></div>
+                <div class="empty">不出现：用户气泡 / Agent 思考</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card readonly"><div class="right-title">右侧历史预览</div><div class="right-sub">可复制/下载历史素材，不允许继续编辑。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="case">
+          <div class="case-head">
+            <div class="case-id"><span class="num">12</span>底层数据传输</div>
+            <div class="case-desc">接口调用、轮询、JSON 返回是系统内部过程。用户不需要看见，也不应该污染 LUI。</div>
+            <span class="status stop">完全隐藏</span>
+          </div>
+          <div class="case-body">
+            <div class="col">
+              <div class="col-title">用户上下文</div>
+              <div class="context-box">
+                <div class="context-line"><strong>系统内部</strong>submit_operator / query_operator / task_id / JSON result。</div>
+                <div class="context-line"><strong>设计判断</strong>这是技术过程，不是用户可理解的创作过程。</div>
+              </div>
+            </div>
+            <div class="col" style="background:#fff">
+              <div class="col-title">LUI 左侧出现</div>
+              <div class="lui">
+                <div class="empty">不展示接口提交</div>
+                <div class="empty">不展示轮询</div>
+                <div class="empty">不展示 JSON 返回</div>
+                <div class="loading">只在必要时抽象为“正在生成/正在分析”</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="col-title">右侧/交互</div>
+              <div class="right-state">
+                <div class="right-card readonly"><div class="right-title">无直接展示</div><div class="right-sub">成功后才展示可用结果；失败后展示可恢复状态。</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

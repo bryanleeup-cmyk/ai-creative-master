@@ -1,0 +1,132 @@
+<svg width="1600" height="2260" viewBox="0 0 1600 2260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="28" flood-color="#4C69A0" flood-opacity="0.12"/>
+    </filter>
+    <filter id="lightShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#60708C" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="cardBlue" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#EFFDFF"/>
+      <stop offset="1" stop-color="#E9FBFF"/>
+    </linearGradient>
+    <linearGradient id="panelWhite" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FBFCFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="2260" fill="#F6F8FC"/>
+  <rect x="56" y="50" width="1488" height="2160" rx="36" fill="#FFFFFF" filter="url(#softShadow)"/>
+
+  <text x="96" y="118" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="800">LUI 对话样式全景图</text>
+  <text x="96" y="162" fill="#697487" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="500">按真实上下文展示：用户说什么、Agent 出什么、什么情况有卡片、什么情况只用文字。</text>
+
+  <rect x="96" y="200" width="1408" height="92" rx="24" fill="#F7F9FC"/>
+  <text x="124" y="240" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800">总规则</text>
+  <text x="124" y="270" fill="#556070" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">用户气泡 → Agent 思考中（约 10 秒）→ Agent 思考完成 → 大节点出结果卡，小节点只出裸文字。快捷回复、我已重点处理、LUI 时间都不展示。</text>
+
+  <!-- Case 1 -->
+  <text x="96" y="360" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="800">场景 1：小节点局部修改，不出结果卡</text>
+  <text x="96" y="392" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">例：用户只是改角色气质、换角色、改一段口播、微调音乐字幕。结果用纯文字承接。</text>
+
+  <g transform="translate(96 430)">
+    <rect x="658" y="0" width="500" height="70" rx="24" fill="#F8FAFD" filter="url(#lightShadow)"/>
+    <rect x="1018" y="-42" width="140" height="40" rx="20" fill="#EFFDFF" stroke="#BFEFFF" stroke-width="2"/>
+    <circle cx="1045" cy="-22" r="7" fill="#1394AA"/>
+    <text x="1061" y="-15" fill="#0F92AA" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="800">对话指令</text>
+    <text x="690" y="44" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="600">这个角色气质还不够贴合，帮我调整得更准确。</text>
+
+    <rect x="0" y="112" width="630" height="250" rx="34" fill="url(#panelWhite)" stroke="#E8EDF5" stroke-width="2"/>
+    <rect x="32" y="32" width="142" height="40" rx="20" fill="#EEF3FF"/>
+    <text x="52" y="59" fill="#5E6F96" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="800">Agent 思考中</text>
+    <text x="32" y="118" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">AI 正在更新方案规划</text>
+    <text x="32" y="158" fill="#5F6778" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="500">我在解析这次角色要求，并更新右侧角色设定。</text>
+    <rect x="32" y="194" width="150" height="40" rx="20" fill="#FAF7FF"/>
+    <circle cx="58" cy="214" r="7" fill="#7B5CFF"/>
+    <text x="76" y="221" fill="#7B5CFF" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800">约 10 秒</text>
+
+    <rect x="0" y="394" width="520" height="64" rx="32" fill="#F7F8FA" stroke="#DDE2EA" stroke-width="2"/>
+    <text x="32" y="435" fill="#10B464" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">✓</text>
+    <text x="72" y="434" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800">Agent 思考完成</text>
+    <text x="256" y="434" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">本轮已完成 · 正在解析角色修改要求</text>
+
+    <text x="0" y="530" fill="#3F485B" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="500">我已经把角色调整结果同步到右侧。先看角色卡和相关内容是否已经更贴合这条视频。</text>
+    <text x="0" y="590" fill="#2F394C" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">优先确认：</text>
+    <text x="126" y="590" fill="#3F485B" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="500">角色气质、身份定位和内容匹配度。</text>
+
+    <rect x="930" y="138" width="312" height="118" rx="24" fill="#FFF8EC" stroke="#FFD8A8" stroke-width="2"/>
+    <text x="960" y="178" fill="#C76B0A" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800">为什么不出卡？</text>
+    <text x="960" y="214" fill="#8A6A3B" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">这是局部动作，不代表一个完整阶段完成。</text>
+  </g>
+
+  <!-- Case 2 -->
+  <text x="96" y="1110" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="800">场景 2：大节点完成，才出结果卡</text>
+  <text x="96" y="1142" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">例：确认生成方案规划、确认生成分镜、确认生成成片设置。卡片代表右侧一个完整工作区已生成。</text>
+
+  <g transform="translate(96 1180)">
+    <rect x="658" y="0" width="500" height="70" rx="24" fill="#F8FAFD" filter="url(#lightShadow)"/>
+    <rect x="1018" y="-42" width="140" height="40" rx="20" fill="#EFFDFF" stroke="#BFEFFF" stroke-width="2"/>
+    <circle cx="1045" cy="-22" r="7" fill="#1394AA"/>
+    <text x="1061" y="-15" fill="#0F92AA" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="800">对话指令</text>
+    <text x="690" y="44" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="600">确认，开始生成分镜。</text>
+
+    <rect x="0" y="112" width="630" height="220" rx="34" fill="url(#panelWhite)" stroke="#E8EDF5" stroke-width="2"/>
+    <rect x="32" y="32" width="142" height="40" rx="20" fill="#EEF3FF"/>
+    <text x="52" y="59" fill="#5E6F96" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="800">Agent 思考中</text>
+    <text x="32" y="118" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">正在生成分镜设计</text>
+    <text x="32" y="158" fill="#5F6778" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="500">把已确认的方案拆成镜头节奏、角色出场和口播脚本。</text>
+    <text x="32" y="210" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="500">2/4 步⌄</text>
+
+    <rect x="0" y="364" width="520" height="64" rx="32" fill="#F7F8FA" stroke="#DDE2EA" stroke-width="2"/>
+    <text x="32" y="405" fill="#10B464" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">✓</text>
+    <text x="72" y="404" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800">Agent 思考完成</text>
+    <text x="256" y="404" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">本轮已完成 · 正在生成分镜设计</text>
+
+    <rect x="0" y="460" width="760" height="150" rx="32" fill="url(#cardBlue)" stroke="#BFEFFF" stroke-width="2" filter="url(#lightShadow)"/>
+    <rect x="40" y="500" width="76" height="76" rx="24" fill="#FFFFFF"/>
+    <circle cx="78" cy="538" r="18" stroke="#13A3BF" stroke-width="4"/>
+    <text x="72" y="547" fill="#13A3BF" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="900">✓</text>
+    <text x="152" y="524" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="900">右侧口播脚本已生成</text>
+    <text x="152" y="564" fill="#647083" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="600">现在先看右侧分镜设计</text>
+    <text x="710" y="552" fill="#13A3BF" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="400">›</text>
+
+    <text x="0" y="690" fill="#3F485B" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="500">我已经把方案拆成可执行的镜头结构。先看右侧的口播脚本、镜头节奏和角色出场。</text>
+    <text x="0" y="750" fill="#2F394C" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800">优先确认：</text>
+    <text x="126" y="750" fill="#3F485B" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="500">镜头节奏、口播脚本、角色出场。</text>
+  </g>
+
+  <!-- Case 3 -->
+  <text x="96" y="1995" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="800">场景 3：历史版本，只显示只读，不在 LUI 卡里显示时间</text>
+  <g transform="translate(96 2030)">
+    <rect x="0" y="0" width="620" height="120" rx="32" fill="url(#panelWhite)" stroke="#DCE5F2" stroke-width="2"/>
+    <rect x="34" y="26" width="68" height="68" rx="22" fill="#FFFFFF"/>
+    <text x="52" y="70" fill="#8A93A6" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="700">▤</text>
+    <text x="130" y="48" fill="#687286" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="900">右侧方案规划已生成 · 历史版本</text>
+    <rect x="130" y="66" width="58" height="30" rx="15" fill="#EEF1F6"/>
+    <text x="146" y="88" fill="#7A8496" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800">只读</text>
+    <text x="572" y="75" fill="#8A93A6" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="400">›</text>
+
+    <rect x="680" y="0" width="640" height="120" rx="28" fill="#F7F9FC"/>
+    <text x="710" y="45" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800">逻辑</text>
+    <text x="710" y="82" fill="#697487" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">历史卡用于回看旧快照。左侧只保留“只读”，时间进入历史详情页再展示。</text>
+  </g>
+
+  <!-- Bottom cases overlay -->
+  <rect x="920" y="330" width="520" height="350" rx="32" fill="#FFFFFF" stroke="#E8EDF5" stroke-width="2" filter="url(#lightShadow)"/>
+  <text x="960" y="382" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="900">偏题或纯回复：AI 回复气泡</text>
+  <rect x="960" y="420" width="400" height="126" rx="28" fill="url(#panelWhite)" stroke="#E8EDF5" stroke-width="2"/>
+  <rect x="990" y="448" width="84" height="34" rx="17" fill="#EEF3FF"/>
+  <text x="1008" y="471" fill="#5E6F96" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800">AI 回复</text>
+  <text x="990" y="514" fill="#434A5C" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">这条需求和当前视频创编关系不大。</text>
+  <text x="960" y="602" fill="#697487" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">不更新右侧，所以不出思考完成、不出结果卡。</text>
+
+  <rect x="920" y="730" width="520" height="310" rx="32" fill="#FFFFFF" stroke="#E8EDF5" stroke-width="2" filter="url(#lightShadow)"/>
+  <text x="960" y="782" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="900">手动操作：轻量记录</text>
+  <rect x="960" y="820" width="390" height="96" rx="22" fill="#F7F9FC" stroke="#E2E7EF" stroke-width="2"/>
+  <rect x="986" y="848" width="42" height="42" rx="12" fill="#FFFFFF"/>
+  <text x="998" y="876" fill="#687286" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800">≡</text>
+  <text x="1048" y="860" fill="#202634" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="800">第 3 段分镜修改已同步</text>
+  <text x="1048" y="890" fill="#8A93A6" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="500">系统同步 · 分镜设计</text>
+  <text x="960" y="970" fill="#697487" font-family="Inter, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="500">只记录必要操作；角色待同步这类过程不塞进对话流。</text>
+</svg>
