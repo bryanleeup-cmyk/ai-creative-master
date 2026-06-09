@@ -15,6 +15,7 @@ import figmaFeatureEditorImage from "../assets/figma-feature-editor.png";
 import galleryFinishedImage from "../assets/gallery-finished.jpg";
 import {
   AlertCircle,
+  Archive,
   ArrowLeft,
   AtSign,
   ArrowUp,
@@ -22,6 +23,7 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
+  CheckSquare,
   CirclePlus,
   Copy,
   ChevronLeft,
@@ -31,8 +33,10 @@ import {
   Clapperboard,
   Compass,
   Download,
+  Eye,
   FileText,
   Film,
+  FolderPlus,
   FolderOpen,
   Grid2x2,
   Heart,
@@ -40,11 +44,13 @@ import {
   IdCard,
   Image as ImageIcon,
   Link2,
+  List,
   LogOut,
   Mail,
   Maximize2,
   MoreHorizontal,
   MonitorSmartphone,
+  MoveRight,
   Music2,
   PencilLine,
   Pause,
@@ -56,9 +62,11 @@ import {
   Scissors,
   SlidersHorizontal,
   Sparkles,
+  Square,
   Store,
   Trash2,
   Undo2,
+  Upload,
   Volume2,
   Wand2,
   X,
@@ -172,6 +180,297 @@ const resultSets = [
 
 const storyboardPreviewPool = [...resultSets.flat(), ...showcaseImages];
 const demoVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+
+const assetFolders = [
+  { id: "all", name: "全部项目" },
+  { id: "folder-edu", name: "教育培训客户" },
+  { id: "folder-health", name: "大健康素材" },
+  { id: "folder-medical", name: "医美投放素材" },
+  { id: "folder-local", name: "本地生活案例" },
+  { id: "folder-618", name: "618 活动素材" },
+];
+
+const assetTypeMeta = {
+  image: { label: "图片", tone: "bg-[#edf6ff] text-[#2276d2]", icon: ImageIcon },
+  video: { label: "视频", tone: "bg-[#f0edff] text-[#6748e8]", icon: Film },
+  audio: { label: "音频", tone: "bg-[#eef8f4] text-[#15956f]", icon: Music2 },
+  document: { label: "文档", tone: "bg-[#fff6e6] text-[#c77500]", icon: FileText },
+  logo: { label: "Logo", tone: "bg-[#eef8f4] text-[#15956f]", icon: IdCard },
+  reference: { label: "参考图", tone: "bg-[#fff6e6] text-[#c77500]", icon: Compass },
+  generated: { label: "生成结果", tone: "bg-[#f2efff] text-[#6941d8]", icon: Sparkles },
+};
+
+const assetSourceMeta = {
+  upload: "用户上传",
+  generated: "生成结果",
+  editor: "编辑器保存",
+  videoWorkflow: "视频创编",
+};
+
+const assetTabOptions = [
+  { id: "history", label: "生成历史", description: "所有生成 / 上传 / 保存素材" },
+  { id: "subject", label: "主体", description: "人物、角色、产品主体" },
+  { id: "canvas", label: "画布", description: "编辑器或画布项目" },
+  { id: "brand", label: "品牌素材", description: "Logo、品牌图、客户 VI、产品图" },
+  { id: "reference", label: "参考素材", description: "参考图、案例图、风格图" },
+];
+
+const assetTypeFilters = [
+  { id: "all", label: "全部" },
+  { id: "image", label: "图片" },
+  { id: "video", label: "视频" },
+  { id: "audio", label: "音频" },
+  { id: "document", label: "文档" },
+  { id: "logo", label: "Logo" },
+  { id: "reference", label: "参考图" },
+];
+
+const assetFilterGroups = [
+  {
+    id: "action",
+    label: "操作状态",
+    options: [
+      { id: "favorite", label: "收藏" },
+      { id: "recent", label: "最近使用" },
+      { id: "used", label: "已用于创作" },
+    ],
+  },
+  {
+    id: "source",
+    label: "来源",
+    options: [
+      { id: "upload", label: "用户上传" },
+      { id: "generated", label: "生成结果" },
+      { id: "editor", label: "编辑器保存" },
+      { id: "videoWorkflow", label: "视频创编" },
+    ],
+  },
+  {
+    id: "spec",
+    label: "规格",
+    options: [
+      { id: "高清", label: "高清" },
+      { id: "2K", label: "2K" },
+      { id: "4K", label: "4K" },
+      { id: "16:9", label: "16:9" },
+      { id: "9:16", label: "9:16" },
+      { id: "1:1", label: "1:1" },
+    ],
+  },
+  {
+    id: "time",
+    label: "时间",
+    options: [
+      { id: "today", label: "今天" },
+      { id: "7d", label: "近 7 天" },
+      { id: "30d", label: "近 30 天" },
+    ],
+  },
+  {
+    id: "project",
+    label: "项目",
+    options: [
+      { id: "folder-edu", label: "教育培训客户" },
+      { id: "folder-health", label: "大健康素材" },
+      { id: "folder-medical", label: "医美投放素材" },
+      { id: "folder-local", label: "本地生活案例" },
+    ],
+  },
+];
+
+function assetSvgDataUri(svg) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function getSvgSizeForRatio(ratio) {
+  if (ratio === "9:16") return [900, 1600];
+  if (ratio === "16:9") return [1600, 900];
+  if (ratio === "4:5") return [1000, 1250];
+  if (ratio === "3:4") return [900, 1200];
+  if (ratio === "4:3") return [1200, 900];
+  if (ratio === "4:1") return [1400, 350];
+  return [1080, 1080];
+}
+
+function buildMockVisualThumbnail({ name, type, ratio, projectName, index }) {
+  const [width, height] = getSvgSizeForRatio(ratio);
+  const palettes = [
+    ["#dff3ff", "#efeaff", "#3a5bfd", "#10a7c8"],
+    ["#f0f7ff", "#e8f1ff", "#6b7cff", "#46b7ff"],
+    ["#fff5ec", "#edf5ff", "#e9792f", "#6b7cff"],
+    ["#effaf5", "#edf0ff", "#1aa67d", "#5869ff"],
+    ["#f7f0ff", "#eaf6ff", "#7b5cff", "#2bb3d4"],
+  ];
+  const [bgA, bgB, accentA, accentB] = palettes[index % palettes.length];
+  const shortName = name.replace(/\.[^.]+$/u, "").slice(0, 12);
+  const projectShort = projectName.replace(/素材|客户|案例|活动/gu, "");
+
+  if (type === "logo") {
+    return assetSvgDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <rect width="40" height="40" fill="#f7f9fc"/>
+            <rect width="20" height="20" fill="#eef2f7"/>
+            <rect x="20" y="20" width="20" height="20" fill="#eef2f7"/>
+          </pattern>
+          <linearGradient id="mark" x1="0" x2="1" y1="0" y2="1">
+            <stop stop-color="${accentA}"/>
+            <stop offset="1" stop-color="${accentB}"/>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+        <rect x="${width * 0.18}" y="${height * 0.22}" width="${width * 0.64}" height="${height * 0.56}" rx="${Math.min(width, height) * 0.12}" fill="white" opacity="0.92"/>
+        <circle cx="${width * 0.39}" cy="${height * 0.5}" r="${Math.min(width, height) * 0.16}" fill="url(#mark)"/>
+        <rect x="${width * 0.49}" y="${height * 0.39}" width="${width * 0.23}" height="${height * 0.08}" rx="18" fill="#202634"/>
+        <rect x="${width * 0.49}" y="${height * 0.53}" width="${width * 0.18}" height="${height * 0.06}" rx="14" fill="#8a93a6"/>
+        <text x="${width / 2}" y="${height * 0.84}" text-anchor="middle" font-size="${Math.max(34, width * 0.04)}" font-weight="700" fill="#3f4658">${projectShort} Logo</text>
+      </svg>
+    `);
+  }
+
+  const isReference = type === "reference";
+  const isSubject = /主体|角色|老师|产品|精华|礼盒/u.test(name);
+  const isVideo = type === "video";
+
+  return assetSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <defs>
+        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+          <stop stop-color="${bgA}"/>
+          <stop offset="1" stop-color="${bgB}"/>
+        </linearGradient>
+        <linearGradient id="accent" x1="0" x2="1" y1="0" y2="1">
+          <stop stop-color="${accentA}"/>
+          <stop offset="1" stop-color="${accentB}"/>
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)"/>
+      <circle cx="${width * 0.12}" cy="${height * 0.12}" r="${Math.min(width, height) * 0.18}" fill="white" opacity="0.55"/>
+      <circle cx="${width * 0.88}" cy="${height * 0.18}" r="${Math.min(width, height) * 0.14}" fill="${accentB}" opacity="0.16"/>
+      ${
+        isSubject
+          ? `<rect x="${width * 0.22}" y="${height * 0.18}" width="${width * 0.56}" height="${height * 0.68}" rx="${Math.min(width, height) * 0.12}" fill="white" opacity="0.92"/>
+             <circle cx="${width * 0.5}" cy="${height * 0.38}" r="${Math.min(width, height) * 0.13}" fill="url(#accent)"/>
+             <path d="M ${width * 0.34} ${height * 0.7} Q ${width * 0.5} ${height * 0.52} ${width * 0.66} ${height * 0.7} L ${width * 0.68} ${height * 0.8} L ${width * 0.32} ${height * 0.8} Z" fill="#202634" opacity="0.82"/>`
+          : isReference
+            ? `<rect x="${width * 0.12}" y="${height * 0.16}" width="${width * 0.76}" height="${height * 0.58}" rx="${Math.min(width, height) * 0.06}" fill="white" opacity="0.88"/>
+               <circle cx="${width * 0.28}" cy="${height * 0.34}" r="${Math.min(width, height) * 0.08}" fill="url(#accent)" opacity="0.8"/>
+               <path d="M ${width * 0.16} ${height * 0.68} L ${width * 0.38} ${height * 0.46} L ${width * 0.52} ${height * 0.6} L ${width * 0.7} ${height * 0.42} L ${width * 0.86} ${height * 0.68} Z" fill="${accentA}" opacity="0.78"/>`
+            : `<rect x="${width * 0.1}" y="${height * 0.12}" width="${width * 0.8}" height="${height * 0.68}" rx="${Math.min(width, height) * 0.08}" fill="white" opacity="0.88"/>
+               <rect x="${width * 0.16}" y="${height * 0.2}" width="${width * 0.5}" height="${height * 0.08}" rx="18" fill="#202634" opacity="0.86"/>
+               <rect x="${width * 0.16}" y="${height * 0.32}" width="${width * 0.36}" height="${height * 0.05}" rx="14" fill="#8a93a6"/>
+               <rect x="${width * 0.16}" y="${height * 0.45}" width="${width * 0.68}" height="${height * 0.22}" rx="${Math.min(width, height) * 0.04}" fill="url(#accent)" opacity="0.82"/>`
+      }
+      ${isVideo ? `<circle cx="${width * 0.5}" cy="${height * 0.5}" r="${Math.min(width, height) * 0.09}" fill="white" opacity="0.94"/><path d="M ${width * 0.48} ${height * 0.45} L ${width * 0.48} ${height * 0.55} L ${width * 0.56} ${height * 0.5} Z" fill="${accentA}"/>` : ""}
+      <text x="${width * 0.08}" y="${height * 0.91}" font-size="${Math.max(36, width * 0.045)}" font-weight="800" fill="#202634">${shortName}</text>
+      <text x="${width * 0.08}" y="${height * 0.965}" font-size="${Math.max(22, width * 0.024)}" font-weight="600" fill="#687286">${projectShort} · ${ratio}</text>
+    </svg>
+  `);
+}
+
+const mockAssetSeedItems = [
+  ["少儿美术暑招主视觉.png", "generated", "history", "generated", "6月3日", "2026-06-03 18:24", "1:1", "", "folder-edu", ["暑招", "教育培训", "主视觉"], "高清", true, 18],
+  ["课程顾问口播封面.jpg", "image", "history", "upload", "6月3日", "2026-06-03 17:10", "9:16", "", "folder-edu", ["口播", "封面", "转化"], "2K", false, 11],
+  ["品牌片片头素材.mp4", "video", "history", "videoWorkflow", "6月3日", "2026-06-03 16:22", "16:9", "00:12", "folder-edu", ["片头", "品牌片", "视频"], "4K", true, 12],
+  ["教培角色主体-老师.png", "image", "subject", "generated", "6月3日", "2026-06-03 15:20", "3:4", "", "folder-edu", ["角色", "老师", "主体"], "高清", false, 15],
+  ["公开课直播间参考图.png", "reference", "reference", "upload", "6月3日", "2026-06-03 13:40", "16:9", "", "folder-edu", ["直播间", "参考", "场景"], "高清", false, 7],
+  ["医美转化三连图-01.png", "generated", "history", "generated", "6月1日", "2026-06-01 19:08", "4:5", "", "folder-medical", ["医美", "投放", "三连图"], "2K", true, 21],
+  ["术前咨询参考图.jpg", "reference", "reference", "upload", "6月1日", "2026-06-01 18:32", "3:4", "", "folder-medical", ["咨询", "参考", "医美"], "高清", false, 5],
+  ["医美品牌透明 Logo.png", "logo", "brand", "upload", "6月1日", "2026-06-01 16:55", "1:1", "", "folder-medical", ["Logo", "透明底", "品牌"], "高清", true, 23],
+  ["医美直播脚本.docx", "document", "canvas", "editor", "6月1日", "2026-06-01 15:12", "4:3", "", "folder-medical", ["脚本", "直播", "医美"], "高清", false, 3],
+  ["咨询转化旁白.wav", "audio", "history", "videoWorkflow", "6月1日", "2026-06-01 12:06", "1:1", "00:38", "folder-medical", ["旁白", "转化", "音频"], "高清", false, 8],
+  ["618 爆款海报方图.png", "generated", "history", "generated", "5月30日", "2026-05-30 20:18", "1:1", "", "folder-618", ["618", "爆款", "海报"], "2K", true, 17],
+  ["餐饮团购封面生成图.png", "generated", "history", "generated", "5月30日", "2026-05-30 19:26", "1:1", "", "folder-local", ["餐饮", "团购", "封面"], "高清", false, 10],
+  ["本地生活探店混剪.mp4", "video", "history", "upload", "5月30日", "2026-05-30 18:16", "16:9", "00:32", "folder-local", ["探店", "混剪", "本地生活"], "4K", false, 14],
+  ["门店环境参考图.jpg", "reference", "reference", "upload", "5月30日", "2026-05-30 14:42", "16:9", "", "folder-local", ["门店", "环境", "参考"], "高清", false, 4],
+  ["团购菜单画布.fig", "document", "canvas", "editor", "5月30日", "2026-05-30 11:30", "16:9", "", "folder-local", ["画布", "菜单", "团购"], "高清", true, 6],
+  ["大健康科普竖版片段.mp4", "video", "history", "upload", "5月26日", "2026-05-26 17:35", "9:16", "00:18", "folder-health", ["科普", "竖版", "片段"], "2K", true, 13],
+  ["营养师讲解场景.jpg", "image", "history", "upload", "5月26日", "2026-05-26 15:21", "1:1", "", "folder-health", ["讲解", "人物", "健康"], "高清", false, 9],
+  ["健康品牌圆形 Logo.png", "logo", "brand", "upload", "5月26日", "2026-05-26 12:18", "1:1", "", "folder-health", ["Logo", "圆形", "健康"], "高清", true, 16],
+  ["AI 生成角色海报.png", "generated", "subject", "generated", "5月26日", "2026-05-26 10:20", "9:16", "", "folder-health", ["角色", "海报", "AI"], "2K", false, 19],
+  ["健康科普配乐.mp3", "audio", "history", "videoWorkflow", "5月26日", "2026-05-26 09:36", "1:1", "01:12", "folder-health", ["配乐", "健康", "音频"], "高清", false, 5],
+  ["品牌色卡参考.png", "reference", "brand", "upload", "5月21日", "2026-05-21 18:05", "16:9", "", "folder-edu", ["色卡", "品牌", "参考"], "高清", false, 8],
+  ["产品主体-体验课礼盒.png", "image", "subject", "editor", "5月21日", "2026-05-21 16:08", "4:3", "", "folder-edu", ["产品", "主体", "礼盒"], "2K", true, 12],
+  ["教培落地页长图.png", "image", "canvas", "editor", "5月21日", "2026-05-21 15:04", "9:16", "", "folder-edu", ["落地页", "画布", "转化"], "高清", false, 7],
+  ["招生短视频节奏表.pdf", "document", "canvas", "editor", "5月21日", "2026-05-21 13:50", "4:3", "", "folder-edu", ["节奏", "视频", "文档"], "高清", false, 2],
+  ["品牌横版 Logo.svg", "logo", "brand", "upload", "5月21日", "2026-05-21 11:08", "4:1", "", "folder-edu", ["Logo", "品牌", "横版"], "高清", true, 26],
+  ["医美产品主体-精华瓶.png", "image", "subject", "editor", "5月18日", "2026-05-18 18:10", "3:4", "", "folder-medical", ["产品", "主体", "精华"], "4K", false, 13],
+  ["投放落地页首屏截图.jpg", "image", "canvas", "editor", "5月18日", "2026-05-18 16:36", "4:5", "", "folder-medical", ["落地页", "截图", "投放"], "高清", false, 6],
+  ["医美风格参考-柔光.jpg", "reference", "reference", "upload", "5月18日", "2026-05-18 14:20", "4:5", "", "folder-medical", ["柔光", "风格", "参考"], "2K", true, 9],
+  ["短视频口播音色.aac", "audio", "history", "videoWorkflow", "5月18日", "2026-05-18 12:14", "1:1", "00:46", "folder-medical", ["音色", "口播", "音频"], "高清", false, 4],
+  ["本地生活客户 VI 手册.pdf", "document", "brand", "upload", "5月18日", "2026-05-18 10:12", "16:9", "", "folder-local", ["VI", "客户", "品牌"], "高清", false, 5],
+  ["社区团购产品主体.png", "image", "subject", "generated", "5月12日", "2026-05-12 18:42", "1:1", "", "folder-local", ["产品", "主体", "团购"], "高清", true, 10],
+  ["门店探店脚本画布.fig", "document", "canvas", "editor", "5月12日", "2026-05-12 16:40", "16:9", "", "folder-local", ["画布", "探店", "脚本"], "高清", false, 2],
+  ["餐饮品牌方形 Logo.png", "logo", "brand", "upload", "5月12日", "2026-05-12 14:18", "1:1", "", "folder-local", ["Logo", "餐饮", "品牌"], "高清", false, 15],
+  ["探店案例参考图.png", "reference", "reference", "upload", "5月12日", "2026-05-12 11:26", "16:9", "", "folder-local", ["案例", "探店", "参考"], "高清", true, 8],
+].map(
+  (
+    [
+      name,
+      type,
+      tabCategory,
+      source,
+      dateGroup,
+      createdAt,
+      ratio,
+      duration,
+      folderId,
+      tags,
+      spec,
+      isFavorite,
+      usedCount,
+    ],
+    index,
+  ) => {
+    const folderName = assetFolders.find((folder) => folder.id === folderId)?.name || "全部项目";
+    const visualTypes = ["image", "video", "logo", "reference", "generated"];
+    const systemTags = [
+      ratio,
+      spec,
+      usedCount > 0 ? "已用于创作" : "",
+      tabCategory === "brand" || type === "logo" ? "品牌素材" : "",
+      type === "reference" || tabCategory === "reference" ? "参考图" : "",
+    ].filter(Boolean);
+    return {
+      id: `asset-${String(index + 1).padStart(3, "0")}`,
+      name,
+      type,
+      tabCategory,
+      source,
+      sourceLabel: assetSourceMeta[source],
+      dateGroup,
+      createdAt,
+      updatedAt: usedCount > 0 ? "2026-06-09 09:30" : createdAt,
+      recentUsedAt: usedCount > 0 ? "2026-06-09 09:30" : "暂未使用",
+      thumbnail: visualTypes.includes(type)
+        ? buildMockVisualThumbnail({ name, type, ratio, projectName: folderName, index })
+        : "",
+      thumbnailFit: type === "logo" ? "contain" : "cover",
+      ratio,
+      duration,
+      tags: Array.from(new Set([...tags, ...systemTags])),
+      folderId,
+      folderName,
+      projectName: folderName,
+      usedCount,
+      isFavorite,
+      isSelected: false,
+      specs: [spec, ratio].filter(Boolean),
+      format:
+        type === "video"
+          ? "MP4"
+          : type === "audio"
+            ? "MP3"
+            : type === "document"
+              ? name.split(".").pop()?.toUpperCase() || "DOC"
+              : type === "logo"
+                ? "PNG"
+                : "PNG",
+    };
+  },
+);
+
 const storyboardVideoLibraryItems = storyboardPreviewPool.slice(0, 9).map((preview, index) => ({
   id: `storyboard-video-${index + 1}`,
   name: "会员狂欢季2024",
@@ -21612,6 +21911,1987 @@ function ToolsPage({ activeTool, onOpenTool, onBackTool }) {
   );
 }
 
+function getAssetTypeMeta(type) {
+  return assetTypeMeta[type] || assetTypeMeta.image;
+}
+
+function formatAssetDate(value) {
+  if (!value) return "";
+  const [, month = "", day = ""] = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/u) || [];
+  return month && day ? `${month}.${day}` : value;
+}
+
+function getAssetFolderName(folderId, folders) {
+  return folders.find((folder) => folder.id === folderId)?.name || "未分类";
+}
+
+function AssetPrimaryButton({ children, onClick, icon: Icon }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(58,91,253,0.18)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_28px_rgba(58,91,253,0.22)]"
+    >
+      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {children}
+    </button>
+  );
+}
+
+function AssetSecondaryButton({ children, onClick, icon: Icon, danger = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border px-4 text-[14px] font-semibold transition-all",
+        danger
+          ? "border-[#ffe1e4] bg-[#fff5f6] text-[#d92f3d] hover:bg-[#ffebee]"
+          : "border-[#e1e7f2] bg-white text-[#202634] shadow-[0_8px_18px_rgba(116,134,170,0.06)] hover:border-[#d6e2ff] hover:bg-[#f8fbff]",
+      )}
+    >
+      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {children}
+    </button>
+  );
+}
+
+function AssetPreview({ asset, className = "" }) {
+  if (!asset) return null;
+  if (asset.type === "video") {
+    return (
+      <div className={cn("relative overflow-hidden bg-[#eef2f8]", className)}>
+        <img src={asset.thumbnail} alt={asset.name} className="h-full w-full object-cover" />
+        <span className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#3a5bfd] shadow-[0_10px_24px_rgba(31,42,68,0.18)]">
+            <Play className="ml-0.5 h-5 w-5" fill="currentColor" />
+          </span>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("overflow-hidden bg-[#eef2f8]", className)}>
+      <img src={asset.thumbnail} alt={asset.name} className="h-full w-full object-cover" />
+    </div>
+  );
+}
+
+function AssetSidebar({ folders, assets, activeFolderId, onSelectFolder }) {
+  const systemFolders = folders.filter((folder) => folder.kind === "system");
+  const customFolders = folders.filter((folder) => folder.kind === "custom");
+  const countByFolder = (folderId) => {
+    if (folderId === "all") return assets.filter((asset) => !asset.deleted).length;
+    if (folderId === "recent") return assets.filter((asset) => !asset.deleted && asset.usedCount >= 10).length;
+    if (folderId === "uploads") return assets.filter((asset) => !asset.deleted && /上传/u.test(asset.source)).length;
+    if (folderId === "generated") return assets.filter((asset) => !asset.deleted && asset.type === "generated").length;
+    if (folderId === "brand") return assets.filter((asset) => !asset.deleted && asset.type === "logo").length;
+    if (folderId === "reference") return assets.filter((asset) => !asset.deleted && asset.type === "reference").length;
+    if (folderId === "video") return assets.filter((asset) => !asset.deleted && asset.type === "video").length;
+    if (folderId === "trash") return assets.filter((asset) => asset.deleted).length;
+    return assets.filter((asset) => !asset.deleted && asset.folderId === folderId).length;
+  };
+
+  const renderFolder = (folder) => {
+    const active = activeFolderId === folder.id;
+    const Icon = folder.icon || FolderOpen;
+    return (
+      <button
+        key={folder.id}
+        type="button"
+        onClick={() => onSelectFolder(folder.id)}
+        className={cn(
+          "group flex h-10 w-full items-center gap-2 rounded-[12px] px-3 text-left transition-all",
+          active
+            ? "bg-[linear-gradient(90deg,#edf5ff_0%,#f4f0ff_100%)] text-[#3a5bfd] shadow-[inset_0_0_0_1px_rgba(58,91,253,0.12)]"
+            : "text-[#4b5568] hover:bg-[#f6f8fc]",
+        )}
+      >
+        <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#3a5bfd]" : "text-[#8a93a6]")} />
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{folder.name}</span>
+        <span className={cn("text-[12px] font-semibold", active ? "text-[#6b7cff]" : "text-[#a1a9b8]")}>
+          {countByFolder(folder.id)}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <aside className="flex h-full w-[248px] shrink-0 flex-col rounded-[24px] border border-[#e3eaf6] bg-white/92 p-3 shadow-[0_18px_38px_rgba(93,111,154,0.08)]">
+      <div className="px-2 pb-2 pt-1 text-[12px] font-semibold text-[#9aa2b2]">系统分类</div>
+      <div className="space-y-1">{systemFolders.map(renderFolder)}</div>
+      <div className="mt-5 px-2 pb-2 text-[12px] font-semibold text-[#9aa2b2]">项目文件夹</div>
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 scrollbar-hide">{customFolders.map(renderFolder)}</div>
+    </aside>
+  );
+}
+
+function AssetToolbar({
+  query,
+  onQueryChange,
+  typeFilter,
+  onTypeFilterChange,
+  sortKey,
+  onSortKeyChange,
+  viewMode,
+  onViewModeChange,
+  total,
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-[#e3eaf6] bg-white/90 p-3 shadow-[0_14px_34px_rgba(95,117,156,0.07)]">
+      <div className="relative min-w-[260px] flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b2]" />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="搜索资产名称、标签或来源"
+          className="h-10 w-full rounded-[12px] border border-[#e1e7f2] bg-[#f8fbff] pl-9 pr-3 text-[14px] text-[#202634] outline-none transition-all placeholder:text-[#a1a9b8] focus:border-[#9eb5ff] focus:bg-white"
+        />
+      </div>
+      <select
+        value={typeFilter}
+        onChange={(event) => onTypeFilterChange(event.target.value)}
+        className="h-10 rounded-[12px] border border-[#e1e7f2] bg-white px-3 text-[14px] font-semibold text-[#202634] outline-none"
+      >
+        <option value="all">全部类型</option>
+        <option value="image">图片</option>
+        <option value="video">视频</option>
+        <option value="logo">Logo</option>
+        <option value="reference">参考图</option>
+        <option value="generated">生成结果</option>
+      </select>
+      <select
+        value={sortKey}
+        onChange={(event) => onSortKeyChange(event.target.value)}
+        className="h-10 rounded-[12px] border border-[#e1e7f2] bg-white px-3 text-[14px] font-semibold text-[#202634] outline-none"
+      >
+        <option value="updatedDesc">最近更新</option>
+        <option value="createdDesc">最新创建</option>
+        <option value="usedDesc">使用最多</option>
+        <option value="nameAsc">名称 A-Z</option>
+      </select>
+      <div className="ml-auto inline-flex h-10 rounded-[12px] border border-[#e1e7f2] bg-[#f6f8fc] p-1">
+        <button
+          type="button"
+          onClick={() => onViewModeChange("grid")}
+          className={cn(
+            "flex h-8 w-9 items-center justify-center rounded-[9px] transition-all",
+            viewMode === "grid" ? "bg-white text-[#3a5bfd] shadow-[0_6px_12px_rgba(73,91,180,0.1)]" : "text-[#8a93a6]",
+          )}
+          aria-label="网格视图"
+        >
+          <Grid2x2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange("list")}
+          className={cn(
+            "flex h-8 w-9 items-center justify-center rounded-[9px] transition-all",
+            viewMode === "list" ? "bg-white text-[#3a5bfd] shadow-[0_6px_12px_rgba(73,91,180,0.1)]" : "text-[#8a93a6]",
+          )}
+          aria-label="列表视图"
+        >
+          <List className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="w-full text-[12px] font-medium text-[#9aa2b2] sm:w-auto">共 {total} 个资产</div>
+    </div>
+  );
+}
+
+function AssetCard({ asset, selected, onToggleSelect, onOpen, onAction }) {
+  const meta = getAssetTypeMeta(asset.type);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(asset)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(asset);
+        }
+      }}
+      className={cn(
+        "group relative cursor-pointer overflow-hidden rounded-[22px] border bg-white text-left shadow-[0_14px_34px_rgba(89,108,152,0.08)] transition-all hover:-translate-y-1 hover:border-[#cddcff] hover:shadow-[0_20px_42px_rgba(82,101,164,0.14)]",
+        selected ? "border-[#6c83ff] ring-2 ring-[#dce5ff]" : "border-[#e3eaf6]",
+      )}
+    >
+      <div className="absolute left-3 top-3 z-20">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleSelect(asset.id);
+          }}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-[9px] border bg-white/90 shadow-[0_8px_16px_rgba(31,42,68,0.12)] transition-all",
+            selected ? "border-[#6c83ff] text-[#3a5bfd]" : "border-white/70 text-[#a1a9b8] opacity-0 group-hover:opacity-100",
+          )}
+          aria-label="选择资产"
+        >
+          {selected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+        </button>
+      </div>
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#eef3fb]">
+        <AssetPreview asset={asset} className="h-full w-full" />
+        <span className={cn("absolute right-3 top-3 rounded-full px-2.5 py-1 text-[12px] font-semibold", meta.tone)}>
+          {meta.label}
+        </span>
+        <div className="absolute inset-0 flex items-end justify-center gap-2 bg-[linear-gradient(180deg,rgba(20,28,45,0)_18%,rgba(20,28,45,0.66)_100%)] p-3 opacity-0 transition-opacity group-hover:opacity-100">
+          {[
+            { label: "预览", icon: Eye, action: "preview" },
+            { label: "用于创作", icon: Wand2, action: "create" },
+            { label: "移动", icon: MoveRight, action: "move" },
+            { label: "重命名", icon: PencilLine, action: "rename" },
+            { label: "删除", icon: Trash2, action: "delete" },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.action}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAction(item.action, asset);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/92 text-[#202634] shadow-[0_8px_18px_rgba(20,28,45,0.16)] transition-all hover:bg-white hover:text-[#3a5bfd]"
+                aria-label={item.label}
+                title={item.label}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="p-4">
+        <div className="truncate text-[15px] font-semibold text-[#202634]">{asset.name}</div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {asset.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="rounded-full bg-[#f2f5fb] px-2 py-1 text-[11px] font-medium text-[#687286]">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-[12px] font-medium text-[#9aa2b2]">
+          <span>更新 {formatAssetDate(asset.updatedAt)}</span>
+          <span>使用 {asset.usedCount} 次</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssetGrid({ assets, selectedIds, onToggleSelect, onOpenAsset, onAction }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      {assets.map((asset) => (
+        <AssetCard
+          key={asset.id}
+          asset={asset}
+          selected={selectedIds.includes(asset.id)}
+          onToggleSelect={onToggleSelect}
+          onOpen={onOpenAsset}
+          onAction={onAction}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AssetList({ assets, selectedIds, onToggleSelect, onOpenAsset, onAction }) {
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-[#e3eaf6] bg-white shadow-[0_14px_34px_rgba(89,108,152,0.08)]">
+      <div className="grid grid-cols-[42px_1.8fr_120px_120px_120px_156px] items-center border-b border-[#edf1f7] bg-[#f8fbff] px-4 py-3 text-[12px] font-semibold text-[#8a93a6]">
+        <span />
+        <span>资产名称</span>
+        <span>类型</span>
+        <span>文件夹</span>
+        <span>使用次数</span>
+        <span>更新时间</span>
+      </div>
+      {assets.map((asset) => {
+        const selected = selectedIds.includes(asset.id);
+        const meta = getAssetTypeMeta(asset.type);
+        return (
+          <div
+            key={asset.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenAsset(asset)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpenAsset(asset);
+              }
+            }}
+            className={cn(
+              "group grid w-full cursor-pointer grid-cols-[42px_1.8fr_120px_120px_120px_156px] items-center border-b border-[#f0f3f8] px-4 py-3 text-left transition-all last:border-b-0 hover:bg-[#f8fbff]",
+              selected ? "bg-[#f4f7ff]" : "bg-white",
+            )}
+          >
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSelect(asset.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleSelect(asset.id);
+                }
+              }}
+              className={cn("flex h-7 w-7 items-center justify-center rounded-[9px]", selected ? "text-[#3a5bfd]" : "text-[#a1a9b8]")}
+            >
+              {selected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            </span>
+            <span className="flex min-w-0 items-center gap-3">
+              <AssetPreview asset={asset} className="h-12 w-16 shrink-0 rounded-[10px]" />
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-semibold text-[#202634]">{asset.name}</span>
+                <span className="mt-1 flex gap-1.5">
+                  {asset.tags.slice(0, 2).map((tag) => (
+                    <span key={tag} className="rounded-full bg-[#f2f5fb] px-2 py-0.5 text-[11px] text-[#687286]">
+                      {tag}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            </span>
+            <span>
+              <span className={cn("rounded-full px-2.5 py-1 text-[12px] font-semibold", meta.tone)}>{meta.label}</span>
+            </span>
+            <span className="truncate pr-4 text-[13px] font-medium text-[#687286]">{asset.folderName}</span>
+            <span className="text-[13px] font-medium text-[#687286]">{asset.usedCount} 次</span>
+            <span className="flex items-center justify-between gap-2 text-[13px] font-medium text-[#687286]">
+              {asset.updatedAt}
+              <span className="flex opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction("move", asset);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-[9px] text-[#8a93a6] hover:bg-white hover:text-[#3a5bfd]"
+                  aria-label="移动"
+                >
+                  <MoveRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction("delete", asset);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-[9px] text-[#8a93a6] hover:bg-white hover:text-[#d92f3d]"
+                  aria-label="删除"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AssetDetailDrawer({ asset, onClose, onAction }) {
+  if (!asset || typeof document === "undefined") return null;
+  const meta = getAssetTypeMeta(asset.type);
+  const InfoIcon = meta.icon;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[220] flex justify-end bg-[rgba(20,28,45,0.22)] backdrop-blur-[4px]" onClick={onClose}>
+      <motion.aside
+        initial={{ x: 420, opacity: 0.8 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 420, opacity: 0.8 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        onClick={(event) => event.stopPropagation()}
+        className="flex h-full w-[420px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-l-[28px] bg-white shadow-[0_24px_80px_rgba(23,35,66,0.26)]"
+      >
+        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#e8edf5] px-6">
+          <div>
+            <div className="text-[18px] font-semibold text-[#202634]">资产详情</div>
+            <div className="mt-1 text-[12px] font-medium text-[#9aa2b2]">{asset.folderName}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#e1e7f2] text-[#687286] transition-all hover:bg-[#f6f8fc] hover:text-[#202634]"
+            aria-label="关闭资产详情"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7faff] p-6 scrollbar-hide">
+          <AssetPreview asset={asset} className="aspect-[4/3] w-full rounded-[22px] shadow-[0_18px_36px_rgba(81,101,152,0.12)]" />
+          <div className="mt-5 rounded-[20px] border border-[#e3eaf6] bg-white p-4">
+            <div className="flex items-start gap-3">
+              <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px]", meta.tone)}>
+                <InfoIcon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="break-words text-[17px] font-semibold leading-6 text-[#202634]">{asset.name}</div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {asset.tags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-[#f2f5fb] px-2 py-1 text-[11px] font-medium text-[#687286]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 text-[13px]">
+              {[
+                ["类型", meta.label],
+                ["格式", asset.format],
+                ["比例", asset.ratio],
+                ["时长", asset.duration || "-"],
+                ["来源", asset.source],
+                ["使用次数", `${asset.usedCount} 次`],
+                ["创建时间", asset.createdAt],
+                ["更新时间", asset.updatedAt],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[14px] bg-[#f7f9fd] px-3 py-2">
+                  <div className="text-[11px] font-semibold text-[#9aa2b2]">{label}</div>
+                  <div className="mt-1 truncate font-semibold text-[#202634]">{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#e8edf5] bg-white p-4">
+          {[
+            ["用于创作", Wand2, "create"],
+            ["去编辑器", PencilLine, "editor"],
+            ["图转视频", Film, "imageToVideo"],
+            ["下载", Download, "download"],
+            ["移动", MoveRight, "move"],
+            ["删除", Trash2, "delete"],
+          ].map(([label, Icon, action]) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => onAction(action, asset)}
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-[12px] text-[13px] font-semibold transition-all",
+                action === "delete"
+                  ? "bg-[#fff5f6] text-[#d92f3d] hover:bg-[#ffebee]"
+                  : "bg-[#f4f7fb] text-[#202634] hover:bg-[#edf3ff] hover:text-[#3a5bfd]",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </motion.aside>
+    </div>,
+    document.body,
+  );
+}
+
+function AssetModalShell({ open, title, children, footer, onClose }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[240] flex items-center justify-center bg-[rgba(20,28,45,0.28)] px-6 py-8 backdrop-blur-[6px]" onClick={onClose}>
+      <div
+        className="flex w-[min(560px,calc(100vw-48px))] max-h-[calc(100vh-64px)] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_28px_80px_rgba(32,45,77,0.22)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#e8edf5] px-6">
+          <div className="text-[20px] font-semibold text-[#202634]">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#e1e7f2] text-[#687286] transition-all hover:bg-[#f6f8fc] hover:text-[#202634]"
+            aria-label="关闭弹窗"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7faff] p-6 scrollbar-hide">{children}</div>
+        <div className="flex h-[72px] shrink-0 items-center justify-end gap-2 border-t border-[#e8edf5] bg-white px-6">{footer}</div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function UploadAssetModal({ open, folders, onClose, onConfirm }) {
+  const [files, setFiles] = useState([]);
+  const [type, setType] = useState("image");
+  const [folderId, setFolderId] = useState("folder-edu");
+  const [tags, setTags] = useState("上传素材, 可复用");
+
+  useEffect(() => {
+    if (!open) {
+      setFiles([]);
+      setType("image");
+      setFolderId("folder-edu");
+      setTags("上传素材, 可复用");
+    }
+  }, [open]);
+
+  return (
+    <AssetModalShell
+      open={open}
+      title="上传素材"
+      onClose={onClose}
+      footer={
+        <>
+          <AssetSecondaryButton onClick={onClose}>取消</AssetSecondaryButton>
+          <AssetPrimaryButton
+            icon={Upload}
+            onClick={() => {
+              if (!files.length) return;
+              onConfirm({ files, type, folderId, tags });
+            }}
+          >
+            上传
+          </AssetPrimaryButton>
+        </>
+      }
+    >
+      <label className="flex min-h-[156px] cursor-pointer flex-col items-center justify-center rounded-[22px] border border-dashed border-[#b9c8ef] bg-white text-center transition-all hover:border-[#7d95ff] hover:bg-[#fbfdff]">
+        <Upload className="h-8 w-8 text-[#3a5bfd]" />
+        <span className="mt-3 text-[15px] font-semibold text-[#202634]">选择图片、视频、Logo 或参考素材</span>
+        <span className="mt-1 text-[12px] font-medium text-[#9aa2b2]">{files.length ? `已选择 ${files.length} 个文件` : "本地 Mock 上传，不会请求真实接口"}</span>
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          accept="image/*,video/*,audio/*,.svg,.pdf,.doc,.docx,.fig"
+          onChange={(event) => setFiles(Array.from(event.target.files || []))}
+        />
+      </label>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="text-[13px] font-semibold text-[#687286]">
+          素材类型
+          <select value={type} onChange={(event) => setType(event.target.value)} className="mt-2 h-10 w-full rounded-[12px] border border-[#e1e7f2] bg-white px-3 text-[#202634] outline-none">
+            <option value="image">图片</option>
+            <option value="video">视频</option>
+            <option value="audio">音频</option>
+            <option value="document">文档</option>
+            <option value="logo">Logo</option>
+            <option value="reference">参考图</option>
+            <option value="generated">生成结果</option>
+          </select>
+        </label>
+        <label className="text-[13px] font-semibold text-[#687286]">
+          归属文件夹
+          <select value={folderId} onChange={(event) => setFolderId(event.target.value)} className="mt-2 h-10 w-full rounded-[12px] border border-[#e1e7f2] bg-white px-3 text-[#202634] outline-none">
+            {folders.filter((folder) => folder.kind === "custom").map((folder) => (
+              <option key={folder.id} value={folder.id}>{folder.name}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="mt-4 block text-[13px] font-semibold text-[#687286]">
+        标签
+        <input value={tags} onChange={(event) => setTags(event.target.value)} className="mt-2 h-10 w-full rounded-[12px] border border-[#e1e7f2] bg-white px-3 text-[#202634] outline-none" />
+      </label>
+    </AssetModalShell>
+  );
+}
+
+function CreateFolderModal({ open, onClose, onConfirm }) {
+  const [name, setName] = useState("");
+  useEffect(() => {
+    if (!open) setName("");
+  }, [open]);
+
+  return (
+    <AssetModalShell
+      open={open}
+      title="新建文件夹"
+      onClose={onClose}
+      footer={
+        <>
+          <AssetSecondaryButton onClick={onClose}>取消</AssetSecondaryButton>
+          <AssetPrimaryButton
+            icon={FolderPlus}
+            onClick={() => {
+              const nextName = name.trim();
+              if (nextName) onConfirm(nextName);
+            }}
+          >
+            创建
+          </AssetPrimaryButton>
+        </>
+      }
+    >
+      <label className="block text-[13px] font-semibold text-[#687286]">
+        文件夹名称
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          autoFocus
+          placeholder="例如：618 投放素材"
+          className="mt-2 h-11 w-full rounded-[14px] border border-[#e1e7f2] bg-white px-3 text-[14px] text-[#202634] outline-none transition-all placeholder:text-[#a1a9b8] focus:border-[#9eb5ff]"
+        />
+      </label>
+    </AssetModalShell>
+  );
+}
+
+function MoveAssetModal({ open, folders, assetCount, defaultFolderId, onClose, onConfirm }) {
+  const [folderId, setFolderId] = useState(defaultFolderId || "folder-edu");
+  useEffect(() => {
+    if (open) setFolderId(defaultFolderId || "folder-edu");
+  }, [defaultFolderId, open]);
+
+  return (
+    <AssetModalShell
+      open={open}
+      title="移动资产"
+      onClose={onClose}
+      footer={
+        <>
+          <AssetSecondaryButton onClick={onClose}>取消</AssetSecondaryButton>
+          <AssetPrimaryButton icon={MoveRight} onClick={() => onConfirm(folderId)}>移动</AssetPrimaryButton>
+        </>
+      }
+    >
+      <div className="rounded-[18px] bg-white p-4 text-[14px] font-medium text-[#687286]">
+        将 {assetCount} 个资产移动到：
+      </div>
+      <div className="mt-3 space-y-2">
+        {folders.filter((folder) => folder.kind === "custom").map((folder) => {
+          const active = folderId === folder.id;
+          return (
+            <button
+              key={folder.id}
+              type="button"
+              onClick={() => setFolderId(folder.id)}
+              className={cn(
+                "flex h-11 w-full items-center gap-2 rounded-[14px] border px-3 text-left text-[14px] font-semibold transition-all",
+                active ? "border-[#a9b9ff] bg-[#f2f5ff] text-[#3a5bfd]" : "border-[#e1e7f2] bg-white text-[#202634] hover:bg-[#f8fbff]",
+              )}
+            >
+              <FolderOpen className="h-4 w-4" />
+              {folder.name}
+            </button>
+          );
+        })}
+      </div>
+    </AssetModalShell>
+  );
+}
+
+function EmptyState({ onUpload, onCreateFolder }) {
+  return (
+    <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[28px] border border-dashed border-[#cbd8f1] bg-white/74 text-center shadow-[0_18px_38px_rgba(93,111,154,0.06)]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[linear-gradient(135deg,#edf7ff_0%,#f2edff_100%)] text-[#3a5bfd]">
+        <FolderOpen className="h-8 w-8" />
+      </div>
+      <div className="mt-4 text-[18px] font-semibold text-[#202634]">这里还没有符合条件的资产</div>
+      <div className="mt-2 max-w-[360px] text-[13px] leading-6 text-[#8a93a6]">上传素材或新建文件夹，把营销图、视频和品牌素材沉淀下来。</div>
+      <div className="mt-5 flex gap-3">
+        <AssetPrimaryButton icon={Upload} onClick={onUpload}>上传素材</AssetPrimaryButton>
+        <AssetSecondaryButton icon={FolderPlus} onClick={onCreateFolder}>新建文件夹</AssetSecondaryButton>
+      </div>
+    </div>
+  );
+}
+
+function BatchActionBar({ selectedCount, totalCount, onSelectAll, onClear, onMove, onDelete }) {
+  if (!selectedCount) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-3 rounded-[18px] border border-[#dce5f6] bg-white/95 px-4 py-3 shadow-[0_18px_44px_rgba(58,79,130,0.18)] backdrop-blur">
+      <span className="text-[14px] font-semibold text-[#202634]">已选择 {selectedCount} 个资产</span>
+      <button type="button" onClick={onSelectAll} className="rounded-[10px] bg-[#f4f7fb] px-3 py-2 text-[13px] font-semibold text-[#3a5bfd] hover:bg-[#edf3ff]">
+        {selectedCount === totalCount ? "取消全选" : "全选"}
+      </button>
+      <button type="button" onClick={onMove} className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f4f7fb] px-3 py-2 text-[13px] font-semibold text-[#202634] hover:bg-[#edf3ff]">
+        <MoveRight className="h-4 w-4" /> 移动
+      </button>
+      <button type="button" onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#fff5f6] px-3 py-2 text-[13px] font-semibold text-[#d92f3d] hover:bg-[#ffebee]">
+        <Trash2 className="h-4 w-4" /> 删除
+      </button>
+      <button type="button" onClick={onClear} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8a93a6] hover:bg-[#f4f7fb] hover:text-[#202634]" aria-label="清空选择">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function AssetLibraryPage({ onNotify, onUseAsset }) {
+  const [folders, setFolders] = useState(assetFolders);
+  const [assets, setAssets] = useState(mockAssetLibraryItems);
+  const [activeFolderId, setActiveFolderId] = useState("all");
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("updatedDesc");
+  const [viewMode, setViewMode] = useState("grid");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [detailAssetId, setDetailAssetId] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
+  const [moveState, setMoveState] = useState(null);
+  const [deleteState, setDeleteState] = useState(null);
+
+  const visibleAssets = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const folderFiltered = assets.filter((asset) => {
+      if (activeFolderId === "trash") return asset.deleted;
+      if (asset.deleted) return false;
+      if (activeFolderId === "all") return true;
+      if (activeFolderId === "recent") return asset.usedCount >= 10;
+      if (activeFolderId === "uploads") return /上传/u.test(asset.source);
+      if (activeFolderId === "generated") return asset.type === "generated";
+      if (activeFolderId === "brand") return asset.type === "logo";
+      if (activeFolderId === "reference") return asset.type === "reference";
+      if (activeFolderId === "video") return asset.type === "video";
+      return asset.folderId === activeFolderId;
+    });
+
+    return folderFiltered
+      .filter((asset) => (typeFilter === "all" ? true : asset.type === typeFilter))
+      .filter((asset) => {
+        if (!normalizedQuery) return true;
+        return [asset.name, asset.folderName, asset.source, asset.format, ...(asset.tags || [])]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      })
+      .sort((a, b) => {
+        if (sortKey === "createdDesc") return b.createdAt.localeCompare(a.createdAt);
+        if (sortKey === "usedDesc") return b.usedCount - a.usedCount;
+        if (sortKey === "nameAsc") return a.name.localeCompare(b.name, "zh-Hans-CN");
+        return b.updatedAt.localeCompare(a.updatedAt);
+      });
+  }, [activeFolderId, assets, query, sortKey, typeFilter]);
+
+  const detailAsset = assets.find((asset) => asset.id === detailAssetId) || null;
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => visibleAssets.some((asset) => asset.id === id)));
+  }, [visibleAssets]);
+
+  const toggleSelect = (assetId) => {
+    setSelectedIds((prev) => (prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]));
+  };
+
+  const notify = (payload) => {
+    onNotify?.(payload);
+  };
+
+  const openMoveModal = (ids) => {
+    const nextIds = ids?.length ? ids : selectedIds;
+    if (!nextIds.length) return;
+    const firstAsset = assets.find((asset) => asset.id === nextIds[0]);
+    setMoveState({ ids: nextIds, defaultFolderId: firstAsset?.folderId || "folder-edu" });
+  };
+
+  const requestDelete = (ids) => {
+    const nextIds = ids?.length ? ids : selectedIds;
+    if (!nextIds.length) return;
+    setDeleteState({ ids: nextIds });
+  };
+
+  const handleAction = (action, asset) => {
+    if (action === "preview") {
+      setDetailAssetId(asset.id);
+      return;
+    }
+    if (action === "create") {
+      setAssets((prev) => prev.map((item) => (item.id === asset.id ? { ...item, usedCount: item.usedCount + 1, updatedAt: "2026-06-09 10:00" } : item)));
+      onUseAsset?.(asset);
+      notify({ type: "success", title: "已用于创作", description: `${asset.name} 已带入生成输入框。` });
+      return;
+    }
+    if (action === "editor") {
+      notify({ type: "info", title: "已打开编辑器入口", description: "当前为 Mock 状态，后续可接入真实编辑器。" });
+      return;
+    }
+    if (action === "imageToVideo") {
+      notify({ type: "info", title: "图转视频已准备", description: "已将当前资产作为图转视频参考素材。" });
+      return;
+    }
+    if (action === "download") {
+      notify({ type: "success", title: "下载已触发", description: "Mock 下载完成。" });
+      return;
+    }
+    if (action === "move") {
+      openMoveModal([asset.id]);
+      return;
+    }
+    if (action === "rename") {
+      const nextName = window.prompt("重命名资产", asset.name);
+      if (!nextName?.trim()) return;
+      setAssets((prev) => prev.map((item) => (item.id === asset.id ? { ...item, name: nextName.trim(), updatedAt: "2026-06-09 10:00" } : item)));
+      notify({ type: "success", title: "资产已重命名" });
+      return;
+    }
+    if (action === "delete") {
+      requestDelete([asset.id]);
+    }
+  };
+
+  const handleUpload = ({ files, type, folderId, tags }) => {
+    const folderName = getAssetFolderName(folderId, folders);
+    const tagList = tags.split(/[,，]/u).map((tag) => tag.trim()).filter(Boolean);
+    const nextItems = files.map((file, index) => {
+      const isVideo = type === "video" || file.type.startsWith("video/");
+      return {
+        id: `asset-upload-${Date.now()}-${index}`,
+        name: file.name,
+        type: isVideo ? "video" : type,
+        folderId,
+        folderName,
+        thumbnail: URL.createObjectURL(file),
+        format: (file.name.split(".").pop() || (isVideo ? "MP4" : "PNG")).toUpperCase(),
+        ratio: isVideo ? "9:16" : "1:1",
+        duration: isVideo ? "00:15" : "",
+        tags: tagList.length ? tagList : ["上传素材"],
+        source: "用户上传",
+        createdAt: "2026-06-09 10:00",
+        updatedAt: "2026-06-09 10:00",
+        usedCount: 0,
+      };
+    });
+    setAssets((prev) => [...nextItems, ...prev]);
+    setActiveFolderId(folderId);
+    setUploadOpen(false);
+    notify({ type: "success", title: "素材已上传", description: `已添加 ${nextItems.length} 个本地 Mock 素材。` });
+  };
+
+  const handleCreateFolder = (name) => {
+    const folder = { id: `folder-custom-${Date.now()}`, name, kind: "custom", icon: FolderOpen };
+    setFolders((prev) => [...prev, folder]);
+    setActiveFolderId(folder.id);
+    setFolderOpen(false);
+    notify({ type: "success", title: "文件夹已创建", description: name });
+  };
+
+  const handleMoveConfirm = (folderId) => {
+    if (!moveState?.ids?.length) return;
+    const folderName = getAssetFolderName(folderId, folders);
+    setAssets((prev) =>
+      prev.map((asset) =>
+        moveState.ids.includes(asset.id)
+          ? { ...asset, folderId, folderName, updatedAt: "2026-06-09 10:00", deleted: false }
+          : asset,
+      ),
+    );
+    setMoveState(null);
+    setSelectedIds([]);
+    notify({ type: "success", title: "资产已移动", description: `已移动到「${folderName}」。` });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteState?.ids?.length) return;
+    setAssets((prev) =>
+      prev.map((asset) =>
+        deleteState.ids.includes(asset.id)
+          ? { ...asset, folderId: "trash", folderName: "回收站", deleted: true, updatedAt: "2026-06-09 10:00" }
+          : asset,
+      ),
+    );
+    if (deleteState.ids.includes(detailAssetId)) setDetailAssetId(null);
+    setSelectedIds([]);
+    setDeleteState(null);
+    notify({ type: "success", title: "资产已删除", description: "已移入回收站。" });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds((prev) => (prev.length === visibleAssets.length ? [] : visibleAssets.map((asset) => asset.id)));
+  };
+
+  return (
+    <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_14%_0%,rgba(214,238,255,0.86),transparent_30%),radial-gradient(circle_at_88%_0%,rgba(235,229,255,0.8),transparent_25%),linear-gradient(180deg,#f8fbff_0%,#fbfdff_100%)]">
+      <div className="flex h-full flex-col px-7 pb-7 pt-[84px]">
+        <div className="mb-5 flex shrink-0 flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-[#202634]">资产库</h1>
+            <p className="mt-2 text-[14px] font-medium leading-6 text-[#687286]">沉淀营销图、视频、Logo 与参考素材，支持后续创作复用</p>
+          </div>
+          <div className="flex gap-3">
+            <AssetPrimaryButton icon={Upload} onClick={() => setUploadOpen(true)}>上传素材</AssetPrimaryButton>
+            <AssetSecondaryButton icon={FolderPlus} onClick={() => setFolderOpen(true)}>新建文件夹</AssetSecondaryButton>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 gap-5">
+          <AssetSidebar folders={folders} assets={assets} activeFolderId={activeFolderId} onSelectFolder={setActiveFolderId} />
+          <section className="flex min-w-0 flex-1 flex-col">
+            <AssetToolbar
+              query={query}
+              onQueryChange={setQuery}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              sortKey={sortKey}
+              onSortKeyChange={setSortKey}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              total={visibleAssets.length}
+            />
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+              {visibleAssets.length ? (
+                viewMode === "grid" ? (
+                  <AssetGrid
+                    assets={visibleAssets}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onOpenAsset={(asset) => setDetailAssetId(asset.id)}
+                    onAction={handleAction}
+                  />
+                ) : (
+                  <AssetList
+                    assets={visibleAssets}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onOpenAsset={(asset) => setDetailAssetId(asset.id)}
+                    onAction={handleAction}
+                  />
+                )
+              ) : (
+                <EmptyState onUpload={() => setUploadOpen(true)} onCreateFolder={() => setFolderOpen(true)} />
+              )}
+              <div className="h-24" />
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <AnimatePresence>{detailAsset ? <AssetDetailDrawer key={detailAsset.id} asset={detailAsset} onClose={() => setDetailAssetId(null)} onAction={handleAction} /> : null}</AnimatePresence>
+      <UploadAssetModal open={uploadOpen} folders={folders} onClose={() => setUploadOpen(false)} onConfirm={handleUpload} />
+      <CreateFolderModal open={folderOpen} onClose={() => setFolderOpen(false)} onConfirm={handleCreateFolder} />
+      <MoveAssetModal
+        open={Boolean(moveState)}
+        folders={folders}
+        assetCount={moveState?.ids?.length || 0}
+        defaultFolderId={moveState?.defaultFolderId}
+        onClose={() => setMoveState(null)}
+        onConfirm={handleMoveConfirm}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteState)}
+        title="确认删除资产"
+        description={deleteState ? `确定删除选中的 ${deleteState.ids.length} 个资产吗？删除后会进入回收站。` : ""}
+        confirmLabel="删除"
+        cancelLabel="取消"
+        onClose={() => setDeleteState(null)}
+        onConfirm={confirmDelete}
+      />
+      <BatchActionBar
+        selectedCount={selectedIds.length}
+        totalCount={visibleAssets.length}
+        onSelectAll={handleSelectAll}
+        onClear={() => setSelectedIds([])}
+        onMove={() => openMoveModal(selectedIds)}
+        onDelete={() => requestDelete(selectedIds)}
+      />
+    </div>
+  );
+}
+
+function getAssetSourceLabel(source) {
+  return assetSourceMeta[source] || source || "未知来源";
+}
+
+function getRatioValue(ratio) {
+  if (ratio === "16:9") return "16 / 9";
+  if (ratio === "9:16") return "9 / 16";
+  if (ratio === "4:5") return "4 / 5";
+  if (ratio === "3:4") return "3 / 4";
+  if (ratio === "4:3") return "4 / 3";
+  if (ratio === "4:1") return "4 / 1";
+  return "1 / 1";
+}
+
+function AssetFlowPreview({ asset, className = "", style }) {
+  const meta = getAssetTypeMeta(asset.type);
+  const Icon = meta.icon || ImageIcon;
+
+  if (asset.thumbnail) {
+    return (
+      <div className={cn("relative overflow-hidden bg-[#eef3fb]", className)} style={style}>
+        <img
+          src={asset.thumbnail}
+          alt={asset.name}
+          className={cn("h-full w-full", asset.thumbnailFit === "contain" ? "object-contain p-3" : "object-cover")}
+        />
+        {asset.type === "video" ? (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/10">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#3a5bfd] shadow-[0_12px_24px_rgba(20,28,45,0.18)]">
+              <Play className="ml-0.5 h-5 w-5" fill="currentColor" />
+            </span>
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={style}
+      className={cn(
+        "relative flex flex-col items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#eef7ff_0%,#f5f1ff_54%,#ffffff_100%)]",
+        className,
+      )}
+    >
+      <span className="absolute inset-x-6 top-5 h-12 rounded-full bg-white/60 blur-2xl" />
+      <span className={cn("relative flex h-12 w-12 items-center justify-center rounded-[16px]", meta.tone)}>
+        <Icon className="h-6 w-6" />
+      </span>
+      <span className="relative mt-3 max-w-[80%] truncate text-[12px] font-semibold text-[#687286]">
+        {meta.label}
+      </span>
+    </div>
+  );
+}
+
+function AssetLightButton({ children, icon: Icon, onClick, active = false, danger = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 items-center justify-center gap-1.5 rounded-[11px] px-3 text-[13px] font-semibold transition-all",
+        active
+          ? "bg-[#eef3ff] text-[#3a5bfd]"
+          : danger
+            ? "bg-[#fff5f6] text-[#d92f3d] hover:bg-[#ffebee]"
+            : "bg-white/72 text-[#4d5668] hover:bg-white hover:text-[#202634]",
+      )}
+    >
+      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {children}
+    </button>
+  );
+}
+
+function AssetFilterPopover({ open, activeFilters, onToggleFilter, onClear, onClose }) {
+  if (!open) return null;
+
+  const selectedCount = Object.values(activeFilters).reduce((count, values) => count + values.length, 0);
+
+  return (
+    <div className="absolute right-0 top-[calc(100%+10px)] z-40 w-[520px] max-w-[calc(100vw-120px)] rounded-[22px] border border-[#e0e7f3] bg-white p-4 shadow-[0_22px_56px_rgba(30,45,80,0.16)]">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-[15px] font-semibold text-[#202634]">筛选</div>
+        <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8a93a6] hover:bg-[#f6f8fc]">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="space-y-4">
+        {assetFilterGroups.map((group) => (
+          <section key={group.id}>
+            <div className="mb-2 text-[12px] font-semibold text-[#9aa2b2]">{group.label}</div>
+            <div className="flex flex-wrap gap-2">
+              {group.options.map((option) => {
+                const active = activeFilters[group.id]?.includes(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onToggleFilter(group.id, option.id)}
+                    className={cn(
+                      "h-8 rounded-full px-3 text-[12px] font-semibold transition-all",
+                      active
+                        ? "bg-[#edf3ff] text-[#3a5bfd] shadow-[inset_0_0_0_1px_rgba(58,91,253,0.12)]"
+                        : "bg-[#f6f8fc] text-[#5f6878] hover:bg-[#eef2f8]",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-[#edf1f7] pt-3">
+        <span className="text-[12px] font-medium text-[#9aa2b2]">
+          {selectedCount ? `已选择 ${selectedCount} 个条件` : "按常用维度快速缩小范围"}
+        </span>
+        <button type="button" onClick={onClear} className="h-8 rounded-[10px] px-3 text-[12px] font-semibold text-[#3a5bfd] hover:bg-[#f4f7ff]">
+          清除筛选
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AssetActiveFilterTags({ activeFilters, onRemove, onClear }) {
+  const tags = assetFilterGroups.flatMap((group) =>
+    (activeFilters[group.id] || []).map((value) => ({
+      groupId: group.id,
+      value,
+      label: group.options.find((option) => option.id === value)?.label || value,
+    })),
+  );
+
+  if (!tags.length) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {tags.map((tag) => (
+        <button
+          key={`${tag.groupId}-${tag.value}`}
+          type="button"
+          onClick={() => onRemove(tag.groupId, tag.value)}
+          className="inline-flex h-7 items-center gap-1 rounded-full bg-white/76 px-2.5 text-[12px] font-semibold text-[#5f6878] shadow-[inset_0_0_0_1px_rgba(212,221,238,0.9)] hover:text-[#3a5bfd]"
+        >
+          {tag.label}
+          <X className="h-3 w-3" />
+        </button>
+      ))}
+      <button type="button" onClick={onClear} className="h-7 rounded-full px-2.5 text-[12px] font-semibold text-[#8a93a6] hover:bg-white/72">
+        清除全部
+      </button>
+    </div>
+  );
+}
+
+function AssetFlowTopBar({
+  activeTab,
+  onTabChange,
+  typeFilter,
+  onTypeFilterChange,
+  projectFilter,
+  onProjectFilterChange,
+  searchOpen,
+  onSearchOpen,
+  query,
+  onQueryChange,
+  selectedCount,
+  selectionMode,
+  onStartBatch,
+  onMove,
+  onTag,
+  onDownload,
+  onDelete,
+  onClearSelection,
+  filterOpen,
+  onToggleFilterOpen,
+  activeFilters,
+  onToggleFacet,
+  onClearFilters,
+  onRemoveFilter,
+  onUpload,
+  onSync,
+}) {
+  const activeTabDescription = assetTabOptions.find((tab) => tab.id === activeTab)?.description;
+
+  return (
+    <div className="shrink-0 px-8 pt-[76px]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-7 overflow-x-auto scrollbar-hide">
+          {assetTabOptions.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                "relative h-10 shrink-0 text-[17px] font-semibold transition-colors",
+                activeTab === tab.id ? "text-[#202634]" : "text-[#7c8595] hover:text-[#202634]",
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  "absolute bottom-0 left-1/2 h-[3px] w-6 -translate-x-1/2 rounded-full bg-[#3a5bfd] transition-opacity",
+                  activeTab === tab.id ? "opacity-100" : "opacity-0",
+                )}
+              />
+            </button>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {selectionMode ? (
+            <div className="flex items-center gap-1 rounded-[14px] bg-white/88 p-1 shadow-[0_10px_24px_rgba(89,108,152,0.1)]">
+              <span className="px-2 text-[13px] font-semibold text-[#202634]">已选择 {selectedCount} 个</span>
+              <AssetLightButton icon={MoveRight} onClick={onMove}>移动到项目</AssetLightButton>
+              <AssetLightButton icon={TagIconFallback} onClick={onTag}>添加标签</AssetLightButton>
+              <AssetLightButton icon={RefreshCcw} onClick={onSync}>同步到项目</AssetLightButton>
+              <AssetLightButton icon={Download} onClick={onDownload}>下载</AssetLightButton>
+              <AssetLightButton icon={Trash2} onClick={onDelete} danger>删除</AssetLightButton>
+              <button type="button" onClick={onClearSelection} className="h-9 rounded-[11px] px-3 text-[13px] font-semibold text-[#8a93a6] hover:bg-[#f6f8fc]">
+                取消
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="relative flex items-center">
+                {searchOpen ? (
+                  <div className="flex h-9 w-[286px] items-center gap-2 rounded-[13px] border border-[#dbe4f2] bg-white/90 px-3 shadow-[0_10px_24px_rgba(89,108,152,0.08)]">
+                    <Search className="h-4 w-4 shrink-0 text-[#8a93a6]" />
+                    <input
+                      value={query}
+                      onChange={(event) => onQueryChange(event.target.value)}
+                      autoFocus
+                      placeholder="搜索素材名称、标签、来源或项目"
+                      className="h-full min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#202634] outline-none placeholder:text-[#a1a9b8]"
+                    />
+                    <button type="button" onClick={() => onQueryChange("")} className="text-[#a1a9b8] hover:text-[#202634]">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={onSearchOpen} className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-white/78 text-[#4d5668] hover:bg-white hover:text-[#202634]">
+                    <Search className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <AssetLightButton icon={CheckSquare} onClick={onStartBatch}>批量操作</AssetLightButton>
+              <AssetLightButton icon={RefreshCcw} onClick={onSync}>同步到项目</AssetLightButton>
+              <button
+                type="button"
+                onClick={onUpload}
+                className="inline-flex h-9 items-center gap-1.5 rounded-[12px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] px-3.5 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(58,91,253,0.18)] hover:opacity-95"
+              >
+                <Upload className="h-4 w-4" />
+                上传素材
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-1 text-[12px] font-medium text-[#8a93a6]">{activeTabDescription}</div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {assetTypeFilters.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onTypeFilterChange(item.id)}
+            className={cn(
+              "h-8 rounded-full px-3 text-[13px] font-semibold transition-all",
+              typeFilter === item.id ? "bg-[#edf3ff] text-[#3a5bfd]" : "bg-white/0 text-[#5f6878] hover:bg-white/74",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onToggleFilterOpen}
+            className={cn(
+              "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-all",
+              filterOpen ? "bg-[#edf3ff] text-[#3a5bfd]" : "bg-white/0 text-[#5f6878] hover:bg-white/74",
+            )}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            筛选
+          </button>
+          <AssetFilterPopover
+            open={filterOpen}
+            activeFilters={activeFilters}
+            onToggleFilter={onToggleFacet}
+            onClear={onClearFilters}
+            onClose={onToggleFilterOpen}
+          />
+        </div>
+        <select
+          value={projectFilter}
+          onChange={(event) => onProjectFilterChange(event.target.value)}
+          className="ml-1 h-8 rounded-full border border-transparent bg-white/60 px-3 text-[13px] font-semibold text-[#5f6878] outline-none hover:bg-white"
+        >
+          {assetFolders.map((folder) => (
+            <option key={folder.id} value={folder.id}>{folder.name}</option>
+          ))}
+        </select>
+      </div>
+      <AssetActiveFilterTags activeFilters={activeFilters} onRemove={onRemoveFilter} onClear={onClearFilters} />
+    </div>
+  );
+}
+
+function TagIconFallback(props) {
+  return <AtSign {...props} />;
+}
+
+function AssetFlowTile({ asset, selected, selectionMode, onToggleSelect, onOpen, onAction }) {
+  const meta = getAssetTypeMeta(asset.type);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isDocumentLike = asset.type === "document" || asset.type === "audio";
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(asset)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(asset);
+        }
+      }}
+      className={cn(
+        "group relative min-w-0 cursor-pointer overflow-hidden rounded-[14px] bg-white/70 shadow-[0_10px_24px_rgba(83,101,146,0.08)] ring-1 ring-black/[0.04] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(71,91,143,0.16)]",
+        selected && "ring-2 ring-[#6f86ff]",
+      )}
+      style={{ aspectRatio: getRatioValue(asset.ratio) }}
+    >
+      <AssetFlowPreview asset={asset} className="h-full w-full" />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleSelect(asset.id);
+        }}
+        className={cn(
+          "absolute left-2.5 top-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-[9px] border bg-white/92 text-[#7c8595] shadow-[0_8px_18px_rgba(20,28,45,0.14)] transition-all",
+          selected || selectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          selected && "border-[#6f86ff] text-[#3a5bfd]",
+        )}
+        aria-label="选择素材"
+      >
+        {selected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+      </button>
+      <div className="absolute inset-0 flex flex-col justify-between bg-[linear-gradient(180deg,rgba(20,28,45,0.02)_0%,rgba(20,28,45,0.1)_44%,rgba(20,28,45,0.72)_100%)] p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAction("favorite", asset);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/90 text-[#202634] hover:text-[#3a5bfd]"
+            aria-label="收藏"
+          >
+            <Heart className="h-4 w-4" fill={asset.isFavorite ? "currentColor" : "none"} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAction("create", asset);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/90 text-[#202634] hover:text-[#3a5bfd]"
+            aria-label="用于创作"
+          >
+            <Wand2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((prev) => !prev);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/90 text-[#202634] hover:text-[#3a5bfd]"
+            aria-label="更多"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </div>
+        {menuOpen ? (
+          <div
+            className="absolute right-2.5 top-12 z-30 w-[148px] overflow-hidden rounded-[12px] bg-white/96 py-1 shadow-[0_16px_36px_rgba(20,28,45,0.2)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {[
+              ["去编辑器", "editor"],
+              ["图转视频", "imageToVideo"],
+              ["移动到项目", "move"],
+              ["设为品牌素材", "setBrand"],
+              ["下载", "download"],
+              ["删除", "delete"],
+            ].map(([label, action]) => (
+              <button
+                key={action}
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onAction(action, asset);
+                }}
+                className={cn(
+                  "block h-8 w-full px-3 text-left text-[12px] font-semibold hover:bg-[#f5f7fb]",
+                  action === "delete" ? "text-[#d92f3d]" : "text-[#202634]",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", meta.tone)}>{meta.label}</span>
+            {asset.duration ? <span className="rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-semibold text-white">{asset.duration}</span> : null}
+          </div>
+          <div className="mt-1.5 truncate text-[12px] font-semibold text-white drop-shadow">{asset.name}</div>
+          <div className="mt-1 truncate text-[11px] font-medium text-white/82">
+            {getAssetSourceLabel(asset.source)} · {asset.projectName} · 使用 {asset.usedCount} 次
+          </div>
+          <div className="mt-0.5 truncate text-[11px] font-medium text-white/72">
+            最近使用：{asset.recentUsedAt || asset.updatedAt}
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            {isDocumentLike ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(asset);
+                }}
+                className="h-7 rounded-[9px] bg-white/92 px-2.5 text-[12px] font-semibold text-[#202634]"
+              >
+                查看
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAction("create", asset);
+              }}
+              className="h-7 rounded-[9px] bg-white/92 px-2.5 text-[12px] font-semibold text-[#202634]"
+            >
+              用于创作
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function groupAssetsByDate(assets) {
+  return assets.reduce((groups, asset) => {
+    const existing = groups.find((group) => group.dateGroup === asset.dateGroup);
+    if (existing) {
+      existing.items.push(asset);
+      return groups;
+    }
+    return [...groups, { dateGroup: asset.dateGroup, items: [asset] }];
+  }, []);
+}
+
+function matchesAssetTimeFilter(asset, filters) {
+  if (!filters?.length) return true;
+  const timestamp = new Date(String(asset.createdAt || "").replace(/-/gu, "/")).getTime();
+  if (!Number.isFinite(timestamp)) return true;
+  const today = new Date("2026/06/09 23:59:59").getTime();
+  const ageDays = Math.max(0, Math.floor((today - timestamp) / 86400000));
+  return filters.some((filter) => {
+    if (filter === "today") return ageDays === 0;
+    if (filter === "7d") return ageDays <= 7;
+    if (filter === "30d") return ageDays <= 30;
+    return true;
+  });
+}
+
+function AssetDateSection({ group, selectedIds, selectionMode, onToggleSelect, onOpenAsset, onAction }) {
+  return (
+    <section className="mb-10">
+      <h2 className="mb-4 text-[24px] font-semibold tracking-[-0.03em] text-[#202634]">{group.dateGroup}</h2>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-2.5 xl:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
+        {group.items.map((asset) => (
+          <AssetFlowTile
+            key={asset.id}
+            asset={asset}
+            selected={selectedIds.includes(asset.id)}
+            selectionMode={selectionMode}
+            onToggleSelect={onToggleSelect}
+            onOpen={onOpenAsset}
+            onAction={onAction}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AssetFlowEmptyState({ title, description, actionLabel = "上传素材", onAction }) {
+  return (
+    <div className="flex min-h-[430px] flex-col items-center justify-center text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-white/80 text-[#3a5bfd] shadow-[0_14px_32px_rgba(89,108,152,0.1)]">
+        <FolderOpen className="h-8 w-8" />
+      </div>
+      <div className="mt-5 text-[20px] font-semibold text-[#202634]">{title}</div>
+      <div className="mt-2 max-w-[420px] text-[14px] leading-6 text-[#7c8595]">{description}</div>
+      {onAction ? (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-5 h-10 rounded-[13px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(58,91,253,0.18)]"
+        >
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function AssetFlowDetailDrawer({ asset, onClose, onAction }) {
+  if (!asset || typeof document === "undefined") return null;
+  const meta = getAssetTypeMeta(asset.type);
+  const InfoIcon = meta.icon;
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[220] flex justify-end bg-[rgba(20,28,45,0.14)]" onClick={onClose}>
+      <motion.aside
+        initial={{ x: 380, opacity: 0.9 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 380, opacity: 0.9 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        onClick={(event) => event.stopPropagation()}
+        className="flex h-full w-[388px] max-w-[calc(100vw-28px)] flex-col overflow-hidden border-l border-[#e5ebf5] bg-white/96 shadow-[0_24px_80px_rgba(23,35,66,0.18)] backdrop-blur"
+      >
+        <div className="flex h-[64px] shrink-0 items-center justify-between px-5">
+          <div className="text-[16px] font-semibold text-[#202634]">素材详情</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-[12px] text-[#687286] hover:bg-[#f6f8fc] hover:text-[#202634]"
+            aria-label="关闭资产详情"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 scrollbar-hide">
+          <AssetFlowPreview asset={asset} className="w-full rounded-[18px] shadow-[0_18px_36px_rgba(81,101,152,0.12)]" style={{ aspectRatio: getRatioValue(asset.ratio) }} />
+          <div className="mt-4">
+            <div className="flex items-start gap-3">
+              <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px]", meta.tone)}>
+                <InfoIcon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="break-words text-[17px] font-semibold leading-6 text-[#202634]">{asset.name}</div>
+                <div className="mt-1 text-[12px] font-medium text-[#8a93a6]">{asset.projectName}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {asset.tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-[#f2f5fb] px-2 py-1 text-[11px] font-medium text-[#687286]">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5 space-y-2 text-[13px]">
+            {[
+              ["类型", meta.label],
+              ["来源", getAssetSourceLabel(asset.source)],
+              ["所属项目", asset.projectName],
+              ["尺寸 / 比例 / 时长", `${asset.ratio}${asset.duration ? ` · ${asset.duration}` : ""}`],
+              ["创建时间", asset.createdAt],
+              ["最近使用时间", asset.recentUsedAt || asset.updatedAt],
+              ["使用次数", `${asset.usedCount} 次`],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-start justify-between gap-4 border-b border-[#edf1f7] py-2.5 last:border-b-0">
+                <span className="shrink-0 font-medium text-[#9aa2b2]">{label}</span>
+                <span className="min-w-0 text-right font-semibold text-[#202634]">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="shrink-0 border-t border-[#edf1f7] p-4">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setCreateMenuOpen((prev) => !prev)}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[13px] bg-[linear-gradient(97.61deg,#0099e5_2.03%,#3a5bfd_49.13%,#794dff_98.53%)] text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(58,91,253,0.18)]"
+            >
+              <Wand2 className="h-4 w-4" />
+              用于创作
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            {createMenuOpen ? (
+              <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 overflow-hidden rounded-[14px] border border-[#e0e7f3] bg-white py-1 shadow-[0_18px_44px_rgba(30,45,80,0.18)]">
+                {[
+                  ["作为参考图生成营销图", "createMarketingImage"],
+                  ["作为 Logo / 品牌素材使用", "createBrand"],
+                  ["用于视频创编分镜参考", "createStoryboard"],
+                  ["图转视频", "imageToVideo"],
+                ].map(([label, action]) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => {
+                      setCreateMenuOpen(false);
+                      onAction(action, asset);
+                    }}
+                    className="block h-9 w-full px-4 text-left text-[13px] font-semibold text-[#202634] hover:bg-[#f5f7fb]"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+          {[
+            ["去编辑器", PencilLine, "editor"],
+            ["图转视频", Film, "imageToVideo"],
+            ["移动到项目", MoveRight, "move"],
+            ["设为品牌素材", IdCard, "setBrand"],
+            ["下载", Download, "download"],
+            ["删除", Trash2, "delete"],
+          ].map(([label, Icon, action]) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => onAction(action, asset)}
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-[12px] text-[13px] font-semibold transition-all",
+                action === "delete"
+                  ? "bg-[#fff5f6] text-[#d92f3d] hover:bg-[#ffebee]"
+                  : "bg-[#f5f7fb] text-[#202634] hover:bg-[#edf3ff] hover:text-[#3a5bfd]",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+          </div>
+        </div>
+      </motion.aside>
+    </div>,
+    document.body,
+  );
+}
+
+function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
+  const [assets, setAssets] = useState(mockAssetSeedItems);
+  const [activeTab, setActiveTab] = useState("history");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({ action: [], source: [], spec: [], time: [], project: [] });
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [detailAssetId, setDetailAssetId] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [moveState, setMoveState] = useState(null);
+  const [deleteState, setDeleteState] = useState(null);
+
+  const notify = (payload) => onNotify?.(payload);
+
+  const emptyCopy = {
+    history: ["暂无生成历史", "完成营销图或视频创作后会自动沉淀到这里。"],
+    subject: ["暂无主体素材", "上传人物 / 产品图，或将生成结果保存为主体素材。"],
+    canvas: ["暂无画布内容", "从编辑器保存后可在这里继续编辑。"],
+    brand: ["暂无品牌素材", "上传 Logo、产品图或客户 VI 后，可在后续创作中复用。"],
+    reference: ["暂无参考素材", "上传参考图可帮助 Agent 更准确理解风格和画面方向。"],
+    noResult: ["没有找到相关素材", "尝试更换关键词或清除筛选条件"],
+    filterNoResult: ["没有符合筛选条件的素材", "减少筛选条件或切换项目后再试。"],
+  };
+
+  const visibleAssets = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return assets
+      .filter((asset) => activeTab === "history" || asset.tabCategory === activeTab)
+      .filter((asset) => (typeFilter === "all" ? true : asset.type === typeFilter))
+      .filter((asset) => (projectFilter === "all" ? true : asset.folderId === projectFilter))
+      .filter((asset) => {
+        if (activeFilters.action.includes("favorite") && !asset.isFavorite) return false;
+        if (activeFilters.action.includes("recent") && asset.usedCount < 8) return false;
+        if (activeFilters.action.includes("used") && asset.usedCount <= 0) return false;
+        if (activeFilters.spec.length && !activeFilters.spec.some((value) => asset.specs?.includes(value))) return false;
+        if (activeFilters.source.length && !activeFilters.source.includes(asset.source)) return false;
+        if (activeFilters.project.length && !activeFilters.project.includes(asset.folderId)) return false;
+        if (!matchesAssetTimeFilter(asset, activeFilters.time)) return false;
+        return true;
+      })
+      .filter((asset) => {
+        if (!normalizedQuery) return true;
+        return [asset.name, asset.folderName, asset.projectName, getAssetSourceLabel(asset.source), ...(asset.tags || [])]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      });
+  }, [activeFilters, activeTab, assets, projectFilter, query, typeFilter]);
+
+  const groupedAssets = useMemo(() => groupAssetsByDate(visibleAssets), [visibleAssets]);
+  const detailAsset = assets.find((asset) => asset.id === detailAssetId) || null;
+  const selectionMode = bulkMode || selectedIds.length > 0;
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => visibleAssets.some((asset) => asset.id === id)));
+  }, [visibleAssets]);
+
+  const clearFilters = () => {
+    setActiveFilters({ action: [], source: [], spec: [], time: [], project: [] });
+    setTypeFilter("all");
+    setProjectFilter("all");
+    setQuery("");
+  };
+
+  const removeFilter = (groupId, value) => {
+    setActiveFilters((prev) => ({
+      ...prev,
+      [groupId]: (prev[groupId] || []).filter((item) => item !== value),
+    }));
+  };
+
+  const toggleFacet = (groupId, value) => {
+    setActiveFilters((prev) => {
+      const current = prev[groupId] || [];
+      return {
+        ...prev,
+        [groupId]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
+      };
+    });
+  };
+
+  const toggleSelect = (assetId) => {
+    setSelectedIds((prev) => (prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]));
+    setBulkMode(true);
+  };
+
+  const openMoveModal = (ids) => {
+    const nextIds = ids?.length ? ids : selectedIds;
+    if (!nextIds.length) return;
+    const firstAsset = assets.find((asset) => asset.id === nextIds[0]);
+    setMoveState({ ids: nextIds, defaultFolderId: firstAsset?.folderId || "folder-edu" });
+  };
+
+  const requestDelete = (ids) => {
+    const nextIds = ids?.length ? ids : selectedIds;
+    if (!nextIds.length) return;
+    setDeleteState({ ids: nextIds });
+  };
+
+  const handleAction = (action, asset) => {
+    if (action === "favorite") {
+      setAssets((prev) => prev.map((item) => (item.id === asset.id ? { ...item, isFavorite: !item.isFavorite } : item)));
+      return;
+    }
+    if (action === "create") {
+      setAssets((prev) => prev.map((item) => (item.id === asset.id ? { ...item, usedCount: item.usedCount + 1, updatedAt: "2026-06-09 10:00" } : item)));
+      onUseAsset?.(asset);
+      notify({ type: "success", title: "已用于创作", description: `${asset.name} 已带入生成输入框。` });
+      return;
+    }
+    if (action === "more") {
+      setDetailAssetId(asset.id);
+      return;
+    }
+    if (action === "editor") {
+      notify({ type: "info", title: "已打开编辑器入口", description: "当前为 Mock 状态，后续可接入真实编辑器。" });
+      return;
+    }
+    if (action === "imageToVideo") {
+      notify({ type: "info", title: "图转视频已准备", description: "已将当前素材作为图转视频参考。" });
+      return;
+    }
+    if (action === "createMarketingImage" || action === "createBrand" || action === "createStoryboard") {
+      const titleMap = {
+        createMarketingImage: "已作为参考图生成营销图",
+        createBrand: "已作为品牌素材使用",
+        createStoryboard: "已用于视频创编分镜参考",
+      };
+      notify({ type: "success", title: titleMap[action], description: "已带入创作流程。" });
+      return;
+    }
+    if (action === "setBrand") {
+      setAssets((prev) =>
+        prev.map((item) =>
+          item.id === asset.id
+            ? { ...item, tabCategory: "brand", tags: Array.from(new Set([...(item.tags || []), "品牌素材"])) }
+            : item,
+        ),
+      );
+      notify({ type: "success", title: "已设为品牌素材", description: "后续创作可复用该资产。" });
+      return;
+    }
+    if (action === "download") {
+      notify({ type: "success", title: "下载已触发", description: "Mock 下载完成。" });
+      return;
+    }
+    if (action === "move") {
+      openMoveModal([asset.id]);
+      return;
+    }
+    if (action === "delete") {
+      requestDelete([asset.id]);
+    }
+  };
+
+  const handleUpload = ({ files, type, folderId, tags }) => {
+    const folderName = assetFolders.find((folder) => folder.id === folderId)?.name || "全部项目";
+    const tagList = tags.split(/[,，]/u).map((tag) => tag.trim()).filter(Boolean);
+    const nextItems = Array.from(files || []).map((file, index) => {
+      const isVideo = type === "video" || file.type.startsWith("video/");
+      const isAudio = type === "audio" || file.type.startsWith("audio/");
+      return {
+        id: `asset-upload-${Date.now()}-${index}`,
+        name: file.name,
+        type: isVideo ? "video" : isAudio ? "audio" : type,
+        tabCategory: "history",
+        source: "upload",
+        sourceLabel: assetSourceMeta.upload,
+        dateGroup: "6月9日",
+        createdAt: "2026-06-09 10:00",
+        updatedAt: "2026-06-09 10:00",
+        recentUsedAt: "暂未使用",
+        thumbnail: isAudio || type === "document" ? "" : URL.createObjectURL(file),
+        thumbnailFit: type === "logo" ? "contain" : "cover",
+        ratio: isVideo ? "9:16" : "1:1",
+        duration: isVideo || isAudio ? "00:15" : "",
+        tags: tagList.length ? tagList : ["上传素材"],
+        folderId,
+        folderName,
+        projectName: folderName,
+        usedCount: 0,
+        isFavorite: false,
+        isSelected: false,
+        specs: ["高清", isVideo ? "9:16" : "1:1"],
+        format: (file.name.split(".").pop() || "PNG").toUpperCase(),
+      };
+    });
+    setAssets((prev) => [...nextItems, ...prev]);
+    setUploadOpen(false);
+    notify({ type: "success", title: "素材已上传", description: `已添加 ${nextItems.length} 个本地 Mock 素材。` });
+  };
+
+  const handleMoveConfirm = (folderId) => {
+    if (!moveState?.ids?.length) return;
+    const folderName = assetFolders.find((folder) => folder.id === folderId)?.name || "全部项目";
+    setAssets((prev) =>
+      prev.map((asset) =>
+        moveState.ids.includes(asset.id)
+          ? { ...asset, folderId, folderName, projectName: folderName, updatedAt: "2026-06-09 10:00" }
+          : asset,
+      ),
+    );
+    setMoveState(null);
+    setSelectedIds([]);
+    notify({ type: "success", title: "素材已移动", description: `已移动到「${folderName}」。` });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteState?.ids?.length) return;
+    setAssets((prev) => prev.filter((asset) => !deleteState.ids.includes(asset.id)));
+    if (deleteState.ids.includes(detailAssetId)) setDetailAssetId(null);
+    setSelectedIds([]);
+    setDeleteState(null);
+    setBulkMode(false);
+    notify({ type: "success", title: "素材已移入回收站", description: "30 天内可恢复。" });
+  };
+
+  const isFiltered = query.trim() || typeFilter !== "all" || projectFilter !== "all" || Object.values(activeFilters).some((items) => items.length);
+  const [emptyTitle, emptyDescription] =
+    isFiltered && !visibleAssets.length
+      ? query.trim()
+        ? emptyCopy.noResult
+        : emptyCopy.filterNoResult
+      : emptyCopy[activeTab] || emptyCopy.history;
+
+  return (
+    <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_12%_0%,rgba(214,238,255,0.72),transparent_30%),radial-gradient(circle_at_86%_2%,rgba(236,231,255,0.72),transparent_26%),linear-gradient(180deg,#f9fbff_0%,#fbfdff_100%)]">
+      <AssetFlowTopBar
+        activeTab={activeTab}
+        onTabChange={(tabId) => {
+          setActiveTab(tabId);
+          setSelectedIds([]);
+        }}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        projectFilter={projectFilter}
+        onProjectFilterChange={setProjectFilter}
+        searchOpen={searchOpen}
+        onSearchOpen={() => setSearchOpen(true)}
+        query={query}
+        onQueryChange={setQuery}
+        selectedCount={selectedIds.length}
+        selectionMode={selectionMode}
+        onStartBatch={() => setBulkMode(true)}
+        onMove={() => openMoveModal(selectedIds)}
+        onTag={() => notify({ type: "info", title: "标签已准备", description: "当前为 Mock 操作。" })}
+        onDownload={() => notify({ type: "success", title: "下载已触发", description: `已准备 ${selectedIds.length} 个素材。` })}
+        onDelete={() => requestDelete(selectedIds)}
+        onClearSelection={() => {
+          setSelectedIds([]);
+          setBulkMode(false);
+        }}
+        filterOpen={filterOpen}
+        onToggleFilterOpen={() => setFilterOpen((prev) => !prev)}
+        activeFilters={activeFilters}
+        onToggleFacet={toggleFacet}
+        onClearFilters={clearFilters}
+        onRemoveFilter={removeFilter}
+        onUpload={() => setUploadOpen(true)}
+        onSync={() => notify({ type: "success", title: "已同步到项目", description: "Mock 同步完成。" })}
+      />
+
+      <div className="h-[calc(100%-152px)] overflow-y-auto px-8 pb-10 pt-7 scrollbar-hide">
+        {groupedAssets.length ? (
+          groupedAssets.map((group) => (
+            <AssetDateSection
+              key={group.dateGroup}
+              group={group}
+              selectedIds={selectedIds}
+              selectionMode={selectionMode}
+              onToggleSelect={toggleSelect}
+              onOpenAsset={(asset) => setDetailAssetId(asset.id)}
+              onAction={handleAction}
+            />
+          ))
+        ) : (
+          <AssetFlowEmptyState
+            title={emptyTitle}
+            description={emptyDescription}
+            actionLabel={isFiltered ? "清除筛选" : "上传素材"}
+            onAction={isFiltered ? clearFilters : () => setUploadOpen(true)}
+          />
+        )}
+      </div>
+
+      <AnimatePresence>
+        {detailAsset ? (
+          <AssetFlowDetailDrawer
+            key={detailAsset.id}
+            asset={detailAsset}
+            onClose={() => setDetailAssetId(null)}
+            onAction={handleAction}
+          />
+        ) : null}
+      </AnimatePresence>
+      <UploadAssetModal
+        open={uploadOpen}
+        folders={assetFolders.map((folder) => ({ ...folder, kind: folder.id === "all" ? "system" : "custom" }))}
+        onClose={() => setUploadOpen(false)}
+        onConfirm={handleUpload}
+      />
+      <MoveAssetModal
+        open={Boolean(moveState)}
+        folders={assetFolders.map((folder) => ({ ...folder, kind: folder.id === "all" ? "system" : "custom" }))}
+        assetCount={moveState?.ids?.length || 0}
+        defaultFolderId={moveState?.defaultFolderId}
+        onClose={() => setMoveState(null)}
+        onConfirm={handleMoveConfirm}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteState)}
+        title="确认删除素材"
+        description={deleteState ? `确定删除选中的 ${deleteState.ids.length} 个素材吗？删除后素材将进入回收站，可在 30 天内恢复。` : ""}
+        confirmLabel="删除"
+        cancelLabel="取消"
+        onClose={() => setDeleteState(null)}
+        onConfirm={confirmDelete}
+      />
+    </div>
+  );
+}
+
 function railItem(active, Icon, label) {
   return (
     <>
@@ -22695,7 +24975,7 @@ export default function App() {
             <button
               key={item.id}
               onClick={() => {
-                if (item.id === "home" || item.id === "generate" || item.id === "tools") {
+                if (item.id === "home" || item.id === "generate" || item.id === "tools" || item.id === "assets") {
                   setActiveTool(null);
                   setActivePage(item.id);
                 }
@@ -22748,6 +25028,21 @@ export default function App() {
             activeTool={activeTool}
             onOpenTool={handleOpenTool}
             onBackTool={() => setActiveTool(null)}
+          />
+        ) : activePage === "assets" ? (
+          <AssetLibraryFlowPage
+            onNotify={notify}
+            onUseAsset={(asset) => {
+              setPrompt((prev) => {
+                const prefix = prev.trim() ? `${prev.trim()}\n` : "";
+                return `${prefix}请参考资产「${asset.name}」进行创作。`;
+              });
+              setComposerConfig((prev) => ({
+                ...prev,
+                mode: asset.type === "video" ? "video" : "image",
+              }));
+              setActivePage("generate");
+            }}
           />
         ) : (
           <GeneratePage
