@@ -22015,7 +22015,7 @@ function GeneratePage({
         items: [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
       }));
 	  }, [jobs]);
-  const hasGeneratedJobs = jobs.length > 0;
+	  const hasGeneratedJobs = jobs.length > 0;
 
   useEffect(() => {
     if (!overlayExpanded) return undefined;
@@ -22060,8 +22060,9 @@ function GeneratePage({
 
 	      <div
 	        ref={scrollContainerRef}
+	        data-testid="generate-scroll-container"
 	        className={cn(
-	          "relative z-10 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-hide",
+	          "relative z-10 min-h-0 flex-1 overflow-y-auto pb-14 scrollbar-hide",
 	          hasGeneratedJobs ? "pt-[72px]" : "pt-[100px]",
 	        )}
 	      >
@@ -22136,7 +22137,7 @@ function GeneratePage({
 	        </div>
 	      </div>
 	
-	      <div className="pointer-events-none relative z-30 flex shrink-0 justify-center bg-white px-3 pb-6 pt-0 sm:px-6">
+	      <div data-testid="generate-composer-dock" className="pointer-events-none relative z-30 flex shrink-0 justify-center bg-white px-3 pb-6 pt-0 sm:px-6">
         <div className="pointer-events-auto">
           {overlayExpanded ? (
             <div className="w-[830px] max-w-[calc(100vw-112px)] max-[640px]:max-w-[calc(100vw-84px)]">
@@ -24297,6 +24298,7 @@ export default function App() {
   const generateScrollRef = useRef(null);
   const latestJobRef = useRef(null);
   const hasPendingGeneration = jobs.some(isPendingGenerationJob);
+  const latestJob = jobs[jobs.length - 1];
   const dismissToast = (toastId) => {
     if (toastTimers.current[toastId]) {
       window.clearTimeout(toastTimers.current[toastId]);
@@ -24468,16 +24470,29 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activePage !== "generate" || deepModeJobId) return;
-    const timer = window.setTimeout(() => {
-      latestJobRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-      generateScrollRef.current?.scrollTo({
-        top: generateScrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }, 60);
-    return () => window.clearTimeout(timer);
-  }, [activePage, jobs.length, deepModeJobId]);
+    if (activePage !== "generate" || deepModeJobId || !latestJob) return undefined;
+
+    const scrollLatestToSafeBottom = () => {
+      const node = generateScrollRef.current;
+      if (!node) return;
+      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+    };
+
+    const frameId = window.requestAnimationFrame(scrollLatestToSafeBottom);
+    const timer = window.setTimeout(scrollLatestToSafeBottom, 220);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timer);
+    };
+  }, [
+    activePage,
+    deepModeJobId,
+    latestJob?.id,
+    latestJob?.status,
+    latestJob?.generationPhase,
+    latestJob?.showImagePreview,
+    latestJob?.resultImages?.length,
+  ]);
 
   const handleSubmit = () => {
     const hasComposerAttachments = Boolean(
