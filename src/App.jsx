@@ -829,6 +829,19 @@ function normalizeImageRatio(value) {
   return `${Number(match[1])}:${Number(match[2])}`;
 }
 
+const AUTO_IMAGE_DEFAULTS = {
+  ratio: "16:9",
+  resolution: "高清2K",
+  count: 4,
+};
+
+function getRequestedImageResolution(prompt) {
+  const value = String(prompt || "");
+  if (/(?:超清\s*)?4\s*[KＫ]/iu.test(value)) return "超清4K";
+  if (/(?:高清\s*)?2\s*[KＫ]/iu.test(value)) return "高清2K";
+  return "";
+}
+
 function getRequestedImageCount(prompt, fallbackCount) {
   const numericMatch = String(prompt || "").match(/(\d+)\s*张(?:图片|图|创意图|营销图)?/u);
   if (numericMatch) return Math.max(1, Number(numericMatch[1]));
@@ -861,6 +874,21 @@ function createImageOutputPlan(prompt, fallbackRatio = "1:1", fallbackCount = 1)
   return {
     baseRatio: orderedRatios[0],
     outputs: outputRatios.map((ratio) => ({ ratio })),
+  };
+}
+
+function resolveImageGenerationConfig(prompt, config) {
+  const isAuto = config?.imageAuto !== false;
+  const fallbackRatio = isAuto ? AUTO_IMAGE_DEFAULTS.ratio : config?.imageRatio;
+  const fallbackCount = isAuto ? AUTO_IMAGE_DEFAULTS.count : config?.imageCount;
+  const fallbackResolution = isAuto ? AUTO_IMAGE_DEFAULTS.resolution : config?.imageResolution;
+  const imagePlan = createImageOutputPlan(prompt, fallbackRatio, fallbackCount);
+
+  return {
+    imagePlan,
+    imageRatio: imagePlan.baseRatio || normalizeImageRatio(fallbackRatio) || AUTO_IMAGE_DEFAULTS.ratio,
+    imageResolution: getRequestedImageResolution(prompt) || fallbackResolution || AUTO_IMAGE_DEFAULTS.resolution,
+    imageCount: imagePlan.outputs.length || fallbackCount || AUTO_IMAGE_DEFAULTS.count,
   };
 }
 
@@ -1180,10 +1208,10 @@ const INITIAL_COMPOSER_CONFIG = {
   agentLandingReference: false,
   agentVoiceScript: false,
   agentMaterialReference: false,
-  imageThinking: false,
+  imageAuto: true,
   imageRatio: "16:9",
   imageResolution: "高清2K",
-  imageCount: 2,
+  imageCount: 4,
 };
 
 const COMPOSER_SCENE_OPTIONS = ["信息流", "搜索"];
@@ -4372,61 +4400,92 @@ function RatioVisual({ ratio, active, onClick }) {
 }
 
 function ImageSettingsPanel({ config, setConfig }) {
+  const isAuto = config.imageAuto !== false;
+
   return (
     <DropdownCard className="w-[440px] rounded-[22px] p-5">
-      <section className="mb-5">
-        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择比例</h3>
-        <div className="grid grid-cols-5 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
-          {Object.keys(ratioMap).map((ratio) => (
-            <RatioVisual
-              key={ratio}
-              ratio={ratio}
-              active={config.imageRatio === ratio}
-              onClick={() => setConfig((prev) => ({ ...prev, imageRatio: ratio }))}
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="text-[16px] font-semibold text-[#202634]">图片属性</h3>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isAuto}
+          data-testid="image-auto-toggle"
+          onClick={() => setConfig((prev) => ({ ...prev, imageAuto: !isAuto }))}
+          className="inline-flex items-center gap-2 text-[14px] font-medium text-[#607286] transition-colors hover:text-[#4161ff]"
+        >
+          自动
+          <span className={cn("relative h-5 w-10 rounded-full transition-colors", isAuto ? "bg-[#4f6bff]" : "bg-[#c8d1df]")}>
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all",
+                isAuto ? "left-[22px]" : "left-0.5",
+              )}
             />
-          ))}
-        </div>
-      </section>
+          </span>
+        </button>
+      </div>
 
-      <section className="mb-5">
-        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择分辨率</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {["高清2K", "超清4K"].map((item) => (
-            <button
-              key={item}
-              onClick={() => setConfig((prev) => ({ ...prev, imageResolution: item }))}
-              className={cn(
-                "h-[46px] rounded-[12px] border text-[14px] font-semibold transition-all",
-                config.imageResolution === item
-                  ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
-                  : "border-slate-200 bg-white text-[#202634] hover:border-slate-300",
-              )}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
+      <fieldset
+        disabled={isAuto}
+        aria-disabled={isAuto}
+        data-testid="image-settings-fields"
+        className={cn("m-0 min-w-0 border-0 p-0 transition-opacity", isAuto && "pointer-events-none opacity-45")}
+      >
+        <section className="mb-5">
+          <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择比例</h3>
+          <div className="grid grid-cols-5 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
+            {Object.keys(ratioMap).map((ratio) => (
+              <RatioVisual
+                key={ratio}
+                ratio={ratio}
+                active={config.imageRatio === ratio}
+                onClick={() => setConfig((prev) => ({ ...prev, imageRatio: ratio }))}
+              />
+            ))}
+          </div>
+        </section>
 
-      <section>
-        <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">图片张数</h3>
-        <div className="grid grid-cols-8 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-            <button
-              key={item}
-              onClick={() => setConfig((prev) => ({ ...prev, imageCount: item }))}
-              className={cn(
-                "h-[42px] rounded-[10px] border text-[14px] font-semibold transition-all",
-                config.imageCount === item
-                  ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
-                  : "border-transparent bg-white text-[#202634] hover:border-slate-300",
-              )}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
+        <section className="mb-5">
+          <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">选择分辨率</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {["高清2K", "超清4K"].map((item) => (
+              <button
+                key={item}
+                onClick={() => setConfig((prev) => ({ ...prev, imageResolution: item }))}
+                className={cn(
+                  "h-[46px] rounded-[12px] border text-[14px] font-semibold transition-all",
+                  config.imageResolution === item
+                    ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
+                    : "border-slate-200 bg-white text-[#202634] hover:border-slate-300",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-[14px] font-semibold text-[#6b7280]">图片张数</h3>
+          <div className="grid grid-cols-8 gap-2 rounded-[14px] bg-[#f6f8fb] p-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+              <button
+                key={item}
+                onClick={() => setConfig((prev) => ({ ...prev, imageCount: item }))}
+                className={cn(
+                  "h-[42px] rounded-[10px] border text-[14px] font-semibold transition-all",
+                  config.imageCount === item
+                    ? "border-[#4f6bff] bg-[#f8faff] text-[#4f6bff]"
+                    : "border-transparent bg-white text-[#202634] hover:border-slate-300",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </section>
+      </fieldset>
     </DropdownCard>
   );
 }
@@ -4814,38 +4873,6 @@ function ComposerControls({
 
       {composerConfig.mode === "image" ? (
         <>
-          {!compact ? (
-            <button
-              onClick={() =>
-                setComposerConfig((prev) => ({
-                  ...prev,
-                  imageThinking: !prev.imageThinking,
-                }))
-              }
-              className={cn(
-                "inline-flex h-[42px] items-center gap-3 rounded-[14px] border px-4 text-[14px] font-semibold transition-all",
-                composerConfig.imageThinking
-                  ? "border-[#7a8bff] bg-[#f8faff] text-[#4161ff]"
-                  : "border-transparent bg-[#f5f7fb] text-[#202634]",
-              )}
-            >
-              <span
-                className={cn(
-                  "relative h-5 w-10 rounded-full transition-colors",
-                  composerConfig.imageThinking ? "bg-[#4f6bff]" : "bg-slate-300",
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all",
-                    composerConfig.imageThinking ? "left-[22px]" : "left-0.5",
-                  )}
-                />
-              </span>
-              思考模式
-            </button>
-          ) : null}
-
           <div ref={imageSettingsTriggerRef} className="relative z-30">
             <SurfaceButton
               active={openMenu === "imageSettings"}
@@ -4856,9 +4883,11 @@ function ComposerControls({
             >
               {!compact ? <MonitorSmartphone className="h-4 w-4" /> : null}
               <span>
-                {compact
-                  ? `${composerConfig.imageRatio} 高清 ${composerConfig.imageCount}张`
-                  : `${composerConfig.imageRatio} | ${composerConfig.imageResolution} | ${composerConfig.imageCount} 张`}
+                {composerConfig.imageAuto !== false
+                  ? "自动"
+                  : compact
+                    ? `${composerConfig.imageRatio} 高清 ${composerConfig.imageCount}张`
+                    : `${composerConfig.imageRatio} | ${composerConfig.imageResolution} | ${composerConfig.imageCount} 张`}
               </span>
               <ChevronDown
                 className={cn(
@@ -24522,9 +24551,9 @@ export default function App() {
     const nextAgentForm = buildAgentFormFromComposer(value, composerConfig, composerAttachments);
     const promptAttachmentSnapshot = cloneComposerAttachments(composerAttachments);
     const promptImageAttachments = getImagePromptAttachments(promptAttachmentSnapshot);
-    const imagePlan =
+    const imageGenerationConfig =
       composerConfig.mode === "image"
-        ? createImageOutputPlan(value, composerConfig.imageRatio, composerConfig.imageCount)
+        ? resolveImageGenerationConfig(value, composerConfig)
         : null;
 
     setJobs((prev) => [
@@ -24559,13 +24588,14 @@ export default function App() {
             imageRatio:
               composerConfig.mode === "video"
                 ? composerConfig.videoRatio
-                : imagePlan?.baseRatio || composerConfig.imageRatio,
+                : imageGenerationConfig?.imageRatio || composerConfig.imageRatio,
             imageResolution:
               composerConfig.mode === "video"
                 ? normalizeComposerScene(composerConfig.videoScene)
-                : composerConfig.imageResolution,
-            imageCount: composerConfig.mode === "image" ? imagePlan.outputs.length : 4,
-            imagePlan,
+                : imageGenerationConfig?.imageResolution || composerConfig.imageResolution,
+            imageCount: composerConfig.mode === "image" ? imageGenerationConfig?.imageCount || AUTO_IMAGE_DEFAULTS.count : 4,
+            imagePlan: imageGenerationConfig?.imagePlan || null,
+            imageSettingsMode: composerConfig.mode === "image" ? (composerConfig.imageAuto !== false ? "auto" : "manual") : null,
             resultImages: [],
             status: "generating",
             generationPhase: composerConfig.mode === "image" ? "understanding" : undefined,
@@ -25112,6 +25142,7 @@ export default function App() {
     setComposerConfig((prev) => ({
       ...prev,
       mode: "image",
+      imageAuto: sourceJob.imageSettingsMode === "auto",
       imageRatio: sourceJob.imageRatio || prev.imageRatio,
       imageResolution: sourceJob.imageResolution || prev.imageResolution,
       imageCount: sourceJob.imageCount || prev.imageCount,
@@ -25131,6 +25162,7 @@ export default function App() {
     setComposerConfig((prev) => ({
       ...prev,
       mode: "image",
+      imageAuto: false,
       imageRatio: sourceJob.imageRatio || prev.imageRatio,
       imageResolution: sourceJob.imageResolution || prev.imageResolution,
       imageCount: 1,
