@@ -44,6 +44,7 @@ import {
   IdCard,
   Image as ImageIcon,
   Link2,
+  Lightbulb,
   List,
   LogOut,
   Mail,
@@ -822,6 +823,113 @@ function parseAspectRatio(value) {
   return w / h;
 }
 
+function normalizeImageRatio(value) {
+  const match = String(value || "").match(/(\d+)\s*[:：]\s*(\d+)/u);
+  if (!match) return "";
+  return `${Number(match[1])}:${Number(match[2])}`;
+}
+
+function getRequestedImageCount(prompt, fallbackCount) {
+  const numericMatch = String(prompt || "").match(/(\d+)\s*张(?:图片|图|创意图|营销图)?/u);
+  if (numericMatch) return Math.max(1, Number(numericMatch[1]));
+  const chineseMatch = String(prompt || "").match(/([一二三四五六七八九十])张(?:图片|图|创意图|营销图)?/u);
+  if (chineseMatch) {
+    return { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 }[chineseMatch[1]];
+  }
+  return Math.max(1, fallbackCount || 1);
+}
+
+function createImageOutputPlan(prompt, fallbackRatio = "1:1", fallbackCount = 1) {
+  const ratios = [...String(prompt || "").matchAll(/(\d+)\s*[:：]\s*(\d+)/gu)]
+    .map((match) => `${Number(match[1])}:${Number(match[2])}`)
+    .filter((ratio, index, list) => list.indexOf(ratio) === index);
+  const requestedCount = getRequestedImageCount(prompt, fallbackCount);
+  const orderedRatios = ratios.length ? ratios : [normalizeImageRatio(fallbackRatio) || "1:1"];
+  const outputRatios = Array.from({ length: requestedCount }, (_, index) => orderedRatios[index % orderedRatios.length]);
+
+  if (requestedCount >= orderedRatios.length) {
+    const baseCount = Math.floor(requestedCount / orderedRatios.length);
+    const remainder = requestedCount % orderedRatios.length;
+    return {
+      baseRatio: orderedRatios[0],
+      outputs: orderedRatios.flatMap((ratio, index) =>
+        Array.from({ length: baseCount + (index < remainder ? 1 : 0) }, () => ({ ratio })),
+      ),
+    };
+  }
+
+  return {
+    baseRatio: orderedRatios[0],
+    outputs: outputRatios.map((ratio) => ({ ratio })),
+  };
+}
+
+function getImageOutputPlan(job) {
+  if (job?.imagePlan?.outputs?.length) return job.imagePlan;
+  return createImageOutputPlan("", job?.imageRatio || "1:1", job?.imageCount || 1);
+}
+
+function getImageOutputGroups(plan) {
+  return (plan?.outputs || []).reduce((groups, output) => {
+    const existing = groups.find((item) => item.ratio === output.ratio);
+    if (existing) existing.count += 1;
+    else groups.push({ ratio: output.ratio, count: 1 });
+    return groups;
+  }, []);
+}
+
+function createMockImageResults(images, count) {
+  const sourceImages = images?.length ? images : showcaseImages;
+  return Array.from({ length: Math.max(1, count || 1) }, (_, index) => sourceImages[index % sourceImages.length]);
+}
+
+function getImageFrameStyle(imageRatio, baseRatio) {
+  const imageAspect = parseAspectRatio(imageRatio);
+  const baseAspect = parseAspectRatio(baseRatio);
+
+  if (imageAspect <= baseAspect) {
+    return { width: `${Math.min(100, (imageAspect / baseAspect) * 100)}%`, height: "100%" };
+  }
+
+  return { width: "100%", height: `${Math.min(100, (baseAspect / imageAspect) * 100)}%` };
+}
+
+function getImageRatioLayoutGuidance(ratio) {
+  return (
+    {
+      "1:1": "主体居中，四周预留呼吸感，适合社交信息流封面。",
+      "9:16": "主体位于中下区域，上方保留标题区，适合手机端浏览。",
+      "16:9": "主体偏向一侧，对侧预留文案区，适合横版海报和投放位。",
+    }[ratio] || "主体清晰，留出可承载文案的画面空间。"
+  );
+}
+
+function createImageCreativeBriefs(theme, imagePlan) {
+  const directions = [
+    { title: "主视觉封面", detail: "突出核心主体，以清晰识别和第一眼吸引力为优先。" },
+    { title: "场景氛围", detail: "加入关联场景和环境层次，强化主题代入感。" },
+    { title: "细节特写", detail: "聚焦材质、动作或局部细节，补充产品与内容质感。" },
+    { title: "故事瞬间", detail: "用人物或关键动作制造情绪记忆点，形成差异化。" },
+    { title: "品牌收束", detail: "保持画面简洁，预留品牌信息和行动引导空间。" },
+  ];
+  const ratioCounts = {};
+
+  return (imagePlan?.outputs || []).map((output, index) => {
+    ratioCounts[output.ratio] = (ratioCounts[output.ratio] || 0) + 1;
+    const direction = directions[index % directions.length];
+    const ratioKey = output.ratio.replace(":", "_");
+
+    return {
+      ...direction,
+      index: index + 1,
+      ratio: output.ratio,
+      outputId: `image_${ratioKey}_${String(ratioCounts[output.ratio]).padStart(2, "0")}`,
+      scene: `以${theme}为核心，${direction.detail}`,
+      layout: getImageRatioLayoutGuidance(output.ratio),
+    };
+  });
+}
+
 function getImageGridLayout(imageRatio, count) {
   const safeCount = Math.max(1, count || 1);
   const aspectRatio = parseAspectRatio(imageRatio);
@@ -839,7 +947,7 @@ function getImageGridLayout(imageRatio, count) {
   }
 
   if (aspectRatio > 0.9 && aspectRatio < 1.1) {
-    return { columns: 2, tileAspectRatio: 1 };
+    return { columns: Math.min(4, safeCount), tileAspectRatio: 1 };
   }
 
   if (aspectRatio <= 0.9) {
@@ -2445,6 +2553,24 @@ function summarizeCreativeTheme(source) {
 
   if (!compact) return "视频创意概述";
   return compact.length <= 10 ? compact : compact.slice(0, 10);
+}
+
+function summarizeImageGenerationTheme(source) {
+  const raw = String(source || "").trim();
+  const subject = raw.match(/(?:主体为|主角是|主角为)[“"]?([^，。；;]+)/u)?.[1]?.replace(/[“”"']/gu, "").trim();
+  const normalized = (subject || raw)
+    .replace(/(?:分别是|分别为|各为|比例(?:是|为)?).*/u, "")
+    .replace(/请帮我|帮我|请|想要|需要|生成一组|生成一套|生成|制作一组|制作一套|制作|做一组|做一套|做/gu, "")
+    .replace(/一组|一套|几张|[一二三四五六七八九十]+\s*张|\d+\s*张/gu, "")
+    .replace(/(营销|宣传|推广)?(?:创意图|图片|海报|图组|图|素材)/gu, "")
+    .replace(/[，。、“”"'‘’：:；;,.!?！？]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(/^为|的$/gu, "");
+
+  if (!normalized) return "图片";
+  if (!subject && raw.length > 60) return "当前创意";
+  return normalized.length <= 14 ? normalized : `${normalized.slice(0, 14).trim()}…`;
 }
 
 function summarizeBusinessPoint(source) {
@@ -6101,7 +6227,7 @@ function DetailQuickAction({ icon: Icon, label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[36px] w-[188px] items-center justify-center gap-1.5 rounded-[8px] bg-[#f6f7f9] text-[14px] font-medium text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+      className="flex h-[40px] w-full items-center justify-center gap-1.5 rounded-[8px] bg-[#f6f7f9] text-[14px] font-medium text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -6219,7 +6345,14 @@ function ImageDetailModal({
   onReuseImageJob,
 }) {
   const image = job?.resultImages?.[activeIndex];
-  const referenceImages = (job?.resultImages || []).slice(0, 2);
+  const referenceImages = image ? [image] : [];
+  const imagePlan = getImageOutputPlan(job);
+  const activeImageRatio = job?.resultImageItems?.[activeIndex]?.ratio || imagePlan.outputs[activeIndex]?.ratio || job?.imageRatio || "1:1";
+  const activeImageAspect = parseAspectRatio(activeImageRatio);
+  const activeCreativeBrief = createImageCreativeBriefs(summarizeImageGenerationTheme(job?.prompt), imagePlan)[activeIndex];
+  const creativeDescription = activeCreativeBrief
+    ? `画面：${activeCreativeBrief.scene}\n排版：${activeCreativeBrief.layout}\n输出编号：${activeCreativeBrief.outputId} · 比例：${activeImageRatio}`
+    : job.prompt;
   const taskId = `${String(job?.id || "").replace(/\D+/gu, "").slice(-8) || "43234533"}`;
   const imageId = `${taskId}${String(activeIndex + 1).padStart(2, "0")}`;
 
@@ -6261,35 +6394,35 @@ function ImageDetailModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[160] bg-[rgba(244,247,255,0.78)] backdrop-blur-[14px]" onClick={onClose}>
-      <div className="flex h-full items-center justify-center px-6 py-6 md:px-8 md:py-8">
-        <div
-          className="flex h-[min(860px,calc(100vh-48px))] w-full max-w-[1460px] overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_24px_80px_rgba(77,104,170,0.18)]"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="relative flex min-w-0 flex-1 items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,232,255,0.72),transparent_38%),linear-gradient(180deg,#f8fbff_0%,#f4f8ff_48%,#edf3ff_100%)] p-5 md:p-8">
-            <div className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-full bg-white/86 px-3 py-1.5 text-[13px] font-medium text-[#4a5cff] shadow-[0_10px_24px_rgba(117,142,198,0.14)]">
-              <ImageIcon className="h-3.5 w-3.5" />
-              图片 {activeIndex + 1} / {job.resultImages.length}
-            </div>
-
-            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_14px_40px_rgba(104,128,180,0.12)]">
-              <img src={image} alt="" className="max-h-full max-w-full object-contain" />
-            </div>
+    <div className="fixed inset-0 z-[160] bg-white">
+      <div className="flex h-full w-full overflow-hidden bg-white">
+        <div className="relative flex min-w-0 flex-1 items-center justify-center bg-white px-7 py-7">
+          <div
+            data-testid="image-detail-preview"
+            className="overflow-hidden"
+            style={{
+              width: `min(100%, calc((100vh - 56px) * ${activeImageAspect}))`,
+              aspectRatio: activeImageRatio.replace(":", " / "),
+            }}
+          >
+            <img src={image} alt="" className="h-full w-full object-cover" />
+          </div>
 
             {job.resultImages.length > 1 ? (
-              <div className="absolute right-5 top-1/2 flex -translate-y-1/2 flex-col gap-3">
+              <div className="absolute right-5 top-1/2 flex -translate-y-1/2 flex-col gap-5">
                 <button
                   type="button"
                   onClick={onPrev}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#202634] shadow-[0_12px_24px_rgba(104,128,180,0.16)] transition-all hover:-translate-y-0.5 hover:bg-white"
+                  aria-label="查看上一张图片"
+                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
                 >
                   <ChevronUp className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={onNext}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#202634] shadow-[0_12px_24px_rgba(104,128,180,0.16)] transition-all hover:translate-y-0.5 hover:bg-white"
+                  aria-label="查看下一张图片"
+                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
                 >
                   <ChevronDown className="h-5 w-5" />
                 </button>
@@ -6297,16 +6430,16 @@ function ImageDetailModal({
             ) : null}
           </div>
 
-          <aside className="relative flex h-full w-[420px] shrink-0 flex-col border-l border-[#eef2f8] bg-white">
-            <div className="flex items-center justify-between border-b border-[#eef2f8] px-6 py-5">
+          <aside className="relative flex h-full w-[472px] shrink-0 flex-col border-l border-[#e8edf3] bg-white">
+            <div className="flex h-[80px] items-center justify-between border-b border-[#eef2f8] px-7">
               <div>
                 <h2 className="text-[20px] font-semibold leading-7 text-[#17191c]">图片详情</h2>
-                <p className="mt-1 text-[13px] text-[#8b93a1]">查看当前生成结果与操作信息</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={downloadCurrentImage}
+                  aria-label="下载图片"
                   className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
                 >
                   <Download className="h-4 w-4" />
@@ -6314,6 +6447,7 @@ function ImageDetailModal({
                 <button
                   type="button"
                   onClick={() => onLocateJob?.(job.id)}
+                  aria-label="定位生成任务"
                   className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
                 >
                   <FolderOpen className="h-4 w-4" />
@@ -6321,6 +6455,7 @@ function ImageDetailModal({
                 <button
                   type="button"
                   onClick={onToggleMeta}
+                  aria-label="更多图片信息"
                   className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -6328,6 +6463,7 @@ function ImageDetailModal({
                 <button
                   type="button"
                   onClick={onClose}
+                  aria-label="关闭图片详情"
                   className="flex h-9 w-9 items-center justify-center rounded-[10px] text-[#191b1e] transition-colors hover:bg-[#f6f7f9]"
                 >
                   <X className="h-5 w-5" />
@@ -6335,15 +6471,13 @@ function ImageDetailModal({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className="flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto px-7 py-6">
+              <div className="flex flex-col gap-7">
                 <div className="flex flex-col gap-3">
                   <div className="text-[14px] font-medium leading-5 text-[#17191c]">创意描述</div>
-                  <p className="text-[14px] leading-[26px] text-[#191b1e]">
-                    {job.prompt}
-                  </p>
+                  <p className="whitespace-pre-line text-[14px] leading-[26px] text-[#4f5968]">{creativeDescription}</p>
                   {referenceImages.length ? (
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 pt-1">
                       {referenceImages.map((item, index) => (
                         <div key={`${item}-${index}`} className="h-14 w-14 overflow-hidden rounded-[10px] border border-[#eef2f8] bg-[#f6f7f9]">
                           <img src={item} alt="" className="h-full w-full object-cover" />
@@ -6354,7 +6488,7 @@ function ImageDetailModal({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {["视频Agent", job.imageResolution || "高清2K", job.imageRatio || "16:9"].map((tag) => (
+                  {["图片Agent", job.imageResolution || "高清2K", activeImageRatio].map((tag) => (
                     <span
                       key={tag}
                       className="inline-flex h-[24px] items-center rounded-[8px] border border-[#e3e7ef] bg-[#f7f9fc] px-2.5 text-[12px] font-medium text-[#686e7a]"
@@ -6364,9 +6498,9 @@ function ImageDetailModal({
                   ))}
                 </div>
 
-                <div className="rounded-[18px] border border-[#eef2f8] bg-[#fafcff] p-4">
-                  <div className="mb-3 text-[14px] leading-5 text-[#838995]">图片编辑</div>
-                  <div className="flex flex-wrap gap-3">
+                <div>
+                  <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">图片编辑</div>
+                  <div className="grid grid-cols-2 gap-3">
                     <DetailQuickAction
                       icon={PencilLine}
                       label="去编辑器"
@@ -6390,9 +6524,9 @@ function ImageDetailModal({
                   </div>
                 </div>
 
-                <div className="rounded-[18px] border border-[#eef2f8] bg-[#fafcff] p-4">
-                  <div className="mb-3 text-[14px] leading-5 text-[#838995]">更多</div>
-                  <div className="flex flex-wrap gap-3">
+                <div>
+                  <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">更多</div>
+                  <div className="grid grid-cols-2 gap-3">
                     <DetailQuickAction
                       icon={PencilLine}
                       label="重新编辑"
@@ -6434,9 +6568,191 @@ function ImageDetailModal({
             ) : null}
           </aside>
         </div>
-      </div>
-    </div>,
+      </div>,
     document.body,
+  );
+}
+
+function ThinkingTypewriter({ text }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), 16);
+    return () => window.clearTimeout(timer);
+  }, [text]);
+
+  return (
+    <span className={cn("agent-typewriter", visible && "is-visible")} aria-label={text}>
+      {[...text].map((character, index) => (
+        <span
+          key={`${character}-${index}`}
+          aria-hidden="true"
+          className={cn("agent-type-char", index === text.length - 1 && "is-last")}
+          style={{ transitionDelay: `${0.3 + index * 0.03}s` }}
+        >
+          {character === " " ? "\u00a0" : character}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function AgentThinkingLabel() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), 16);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return <span className={cn("agent-thinking-label agent-thinking-shimmer", visible && "is-visible")}>Agent 思考中…</span>;
+}
+
+function ImageGenerationProcess({ job, expanded, onToggle }) {
+  const isComplete = job.status === "done";
+  const activePhase = job.generationPhase || (isComplete ? "complete" : "understanding");
+  const activeStepIndex = isComplete
+    ? 3
+    : { understanding: 0, planning: 1, generating: 2 }[activePhase] ?? 0;
+  const theme = summarizeImageGenerationTheme(job.prompt);
+  const imagePlan = getImageOutputPlan(job);
+  const outputGroups = getImageOutputGroups(imagePlan);
+  const totalImageCount = isComplete ? job.resultImages.length || job.imageCount : job.imageCount;
+  const ratioUsage = {
+    "9:16": "竖版手机端",
+    "16:9": "横版海报",
+    "1:1": "社交方形图",
+  };
+  const ratioSummary = outputGroups.map((group) => group.ratio).join("、");
+  const allocationSummary = outputGroups.map((group) => `${group.ratio} × ${group.count}`).join("、");
+  const creativeBriefs = createImageCreativeBriefs(theme, imagePlan);
+  const activeThinking = {
+    understanding: {
+      title: "读取图片需求",
+      detail: `我正在理解你的需求：将生成 ${totalImageCount} 张${theme}营销图，并自动补全风格、场景和营销表达。`,
+    },
+    planning: {
+      title: "规划创意方向",
+      detail: `我已确认比例分配为 ${allocationSummary}，正以 ${imagePlan.baseRatio} 作为整组排版基准，规划每张图的画面重点。`,
+    },
+    generating: {
+      title: "生成创意图片",
+      detail: `创意规划已完成，正在按 ${ratioSummary} 输出 ${totalImageCount} 张${theme}营销图，并保持每张画面的构图差异。`,
+    },
+  }[activePhase] || null;
+  const steps = [
+    {
+      title: "理解图片需求",
+      pending: "正在识别你的图片生成需求…",
+      complete: `已识别为「${theme}」图片生成需求。`,
+    },
+    {
+      title: "规划创意方向",
+      pending: "正在自动补全画面风格、构图和营销表达…",
+      complete: `已自动补全画面风格、构图和营销表达，将按 ${ratioSummary} 比例输出。`,
+    },
+    {
+      title: "生成创意图片",
+      pending: `正在生成 ${job.imageCount} 张${theme}营销图…`,
+      complete: `已生成 ${totalImageCount} 张${theme}营销图。`,
+    },
+  ];
+  const processRows = isComplete
+    ? [
+        { title: "思考完成", detail: steps[0].complete, icon: Lightbulb },
+        { title: `(${totalImageCount}/${totalImageCount}) 图片生成完成`, detail: "", icon: ImageIcon },
+        {
+          title: "思考完成",
+          detail: `已完成数量和比例校验：共 ${totalImageCount} 张，覆盖 ${allocationSummary}，每张图的构图和画面重点均保持差异。`,
+          icon: Lightbulb,
+        },
+      ]
+    : steps.slice(0, activeStepIndex + 1).map((step, index) => {
+        const isCurrent = index === activeStepIndex;
+        return {
+          title: isCurrent ? activeThinking?.title || step.pending : index === 0 ? "思考完成" : "创意规划完成",
+          detail: isCurrent ? activeThinking?.detail || "" : step.complete,
+          icon: isCurrent ? null : Lightbulb,
+          isStreaming: isCurrent,
+        };
+      });
+
+  return (
+    <div className="mb-5 text-left">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="inline-flex items-center gap-2 py-1 text-left text-[#607286] outline-none transition-colors hover:text-[#202634] focus:outline-none"
+        aria-expanded={expanded}
+      >
+        {isComplete ? null : <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#315fff]" />}
+        {isComplete ? <span className="text-[16px] font-medium leading-6">已完成</span> : <AgentThinkingLabel />}
+        {isComplete ? <ChevronDown className={cn("h-5 w-5 transition-transform", expanded && "rotate-180")} /> : null}
+      </button>
+
+      {expanded ? (
+        <div className="mt-6">
+          {processRows.map((row, index) => {
+            const Icon = row.icon;
+            const isCurrent = !isComplete && index === processRows.length - 1;
+
+            return (
+              <div key={`${row.title}-${index}`} className="flex gap-3 pb-5 last:pb-0">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-[#607286]">
+                  {isCurrent ? <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#315fff]" /> : <Icon className="h-5 w-5 stroke-[1.9]" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className={cn("text-[16px] font-medium leading-6 text-[#607286]", row.isStreaming && "text-[#315fff]")}>{row.title}</div>
+                  {isComplete && index === 0 ? (
+                    <div className="mt-3 border-l border-[#e2e6eb] pl-4 text-[15px] leading-7 text-[#607286]">
+                      <p>{row.detail}</p>
+                      <p className="mt-2">
+                        任务解析：用户需要 {totalImageCount} 张{theme}营销图，比例按出现顺序为 {ratioSummary}；已按总数优先、比例全覆盖的规则分配为 {allocationSummary}。
+                      </p>
+                      <p className="mt-2">
+                        排版策略：以首个 {imagePlan.baseRatio} 作为整组基准格；其余比例等比置入，差异区域用品牌浅蓝和浅灰补齐，保证整组视觉统一。
+                      </p>
+                      <div className="mt-4 space-y-4">
+                        {creativeBriefs.map((brief) => (
+                          <div key={brief.outputId}>
+                            <div className="font-medium text-[#536579]">
+                              {brief.index}. {brief.ratio} · {brief.title}
+                            </div>
+                            <p className="mt-1">画面：{brief.scene}</p>
+                            <p>排版：{brief.layout}</p>
+                            <p className="text-[#8a96a6]">输出编号：{brief.outputId} · 比例：{brief.ratio}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : row.isStreaming ? (
+                    <div className="mt-3 border-l border-[#e2e6eb] pl-4 text-[15px] leading-7 text-[#607286]">
+                      <ThinkingTypewriter text={row.detail} />
+                    </div>
+                  ) : row.detail ? (
+                    <p className="mt-3 border-l border-[#e2e6eb] pl-4 text-[15px] leading-7 text-[#607286]">{row.detail}</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {isComplete ? (
+        <div className={cn("text-[16px] leading-7 text-[#202634]", expanded ? "mt-6" : "mt-4")}>
+          <p>已为你生成 {totalImageCount} 张{theme}营销图，覆盖你需要的全部比例：</p>
+          <ul className="mt-3 list-disc space-y-1 pl-6">
+            {outputGroups.map((group) => (
+              <li key={group.ratio}>
+                {group.ratio}：{group.count} 张（{ratioUsage[group.ratio] || "创意图片"}）
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4">你可以查看所有图片效果，如需调整风格、色调或构图可以随时告诉我。</p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -6460,10 +6776,21 @@ function JobCard({
   const [activeGeneratedVideoIndex, setActiveGeneratedVideoIndex] = useState(0);
   const [generatedVideoProgress, setGeneratedVideoProgress] = useState(50);
   const [isGeneratedVideoPlaying, setIsGeneratedVideoPlaying] = useState(false);
+  const [imageProcessExpanded, setImageProcessExpanded] = useState(job.status === "generating");
   const generatedVideoRef = useRef(null);
   const isVideoJob = job.mode === "video" || job.status === "generating_video" || job.status === "done_video";
   const isImageJob = !isVideoJob;
-  const imageLayout = getImageGridLayout(job.imageRatio, job.resultImages?.length || job.imageCount);
+  const showImageGenerationProcess = isImageJob && (job.status === "generating" || job.status === "done");
+  const showGeneratingImagePreview = job.status === "generating" && job.showImagePreview;
+  const imageOutputPlan = getImageOutputPlan(job);
+  const imageOutputItems = (job.resultImages || []).map((source, index) => ({
+    source,
+    ratio: job.resultImageItems?.[index]?.ratio || imageOutputPlan.outputs[index]?.ratio || job.imageRatio,
+  }));
+  const imageLayout = getImageGridLayout(
+    imageOutputPlan.baseRatio || job.imageRatio,
+    imageOutputItems.length || job.imageCount,
+  );
   const coverImage =
     job.status === "done"
       ? job.resultImages[0]
@@ -6559,6 +6886,10 @@ function JobCard({
     setIsGeneratedVideoPlaying(false);
   }, [job.id, safeGeneratedVideoIndex]);
 
+  useEffect(() => {
+    setImageProcessExpanded(job.status === "generating");
+  }, [job.id, job.status]);
+
   const stepGeneratedVideo = (direction) => {
     if (generatedVideoCount <= 1) return;
     setActiveGeneratedVideoIndex((prev) => (prev + direction + generatedVideoCount) % generatedVideoCount);
@@ -6639,26 +6970,36 @@ function JobCard({
         className={cn(isVideoJob ? "mb-12" : "mb-5")}
       />
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-[14px] leading-5 text-black">{resultLabel}</span>
-          {versionLabel ? (
-            <span className="inline-flex h-[22px] items-center rounded-[6px] border border-[#efe6ff] bg-[#faf7ff] px-1.5 text-[12px] font-semibold leading-[20px] text-[#7b5cff]">
-              {versionLabel}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-[#686e7a]">
-          {metaItems.map((item, index) => (
-            <Fragment key={`${item}-${index}`}>
-              {index > 0 ? <span className="h-[12px] w-px bg-[#e3e5e8]" /> : null}
-              <span>{item}</span>
-            </Fragment>
-          ))}
-        </div>
-      </div>
+      {showImageGenerationProcess ? (
+        <ImageGenerationProcess
+          job={job}
+          expanded={imageProcessExpanded}
+          onToggle={() => setImageProcessExpanded((prev) => !prev)}
+        />
+      ) : null}
 
-      {job.status === "generating" ? (
+      {!showImageGenerationProcess ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="text-[14px] leading-5 text-black">{resultLabel}</span>
+            {versionLabel ? (
+              <span className="inline-flex h-[22px] items-center rounded-[6px] border border-[#efe6ff] bg-[#faf7ff] px-1.5 text-[12px] font-semibold leading-[20px] text-[#7b5cff]">
+                {versionLabel}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-[#686e7a]">
+            {metaItems.map((item, index) => (
+              <Fragment key={`${item}-${index}`}>
+                {index > 0 ? <span className="h-[12px] w-px bg-[#e3e5e8]" /> : null}
+                <span>{item}</span>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {showGeneratingImagePreview ? (
         <div
           className="relative grid gap-[2px] overflow-hidden rounded-[2px]"
           style={{ gridTemplateColumns: `repeat(${imageLayout.columns}, minmax(0, 1fr))` }}
@@ -6879,8 +7220,11 @@ function JobCard({
           className="grid gap-[2px] overflow-hidden rounded-[2px]"
           style={{ gridTemplateColumns: `repeat(${imageLayout.columns}, minmax(0, 1fr))` }}
         >
-          {job.resultImages.map((image, index) => {
+          {imageOutputItems.map((imageItem, index) => {
+            const image = imageItem.source;
             const imageId = `${jobTaskId}${String(index + 1).padStart(2, "0")}`;
+            const usesBrandFill = imageItem.ratio !== imageOutputPlan.baseRatio;
+            const frameStyle = getImageFrameStyle(imageItem.ratio, imageOutputPlan.baseRatio);
 
             return (
               <div
@@ -6891,14 +7235,24 @@ function JobCard({
               >
               <button
                 type="button"
+                aria-label={`查看图片 ${index + 1}`}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
                   onOpenImageDetail?.(job.id, index);
                 }}
-                className="absolute inset-0 overflow-hidden rounded-[2px] text-left transition-opacity hover:opacity-95"
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center overflow-hidden rounded-[2px] text-left transition-opacity hover:opacity-95",
+                  usesBrandFill
+                    ? index % 2 === 0
+                      ? "bg-[linear-gradient(135deg,#eaf6ff_0%,#f2f7ff_100%)]"
+                      : "bg-[linear-gradient(135deg,#f1f4f8_0%,#e9f3ff_100%)]"
+                    : "bg-[#f3f6fa]",
+                )}
               >
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <span className="block shrink-0 overflow-hidden" style={frameStyle}>
+                  <img src={image} alt="" className="h-full w-full object-cover" />
+                </span>
               </button>
 
               <div className="pointer-events-none absolute inset-0 rounded-[2px] bg-[linear-gradient(180deg,rgba(9,12,18,0.18)_0%,rgba(9,12,18,0)_28%,rgba(9,12,18,0)_62%,rgba(9,12,18,0.18)_100%)] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
@@ -24016,14 +24370,62 @@ export default function App() {
   const clearGenerationTimer = (jobId) => {
     const timer = generationTimers.current[jobId];
     if (!timer) return;
-    window.clearTimeout(timer);
+    (Array.isArray(timer) ? timer : [timer]).forEach((item) => window.clearTimeout(item));
     delete generationTimers.current[jobId];
   };
 
   useEffect(() => {
     jobs.forEach((job) => {
       if ((job.status !== "generating" && job.status !== "generating_video") || generationTimers.current[job.id]) return;
-      generationTimers.current[job.id] = window.setTimeout(() => {
+      if (job.status === "generating" && job.mode === "image") {
+        const timers = [
+          window.setTimeout(() => {
+            setJobs((prev) => prev.map((item) => (item.id === job.id ? { ...item, generationPhase: "planning" } : item)));
+          }, 3000),
+          window.setTimeout(() => {
+            setJobs((prev) => prev.map((item) => (item.id === job.id ? { ...item, generationPhase: "generating" } : item)));
+          }, 6000),
+          window.setTimeout(() => {
+            setJobs((prev) => prev.map((item) => (item.id === job.id ? { ...item, showImagePreview: true } : item)));
+          }, 10000),
+          window.setTimeout(() => {
+            setJobs((prev) =>
+              prev.map((item) =>
+                item.id === job.id
+                  ? (() => {
+                      const imagePlan = getImageOutputPlan(item);
+                      const resultImages = createMockImageResults(
+                        nextResultImages[item.createdAt % nextResultImages.length] || nextResultImages[0],
+                        imagePlan.outputs.length || item.imageCount,
+                      );
+
+                      return {
+                        ...item,
+                        status: "done",
+                        generationPhase: "complete",
+                        resultImages,
+                        resultImageItems: resultImages.map((source, index) => ({
+                          source,
+                          ratio: imagePlan.outputs[index]?.ratio || item.imageRatio,
+                        })),
+                      };
+                    })()
+                  : item,
+              ),
+            );
+            notify({
+              type: "success",
+              title: "生成完成",
+              description: "已生成创意图片，可展开查看 Agent 处理过程。",
+            });
+            delete generationTimers.current[job.id];
+          }, 13000),
+        ];
+        generationTimers.current[job.id] = timers;
+        return;
+      }
+
+      generationTimers.current[job.id] = [window.setTimeout(() => {
         setJobs((prev) =>
           prev.map((item) =>
             item.id === job.id
@@ -24052,13 +24454,15 @@ export default function App() {
           description: job.status === "generating_video" ? "成片已经出现在生成列表中。" : "结果已经出现在生成列表中。",
         });
         delete generationTimers.current[job.id];
-      }, job.status === "generating_video" ? 1400 : 1200);
+      }, job.status === "generating_video" ? 1400 : 1200)];
     });
   }, [jobs, nextResultImages]);
 
   useEffect(() => {
     return () => {
-      Object.values(generationTimers.current).forEach((timer) => window.clearTimeout(timer));
+      Object.values(generationTimers.current).forEach((timer) => {
+        (Array.isArray(timer) ? timer : [timer]).forEach((item) => window.clearTimeout(item));
+      });
       Object.values(toastTimers.current).forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
@@ -24103,6 +24507,10 @@ export default function App() {
     const nextAgentForm = buildAgentFormFromComposer(value, composerConfig, composerAttachments);
     const promptAttachmentSnapshot = cloneComposerAttachments(composerAttachments);
     const promptImageAttachments = getImagePromptAttachments(promptAttachmentSnapshot);
+    const imagePlan =
+      composerConfig.mode === "image"
+        ? createImageOutputPlan(value, composerConfig.imageRatio, composerConfig.imageCount)
+        : null;
 
     setJobs((prev) => [
       ...prev,
@@ -24136,14 +24544,17 @@ export default function App() {
             imageRatio:
               composerConfig.mode === "video"
                 ? composerConfig.videoRatio
-                : composerConfig.imageRatio,
+                : imagePlan?.baseRatio || composerConfig.imageRatio,
             imageResolution:
               composerConfig.mode === "video"
                 ? normalizeComposerScene(composerConfig.videoScene)
                 : composerConfig.imageResolution,
-            imageCount: composerConfig.mode === "image" ? composerConfig.imageCount : 4,
+            imageCount: composerConfig.mode === "image" ? imagePlan.outputs.length : 4,
+            imagePlan,
             resultImages: [],
             status: "generating",
+            generationPhase: composerConfig.mode === "image" ? "understanding" : undefined,
+            showImagePreview: false,
             createdAt: prev.length + 1,
             createdDay,
             mode: composerConfig.mode,
@@ -24660,9 +25071,12 @@ export default function App() {
           ...sourceJob,
           id: nextId,
           status: "generating",
+          generationPhase: "understanding",
+          showImagePreview: false,
           createdAt: prev.length + 1,
           createdDay,
           resultImages: [],
+          resultImageItems: [],
         },
       ];
     });
@@ -24733,10 +25147,14 @@ export default function App() {
         prompt: `${sourceJob.prompt}，${promptSuffix}`,
         imageCount: 1,
         resultImages: [],
+        resultImageItems: [],
         status: "generating",
+        generationPhase: "understanding",
+        showImagePreview: false,
         createdAt: prev.length + 1,
         createdDay,
         mode: "image",
+        imagePlan: createImageOutputPlan("", sourceJob.imageRatio, 1),
         toolLabel,
       },
     ]);
@@ -24809,11 +25227,13 @@ export default function App() {
         const images = item.resultImages || [];
         if (!images.length) return [item];
         const nextImages = images.filter((_, index) => index !== imageIndex);
+        const nextImageItems = (item.resultImageItems || []).filter((_, index) => index !== imageIndex);
         if (!nextImages.length) return [];
         return [
           {
             ...item,
             resultImages: nextImages,
+            resultImageItems: nextImageItems,
             imageCount: nextImages.length,
           },
         ];

@@ -50,6 +50,16 @@ textarea {
   }
 }
 
+@keyframes agent-text-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @keyframes ai-soft-pulse {
   0%,
   100% {
@@ -104,6 +114,59 @@ textarea {
 
 .ai-thinking-dot {
   animation: ai-soft-pulse 1.4s ease-in-out infinite;
+}
+
+.agent-thinking-shimmer {
+  display: inline-block;
+  background: linear-gradient(90deg, #000 0%, #0073e5 40%, #333fe6 50%, #4c00e5 60%, #000 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: agent-text-shimmer 2.5s linear infinite;
+}
+
+.agent-thinking-label {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: max-height 0.3s ease, opacity 0.25s ease, transform 0.25s ease;
+}
+
+.agent-thinking-label.is-visible {
+  max-height: 44px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.agent-type-char {
+  display: inline-block;
+  opacity: 0;
+  color: #b0b3b8;
+  transition: opacity 0.05s, color 0.4s;
+}
+
+.agent-type-char.is-last {
+  transition: opacity 0.25s, color 0.4s;
+}
+
+.agent-typewriter.is-visible .agent-type-char {
+  opacity: 1;
+  color: #607286;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-thinking-shimmer,
+  .ai-thinking-dot {
+    animation: none;
+  }
+
+  .agent-type-char {
+    opacity: 1;
+    color: #607286;
+    transition: none;
+  }
 }
 
 .ai-thinking-ring {
