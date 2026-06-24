@@ -5945,7 +5945,7 @@ function FeatureCard({ title, kind, showArrow }) {
   );
 }
 
-function RecommendationGrid() {
+function RecommendationGrid({ onOpenImageDetail }) {
   const masonryItems = [
     { src: resultSets[0][0], h: 368 },
     { src: resultSets[1][0], h: 368 },
@@ -5974,6 +5974,8 @@ function RecommendationGrid() {
           <button
             key={`${item.src}-${index}`}
             type="button"
+            onClick={() => onOpenImageDetail?.(item)}
+            aria-label={`查看图片详情 ${index + 1}`}
             className="group mb-[2px] block w-full break-inside-avoid overflow-hidden rounded-[2px] bg-[#eef2f8] text-left"
             style={{ height: item.h }}
           >
@@ -6013,6 +6015,7 @@ function HomePage({
   onOpenImageLibrary,
   onOpenVideoLibrary,
   onNotify,
+  onOpenImageDetail,
 }) {
   const [activeTab, setActiveTab] = useState("成片");
   const [showFloatingDock, setShowFloatingDock] = useState(false);
@@ -6143,7 +6146,7 @@ function HomePage({
           </div>
 
           <div className="pt-[2px]">
-            <RecommendationGrid />
+            <RecommendationGrid onOpenImageDetail={onOpenImageDetail} />
           </div>
           <div className="h-24" />
         </div>
@@ -6368,9 +6371,13 @@ function ImageDetailModal({
   onApplyCutout,
   onApplyExpand,
   onRegenerateJob,
-  onReuseImageJob,
+  onStartReedit,
+  onSubmitReedit,
+  composerProps,
 }) {
+  const [isReediting, setIsReediting] = useState(false);
   const image = job?.resultImages?.[activeIndex];
+  const isHomeInspiration = Boolean(job?.isHomeInspiration);
   const referenceImages = image ? [image] : [];
   const imagePlan = getImageOutputPlan(job);
   const activeImageRatio = job?.resultImageItems?.[activeIndex]?.ratio || imagePlan.outputs[activeIndex]?.ratio || job?.imageRatio || "1:1";
@@ -6399,6 +6406,10 @@ function ImageDetailModal({
     };
   }, [image, job, onClose]);
 
+  useEffect(() => {
+    setIsReediting(false);
+  }, [activeIndex, job?.id]);
+
   if (!job || !image || typeof document === "undefined") return null;
 
   const copyText = async (value) => {
@@ -6419,73 +6430,95 @@ function ImageDetailModal({
     link.remove();
   };
 
+  const startInlineReedit = () => {
+    onStartReedit?.(job);
+    setIsReediting(true);
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-[160] bg-white">
-      <div className="flex h-full w-full overflow-hidden bg-white">
-        <div className="relative flex min-w-0 flex-1 items-center justify-center bg-white px-7 py-7">
+    <div className="fixed inset-y-0 left-[76px] right-0 z-[160] bg-white max-[640px]:left-0">
+      <div className="flex h-full w-full overflow-hidden bg-white max-[640px]:block max-[640px]:overflow-y-auto">
+        <div
+          className={cn(
+            "relative flex min-w-0 flex-1 bg-white px-7 py-7",
+            isReediting
+              ? "flex-col items-center justify-center gap-16 max-[640px]:h-auto max-[640px]:gap-8 max-[640px]:px-4 max-[640px]:py-5"
+              : "items-center justify-center max-[640px]:h-[42vh] max-[640px]:min-h-[320px] max-[640px]:px-4 max-[640px]:py-5",
+          )}
+        >
           <div
             data-testid="image-detail-preview"
             className="overflow-hidden"
             style={{
-              width: `min(100%, calc((100vh - 56px) * ${activeImageAspect}))`,
+              width: `min(100%, calc((100vh - ${isReediting ? "420px" : "56px"}) * ${activeImageAspect}))`,
               aspectRatio: activeImageRatio.replace(":", " / "),
             }}
           >
             <img src={image} alt="" className="h-full w-full object-cover" />
           </div>
 
-            {job.resultImages.length > 1 ? (
-              <div className="absolute right-5 top-1/2 flex -translate-y-1/2 flex-col gap-5">
-                <button
-                  type="button"
-                  onClick={onPrev}
-                  aria-label="查看上一张图片"
-                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
-                >
-                  <ChevronUp className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onNext}
-                  aria-label="查看下一张图片"
-                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
-                >
-                  <ChevronDown className="h-5 w-5" />
-                </button>
-              </div>
-            ) : null}
+          {isReediting ? (
+            <div data-testid="image-detail-reedit-composer" className="w-full max-w-[832px]">
+              <InputComposer {...composerProps} onSubmit={onSubmitReedit} variant="overlay" />
+            </div>
+          ) : null}
+
+          {job.resultImages.length > 1 ? (
+            <div className="absolute right-5 top-1/2 flex -translate-y-1/2 flex-col gap-5">
+              <button
+                type="button"
+                onClick={onPrev}
+                aria-label="查看上一张图片"
+                className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
+              >
+                <ChevronUp className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={onNext}
+                aria-label="查看下一张图片"
+                className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#dce4ed] bg-white text-[#202634] transition-colors hover:bg-[#f7f9fc]"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </button>
+            </div>
+          ) : null}
           </div>
 
-          <aside className="relative flex h-full w-[472px] shrink-0 flex-col border-l border-[#e8edf3] bg-white">
-            <div className="flex h-[80px] items-center justify-between border-b border-[#eef2f8] px-7">
+          <aside data-testid="image-detail-panel" className="relative flex h-full w-[437px] shrink-0 flex-col border-l border-[#e8edf3] bg-white max-[960px]:w-[400px] max-[640px]:h-auto max-[640px]:w-full max-[640px]:border-l-0 max-[640px]:border-t">
+            <div className="flex h-[88px] items-center justify-between px-7 max-[640px]:h-[72px] max-[640px]:px-4">
               <div>
                 <h2 className="text-[20px] font-semibold leading-7 text-[#17191c]">图片详情</h2>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={downloadCurrentImage}
-                  aria-label="下载图片"
-                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onLocateJob?.(job.id)}
-                  aria-label="定位生成任务"
-                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onToggleMeta}
-                  aria-label="更多图片信息"
-                  className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
+                {!isHomeInspiration ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={downloadCurrentImage}
+                      aria-label="下载图片"
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onLocateJob?.(job.id)}
+                      aria-label="定位生成任务"
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onToggleMeta}
+                      aria-label="更多图片信息"
+                      className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#f6f7f9] text-[#191b1e] transition-colors hover:bg-[#eef2f7]"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   onClick={onClose}
@@ -6497,7 +6530,7 @@ function ImageDetailModal({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-7 py-6">
+            <div className="flex-1 overflow-y-auto px-7 py-6 max-[640px]:overflow-visible max-[640px]:px-4 max-[640px]:py-5">
               <div className="flex flex-col gap-7">
                 <div className="flex flex-col gap-3">
                   <div className="text-[14px] font-medium leading-5 text-[#17191c]">创意描述</div>
@@ -6524,55 +6557,64 @@ function ImageDetailModal({
                   ))}
                 </div>
 
-                <div>
-                  <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">图片编辑</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <DetailQuickAction
-                      icon={PencilLine}
-                      label="去编辑器"
-                      onClick={() => onOpenEditor?.(job.id, activeIndex)}
-                    />
-                    <DetailQuickAction
-                      icon={Film}
-                      label="图转视频"
-                      onClick={() => onConvertToVideo?.(job.id, activeIndex)}
-                    />
-                    <DetailQuickAction
-                      icon={Scissors}
-                      label="智能抠图"
-                      onClick={() => onApplyCutout?.(job.id, activeIndex)}
-                    />
-                    <DetailQuickAction
-                      icon={Sparkles}
-                      label="智能扩图"
-                      onClick={() => onApplyExpand?.(job.id, activeIndex)}
-                    />
-                  </div>
-                </div>
+                {!isHomeInspiration ? (
+                  <>
+                    <div>
+                      <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">图片编辑</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <DetailQuickAction
+                          icon={PencilLine}
+                          label="去编辑器"
+                          onClick={() => onOpenEditor?.(job, activeIndex)}
+                        />
+                        <DetailQuickAction
+                          icon={Film}
+                          label="图转视频"
+                          onClick={() => onConvertToVideo?.(job, activeIndex)}
+                        />
+                        <DetailQuickAction
+                          icon={Scissors}
+                          label="智能抠图"
+                          onClick={() => onApplyCutout?.(job, activeIndex)}
+                        />
+                        <DetailQuickAction
+                          icon={Sparkles}
+                          label="智能扩图"
+                          onClick={() => onApplyExpand?.(job, activeIndex)}
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">更多</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <DetailQuickAction
-                      icon={PencilLine}
-                      label="重新编辑"
-                      onClick={() => {
-                        onClose?.();
-                        onReuseImageJob?.(job.id);
-                      }}
-                    />
-                    <DetailQuickAction
-                      icon={RefreshCcw}
-                      label="再次生成"
-                      onClick={() => {
-                        onClose?.();
-                        onRegenerateJob?.(job.id);
-                      }}
-                    />
-                  </div>
-                </div>
+                    <div>
+                      <div className="mb-3 text-[14px] font-medium leading-5 text-[#838995]">更多</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <DetailQuickAction icon={PencilLine} label="重新编辑" onClick={startInlineReedit} />
+                        <DetailQuickAction
+                          icon={RefreshCcw}
+                          label="再次生成"
+                          onClick={() => {
+                            onClose?.();
+                            onRegenerateJob?.(job);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
+
+            {isHomeInspiration && !isReediting ? (
+              <div className="shrink-0 px-7 pb-6 pt-4 max-[640px]:px-4">
+                <button
+                  type="button"
+                  onClick={startInlineReedit}
+                  className="flex h-10 w-full items-center justify-center rounded-[8px] bg-[linear-gradient(90deg,#339cff_0%,#5d6bff_62%,#8b65f5_100%)] text-[14px] font-medium text-white shadow-[0_8px_18px_rgba(78,100,238,0.18)] transition-opacity hover:opacity-95"
+                >
+                  一键同款
+                </button>
+              </div>
+            ) : null}
 
             {showMetaMenu ? (
               <div className="absolute right-6 top-[76px] w-[214px] rounded-[18px] border border-[#eef2f8] bg-white p-2 shadow-[0_18px_40px_rgba(77,104,170,0.14)]">
@@ -9178,7 +9220,7 @@ function LogoLibraryModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[96] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
+    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
       <div className="flex h-[min(900px,calc(100vh-24px))] w-[min(920px,calc(100vw-24px))] flex-col overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_1px_8px_rgba(0,0,0,0.05),0_7px_14px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.08)] sm:rounded-[24px]">
         <div className="flex items-center justify-between border-b border-[#edf1f6] px-4 py-4 sm:px-6 sm:py-[18px]">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -9675,7 +9717,7 @@ function VideoSegmentLibraryModal({
 
   const clipStageBody =
     clipStageOpen && selectedVideo && shouldUseSegmentDuration ? (
-      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,28,45,0.24)] p-3 backdrop-blur-[10px] sm:p-6">
+      <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(20,28,45,0.24)] p-3 backdrop-blur-[10px] sm:p-6">
         <div className="flex h-[min(820px,calc(100vh-32px))] w-[min(1180px,calc(100vw-32px))] flex-col overflow-hidden rounded-[28px] border border-white/86 bg-white p-5 text-[#202634] shadow-[0_28px_80px_rgba(78,96,132,0.22)] sm:p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -9815,7 +9857,7 @@ function VideoSegmentLibraryModal({
     ) : null;
 
   const body = (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
+    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(20,28,45,0.18)] p-3 backdrop-blur-[6px] sm:p-5">
       <div className="flex h-[min(900px,calc(100vh-24px))] w-[min(920px,calc(100vw-24px))] flex-col overflow-hidden rounded-[22px] border border-white/80 bg-white shadow-[0_1px_8px_rgba(0,0,0,0.05),0_7px_14px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.08)] sm:rounded-[24px]">
         <div className="flex items-center justify-between border-b border-[#edf1f6] px-4 py-4 sm:px-6 sm:py-[18px]">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -25068,7 +25110,7 @@ export default function App() {
     });
   };
 
-  const handleRegenerateJob = (jobId) => {
+  const handleRegenerateJob = (jobOrId) => {
     if (hasPendingGeneration) {
       notify({
         type: "warning",
@@ -25077,7 +25119,7 @@ export default function App() {
       });
       return;
     }
-    const sourceJob = jobs.find((item) => item.id === jobId);
+    const sourceJob = typeof jobOrId === "string" ? jobs.find((item) => item.id === jobOrId) : jobOrId;
     if (!sourceJob) return;
 
     const createdDay = getDateKey(new Date());
@@ -25131,11 +25173,10 @@ export default function App() {
     });
   };
 
-  const handleReuseImageJob = (jobId) => {
-    const sourceJob = jobs.find((item) => item.id === jobId);
+  const prepareImageReedit = (sourceJob, { keepPrompt = false } = {}) => {
     if (!sourceJob) return;
 
-    setPrompt(sourceJob.prompt);
+    setPrompt(keepPrompt ? sourceJob.prompt : "");
     setComposerConfig((prev) => ({
       ...prev,
       mode: "image",
@@ -25145,11 +25186,28 @@ export default function App() {
       imageCount: sourceJob.imageCount || prev.imageCount,
     }));
     setComposerAttachments(INITIAL_COMPOSER_ATTACHMENTS);
+    setOpenMenu(null);
+  };
+
+  const handleReuseImageJob = (jobId) => {
+    const sourceJob = jobs.find((item) => item.id === jobId);
+    if (!sourceJob) return;
+
+    prepareImageReedit(sourceJob, { keepPrompt: true });
     setActivePage("generate");
   };
 
-  const handleOpenImageEditor = (jobId) => {
-    const sourceJob = jobs.find((item) => item.id === jobId);
+  const handleStartImageReedit = (sourceJob) => {
+    prepareImageReedit(sourceJob);
+  };
+
+  const handleSubmitImageReedit = () => {
+    handleSubmit();
+    setImageDetailState(null);
+  };
+
+  const handleOpenImageEditor = (jobOrId) => {
+    const sourceJob = typeof jobOrId === "string" ? jobs.find((item) => item.id === jobOrId) : jobOrId;
     if (!sourceJob) return;
 
     setImageDetailState(null);
@@ -25168,7 +25226,7 @@ export default function App() {
     setActivePage("generate");
   };
 
-  const createDerivedToolImageJob = (jobId, toolLabel, promptSuffix) => {
+  const createDerivedToolImageJob = (jobOrId, toolLabel, promptSuffix) => {
     if (hasPendingGeneration) {
       notify({
         type: "warning",
@@ -25177,7 +25235,7 @@ export default function App() {
       });
       return;
     }
-    const sourceJob = jobs.find((item) => item.id === jobId);
+    const sourceJob = typeof jobOrId === "string" ? jobs.find((item) => item.id === jobOrId) : jobOrId;
     if (!sourceJob) return;
 
     const createdDay = getDateKey(new Date());
@@ -25212,7 +25270,7 @@ export default function App() {
     });
   };
 
-  const handleConvertImageToVideo = (jobId, imageIndex = 0) => {
+  const handleConvertImageToVideo = (jobOrId, imageIndex = 0) => {
     if (hasPendingGeneration) {
       notify({
         type: "warning",
@@ -25221,7 +25279,7 @@ export default function App() {
       });
       return;
     }
-    const sourceJob = jobs.find((item) => item.id === jobId);
+    const sourceJob = typeof jobOrId === "string" ? jobs.find((item) => item.id === jobOrId) : jobOrId;
     if (!sourceJob) return;
 
     const createdDay = getDateKey(new Date());
@@ -25333,6 +25391,17 @@ export default function App() {
     });
   };
 
+  const handleOpenHomeImageDetail = (image) => {
+    if (!image?.src) return;
+    setOpenMenu(null);
+    setImageDetailState({
+      source: "home",
+      image,
+      imageIndex: 0,
+      showMetaMenu: false,
+    });
+  };
+
   const handleCloseImageDetail = () => {
     setImageDetailState(null);
   };
@@ -25388,9 +25457,21 @@ export default function App() {
     { id: "assets", label: "资产", icon: FolderOpen },
   ];
 
-  const selectedImageDetailJob = imageDetailState
-    ? jobs.find((item) => item.id === imageDetailState.jobId)
-    : null;
+  const selectedImageDetailJob = imageDetailState?.source === "home"
+    ? {
+        id: "homepage-image-detail",
+        prompt: "生成一张具有鲜明主体、清晰构图与品牌表达空间的营销创意图片。",
+        imageRatio: "1:1",
+        imageResolution: "高清2K",
+        imageCount: 1,
+        resultImages: [imageDetailState.image.src],
+        status: "done",
+        mode: "image",
+        isHomeInspiration: true,
+      }
+    : imageDetailState
+      ? jobs.find((item) => item.id === imageDetailState.jobId)
+      : null;
   const isDeepModeActive = activePage === "generate" && Boolean(deepModeJobId);
 
   useEffect(() => {
@@ -25402,6 +25483,7 @@ export default function App() {
 
   useEffect(() => {
     if (!imageDetailState) return;
+    if (imageDetailState.source === "home") return;
     const targetJob = jobs.find((item) => item.id === imageDetailState.jobId);
     if (!targetJob?.resultImages?.length) {
       setImageDetailState(null);
@@ -25486,6 +25568,7 @@ export default function App() {
             onOpenImageLibrary={handleOpenHomeImageLibrary}
             onOpenVideoLibrary={handleOpenHomeVideoLibrary}
             onNotify={notify}
+            onOpenImageDetail={handleOpenHomeImageDetail}
           />
         ) : activePage === "tools" ? (
           <ToolsPage
@@ -25571,14 +25654,36 @@ export default function App() {
           onLocateJob={handleLocateImageJob}
           onOpenEditor={handleOpenImageEditor}
           onConvertToVideo={handleConvertImageToVideo}
-          onApplyCutout={(jobId) =>
-            createDerivedToolImageJob(jobId, "基于当前图片智能抠图", "请只保留主体并完成智能抠图")
+          onApplyCutout={(jobOrId) =>
+            createDerivedToolImageJob(jobOrId, "基于当前图片智能抠图", "请只保留主体并完成智能抠图")
           }
-          onApplyExpand={(jobId) =>
-            createDerivedToolImageJob(jobId, "基于当前图片智能扩图", "请在保持主体构图的前提下完成智能扩图")
+          onApplyExpand={(jobOrId) =>
+            createDerivedToolImageJob(jobOrId, "基于当前图片智能扩图", "请在保持主体构图的前提下完成智能扩图")
           }
           onRegenerateJob={handleRegenerateJob}
-          onReuseImageJob={handleReuseImageJob}
+          onStartReedit={handleStartImageReedit}
+          onSubmitReedit={handleSubmitImageReedit}
+          composerProps={{
+            prompt,
+            setPrompt,
+            isGenerating: hasPendingGeneration,
+            onStopGenerating: handleStopGenerating,
+            composerConfig,
+            setComposerConfig,
+            composerAttachments,
+            setComposerAttachments,
+            openMenu,
+            setOpenMenu,
+            promptPresets,
+            onApplyPreset: handleApplyPreset,
+            onCreatePreset: handleCreatePreset,
+            onEditPreset: handleEditPreset,
+            onDuplicatePreset: handleDuplicatePreset,
+            onDeletePreset: handleDeletePreset,
+            onOpenImageLibrary: handleOpenHomeImageLibrary,
+            onOpenVideoLibrary: handleOpenHomeVideoLibrary,
+            onNotify: notify,
+          }}
         />
       ) : null}
 
