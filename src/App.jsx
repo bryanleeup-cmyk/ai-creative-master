@@ -4767,6 +4767,7 @@ function ComposerControls({
         : Wand2;
   const landingDisabled = Boolean(composerAttachments?.landingPage);
   const scriptDisabled = Boolean(composerAttachments?.voiceScript);
+  const supportsLandingReference = composerConfig.mode === "image" || composerConfig.mode === "agent";
   const sceneField = composerConfig.mode === "agent" ? "agentScene" : "videoScene";
   const selectedScene = normalizeComposerScene(composerConfig[sceneField]);
 
@@ -4908,12 +4909,6 @@ function ComposerControls({
             </FloatingLayer>
           </div>
 
-          {compact ? (
-            <button className="inline-flex h-[36px] items-center gap-1.5 rounded-[8px] border border-[#e3e5e8] bg-white px-3 text-[13px] font-medium text-[#202634] transition-all hover:bg-[#fafbfd]">
-              <Link2 className="h-3.5 w-3.5" />
-              参考落地页
-            </button>
-          ) : null}
         </>
       ) : null}
 
@@ -4950,27 +4945,6 @@ function ComposerControls({
           </div>
 
           <div className="group relative shrink-0">
-            {landingDisabled ? (
-              <FilledAttachmentChip
-                compact={compact}
-                label="落地页"
-                icon={Link2}
-                tooltip={composerAttachments?.landingPage?.url || "已添加落地页参考"}
-                onRemove={onRemoveLanding}
-                removeAriaLabel="移除落地页"
-              />
-            ) : (
-              <SurfaceButton
-                onClick={onOpenLandingModal}
-                className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
-              >
-                <Link2 className="h-4 w-4" />
-                <span>落地页参考</span>
-              </SurfaceButton>
-            )}
-          </div>
-
-          <div className="group relative shrink-0">
             {scriptDisabled ? (
               <FilledAttachmentChip
                 compact={compact}
@@ -4992,6 +4966,29 @@ function ComposerControls({
           </div>
 
         </>
+      ) : null}
+
+      {supportsLandingReference ? (
+        <div className="group relative shrink-0">
+          {landingDisabled ? (
+            <FilledAttachmentChip
+              compact={compact}
+              label="落地页"
+              icon={Link2}
+              tooltip={composerAttachments?.landingPage?.url || "已添加落地页参考"}
+              onRemove={onRemoveLanding}
+              removeAriaLabel="移除落地页"
+            />
+          ) : (
+            <SurfaceButton
+              onClick={onOpenLandingModal}
+              className={cn("px-3 text-[#202634]", compact ? "h-[36px]" : "h-[42px]")}
+            >
+              <Link2 className="h-4 w-4" />
+              <span>落地页参考</span>
+            </SurfaceButton>
+          )}
+        </div>
       ) : null}
 
     </div>
