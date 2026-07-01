@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import logoImage from "../assets/logo.png";
@@ -3779,14 +3779,14 @@ function MentionSuggestionPanel({ suggestions, onSelect, title = "素材引用",
 function getStepFlowUserMessage(payload) {
   if (payload.type === "confirm") {
     if (payload.from === 1) return "我已确认以上业务信息。";
-    if (payload.from === 2) return "我已确认当前方案，继续生成口播脚本。";
+    if (payload.from === 2) return "我已确认当前方案，继续生成分镜设计。";
     if (payload.from === 3) return "我已确认当前分镜，继续设置整条视频。";
     if (payload.from === 4) return "我已确认成片设置，开始合成视频。";
   }
 
   if (payload.type === "regenerate") {
     if (payload.from === 1) return "我已修改业务信息，请重新生成方案。";
-    if (payload.from === 2) return "我已修改当前方案，请重新生成口播脚本。";
+    if (payload.from === 2) return "我已修改当前方案，请重新生成分镜设计。";
     if (payload.from === 3) return "我已修改当前分镜，请重新生成成片设置。";
     if (payload.from === 4) return "我已修改当前成片设置，请重新合成视频。";
   }
@@ -10450,10 +10450,10 @@ function DeepModeView({
             })),
           },
           {
-            title: "剧本大纲",
+            title: "方案概述",
             rows: outlines.map((item, index) => ({
               label: item.title || getStoryboardDisplayName(index),
-              value: item.subtitle || item.desc || "已生成分镜大纲",
+              value: `剧本大纲：${item.desc || "暂无"}；口播脚本：${item.subtitle || "暂无"}`,
             })),
           },
         ],
@@ -11337,7 +11337,7 @@ function DeepModeView({
           },
           {
             title: "生成右侧方案规划结果",
-            detail: "把主题、角色设定和剧本大纲同步到右侧，等你确认后再继续细化。",
+            detail: "把主题、角色设定、剧本大纲与口播脚本同步到右侧，等你确认后再继续细化。",
           },
         ],
         skeleton: "plan",
@@ -11346,10 +11346,10 @@ function DeepModeView({
           display: "card",
           badge: mode === "regenerate" ? "方案已更新" : "方案已生成",
           title: mode === "regenerate" ? "右侧方案规划已更新" : "右侧方案规划已生成",
-          description: "我已经把创意方向整理成可编辑的方案。先看右侧的创意主题、角色设定和剧本大纲，再决定是否继续调整。",
+          description: "我已经把创意方向整理成可编辑的方案。先看右侧的创意主题、角色设定、剧本大纲与口播脚本，再决定是否继续调整。",
           focusTitle: "现在先看右侧方案规划",
-          focusDetail: "优先确认：创意主题、角色设定、剧本大纲。",
-          checklist: ["主题方向是否对", "角色设定是否准确", "内容结构是否顺"],
+          focusDetail: "优先确认：创意主题、角色设定、剧本大纲与口播脚本。",
+          checklist: ["主题方向是否对", "角色设定是否准确", "内容结构和口播是否顺"],
           actions: [
             { label: "先看右侧方案", type: "focus" },
             { label: "我想改主题", prompt: "我想调整一下创意主题的方向。" },
@@ -11359,7 +11359,7 @@ function DeepModeView({
         focusCue: {
           step: 2,
           title: "方案规划已生成",
-          detail: "先看右侧的创意主题、角色设定和剧本大纲，再决定下一步怎么改。",
+          detail: "先看右侧的创意主题、角色设定、剧本大纲与口播脚本，再决定下一步怎么改。",
         },
       };
     }
@@ -12895,8 +12895,8 @@ function DeepModeView({
           ...flow.handoffPayload,
           badge: "新方案已生成",
           title: "右侧新方案已生成",
-          description: "我已经重新生成创意主题、出场角色和剧本大纲。先看右侧整套方案是否更贴近你的要求。",
-          focusDetail: "优先确认：主题方向、角色设定、剧本大纲。",
+          description: "我已经重新生成创意主题、出场角色、剧本大纲与口播脚本。先看右侧整套方案是否更贴近你的要求。",
+          focusDetail: "优先确认：主题方向、角色设定、剧本大纲与口播脚本。",
         };
       }
       if (target.type === "theme" && flow.handoffPayload) {
@@ -12904,8 +12904,8 @@ function DeepModeView({
           ...flow.handoffPayload,
           badge: "主题已更新",
           title: "右侧创意主题与方案已更新",
-          description: "我已经把新的主题方向同步到右侧主题、角色关系和剧本大纲里。先看右侧方案是否更贴近你的预期。",
-          focusDetail: "优先确认：主题表达、角色关系、剧本承接。",
+          description: "我已经把新的主题方向同步到右侧主题、角色关系、剧本大纲与口播脚本里。先看右侧方案是否更贴近你的预期。",
+          focusDetail: "优先确认：主题表达、角色关系、剧本承接和口播表达。",
         };
       }
       if (target.type === "allOutlines" && flow.handoffPayload) {
@@ -12914,11 +12914,11 @@ function DeepModeView({
           badge: target.sync ? "大纲已同步" : "大纲已重写",
           title: target.sync ? "右侧剧本大纲已同步重写" : "右侧剧本大纲已整套重写",
           description: target.sync
-            ? "我已经结合最新角色变化，把右侧剧本大纲整套同步重写了。先看角色和剧情关系是否顺了。"
-            : "我已经按你的诉求把右侧剧本大纲整套重写了。先看整体结构和讲述节奏是否更贴合。",
+            ? "我已经结合最新角色变化，把右侧剧本大纲和口播脚本整套同步重写了。先看角色和剧情关系是否顺了。"
+            : "我已经按你的诉求把右侧剧本大纲和口播脚本整套重写了。先看整体结构和讲述节奏是否更贴合。",
           focusDetail: target.sync
-            ? "优先确认：每段出场角色、剧情承接和表达是否已经跟最新角色一致。"
-            : "优先确认：整体结构、讲述节奏、每段出场角色。",
+            ? "优先确认：每段出场角色、剧情承接和口播表达是否已经跟最新角色一致。"
+            : "优先确认：整体结构、讲述节奏、口播脚本和每段出场角色。",
         };
       }
 
@@ -12972,11 +12972,11 @@ function DeepModeView({
           ? {
           ...flow.handoffPayload,
           badge: "剧本已更新",
-          title: "右侧剧本大纲已一键更新",
-          description: "我已经根据最新角色变化，把右侧剧本大纲整套同步好了。先看角色出场和剧情关系是否顺了。",
+          title: "右侧剧本大纲与口播脚本已一键更新",
+          description: "我已经根据最新角色变化，把右侧剧本大纲和口播脚本整套同步好了。先看角色出场和剧情关系是否顺了。",
           focusTitle: "现在先看右侧剧本大纲",
-          focusDetail: "优先确认：每段出场角色、剧情承接和表达是否已经跟最新角色一致。",
-          checklist: ["出场角色是否一致", "剧情承接是否顺", "表达是否贴合新角色"],
+          focusDetail: "优先确认：每段出场角色、剧情承接和口播表达是否已经跟最新角色一致。",
+          checklist: ["出场角色是否一致", "剧情承接是否顺", "口播是否贴合新角色"],
           actions: [
             { label: "先看右侧大纲", type: "focus" },
             { label: "我想改主题", prompt: "我想调整一下创意主题的方向。" },
@@ -13915,7 +13915,16 @@ function DeepModeView({
     setLogoPickerOpen(true);
   };
   const updateOutlineField = (index, field, value) => {
-    updateOutline(index, { [field]: value });
+    const nextValue = field === "subtitle" ? normalizeVoiceScriptText(value) : value;
+    setOutlines((prev) =>
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index || !item || isEmptyStoryboardOutline(item)) return item;
+        return {
+          ...item,
+          [field]: nextValue,
+        };
+      }),
+    );
   };
   const toggleStoryboardDraftAvatar = (avatarIndex) => {
     const currentSelected = storyboardDraft.avatars || [];
@@ -16149,6 +16158,7 @@ function DeepModeView({
   }, [activeStoryboard, deletedStoryboardSlots, outlines, validStoryboardIndexes]);
 
   useEffect(() => {
+    if (![3, 4].includes(currentStep)) return;
     if (storyboardDraftOverrideRef.current) {
       setStoryboardDraft(storyboardDraftOverrideRef.current);
       storyboardDraftOverrideRef.current = null;
@@ -16160,7 +16170,7 @@ function DeepModeView({
       desc: filterRoleMentionTokens(nextDraft.desc, nextDraft.avatars, characters),
       subtitle: normalizeVoiceScriptText(nextDraft.subtitle),
     });
-  }, [activeOutline, activeStoryboard]);
+  }, [activeOutline, activeStoryboard, currentStep]);
 
   useEffect(() => {
     setMentionState(null);
@@ -16482,7 +16492,7 @@ function DeepModeView({
       : currentStep === 2
         ? outlineSyncState
           ? "请先同步角色变化"
-          : "确认修改，重新生成口播脚本"
+          : "确认修改，重新生成分镜"
         : currentStep === 3
           ? "确认修改，重新生成成片设置"
           : "确认修改，重新合成视频";
@@ -17766,7 +17776,7 @@ function DeepModeView({
             ref={(node) => {
               rightUpdateTargetRefs.current.characters = node;
             }}
-            className={cn(planSectionClass, "mb-8", isRightUpdateHighlighted("characters") && rightUpdateHighlightClass)}
+            className={cn(planSectionClass, "mb-5", isRightUpdateHighlighted("characters") && rightUpdateHighlightClass)}
           >
             <div className="mb-3 flex h-[22px] items-center justify-between gap-3">
               <div className="deep-plan-title-16 font-medium text-black">出场角色</div>
@@ -17976,10 +17986,15 @@ function DeepModeView({
             }}
             className={cn(planSectionClass, isRightUpdateHighlighted("outlines") && rightUpdateHighlightClass)}
           >
-            <div className="mb-3 flex h-9 items-center justify-between gap-3">
-              <div className="flex items-center gap-1">
-                <div className="deep-plan-title-16 font-medium text-black">剧本大纲</div>
-                <AlertCircle className="h-3.5 w-3.5 text-[#838995]" />
+            <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1">
+                  <div className="deep-plan-title-16 font-medium text-black">方案概述</div>
+                  <AlertCircle className="h-3.5 w-3.5 text-[#838995]" />
+                </div>
+                <div className="mt-1 text-[12px] leading-4 text-[#838995]">
+                  剧本大纲与口播脚本逐段对应。
+                </div>
               </div>
               {!outlineSyncState ? (
                 <IconHintButton
@@ -17991,7 +18006,7 @@ function DeepModeView({
                   }}
                   disabled={isComposerGenerating}
                   disabledReason={composerBusyTooltip}
-                  tooltip="生成新大纲"
+                  tooltip="生成新概述"
                   tooltipSide="top"
                   tooltipAlign="center"
                   buttonClassName={composerIconButtonClass}
@@ -18079,23 +18094,48 @@ function DeepModeView({
                         className="h-6 w-full border-none bg-transparent text-[14px] font-medium leading-5 text-black outline-none placeholder:text-[#838995]"
                       />
 
-                      <textarea
-                        value={item.desc}
-                        onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
-                        onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
-                        onBlur={(event) =>
-                          finishManualEditRecord({
-                            key: `step2-outline-${index}-desc`,
-                            value: event.target.value,
-                            title: `手动修改了第 ${index + 1} 段大纲描述`,
-                            step: 2,
-                            target: "方案规划",
-                          })
-                        }
-                        placeholder="请输入这一段的大纲描述"
-                        rows={2}
-                        className="mt-2 min-h-[64px] w-full resize-none rounded-[8px] border-none bg-[#f6f7f9] px-3 py-[10px] text-[12px] leading-[22px] text-black outline-none placeholder:text-[#838995]"
-                      />
+                      <div className="mt-2 grid gap-2 min-[1120px]:grid-cols-2">
+                        <label className="block rounded-[8px] bg-[#f6f7f9] px-3 py-2">
+                          <span className="text-[11px] font-medium leading-4 text-[#838995]">剧本大纲</span>
+                          <textarea
+                            value={item.desc}
+                            onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-desc`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段大纲描述`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder="请输入这一段的大纲描述"
+                            rows={2}
+                            className="mt-1 min-h-[54px] w-full resize-none border-none bg-transparent text-[12px] leading-[20px] text-black outline-none placeholder:text-[#838995]"
+                          />
+                        </label>
+                        <label className="block rounded-[8px] bg-[#f6f7f9] px-3 py-2">
+                          <span className="text-[11px] font-medium leading-4 text-[#838995]">口播脚本</span>
+                          <textarea
+                            value={item.subtitle || ""}
+                            onChange={(event) => updateOutlineField(index, "subtitle", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-subtitle`, item.subtitle || "")}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-subtitle`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段口播脚本`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder="请输入这一段的口播脚本"
+                            rows={2}
+                            className="mt-1 min-h-[54px] w-full resize-none border-none bg-transparent text-[12px] leading-[20px] text-black outline-none placeholder:text-[#838995]"
+                          />
+                        </label>
+                      </div>
 
                       <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3">
                         <div className="shrink-0 text-[14px] font-medium leading-5 text-[#686e7a]">
@@ -18452,7 +18492,7 @@ function DeepModeView({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="text-[24px] font-bold text-[#202634]">剧本大纲</div>
+                  <div className="text-[24px] font-bold text-[#202634]">方案概述</div>
                   {composerGenerationState?.type === "allOutlines" ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e5dcff] bg-[#faf7ff] px-3 py-1 text-[12px] font-semibold text-[#7b5cff]">
                       <span className="ai-thinking-dot h-2 w-2 rounded-full bg-[#7b5cff]" />
@@ -18488,7 +18528,9 @@ function DeepModeView({
                     </DisabledTooltip>
                   </div>
                 ) : (
-                  <div className="mt-2 text-[13px] leading-6 text-[#7c8595]">编辑标题、描述和出镜角色。</div>
+                  <div className="mt-2 text-[13px] leading-6 text-[#7c8595]">
+                    逐段编辑剧本大纲、口播脚本和出镜角色。
+                  </div>
                 )}
               </div>
               {!outlineSyncState ? (
@@ -18511,7 +18553,7 @@ function DeepModeView({
                     className={aiButtonClass}
                   >
                     <ComposerActionGlyph />
-                    生成新大纲
+                    生成新概述
                   </button>
                 </DisabledTooltip>
               ) : null}
@@ -18561,24 +18603,48 @@ function DeepModeView({
                           />
                         </div>
 
-                        <div className="mt-3 rounded-[16px] border border-[#edf1f6] bg-white px-4 py-3">
-                          <textarea
-                            value={item.desc}
-                            onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
-                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
-                            onBlur={(event) =>
-                              finishManualEditRecord({
-                                key: `step2-outline-${index}-desc`,
-                                value: event.target.value,
-                                title: `手动修改了第 ${index + 1} 段大纲描述`,
-                                step: 2,
-                                target: "方案规划",
-                              })
-                            }
-                            placeholder="请输入这一段的大纲描述"
-                            rows={3}
-                            className="min-h-[92px] w-full resize-none border-none bg-transparent text-[14px] leading-6 text-[#5f6778] outline-none placeholder:text-[#b0b8c8]"
-                          />
+                        <div className="mt-3 grid gap-3 min-[1080px]:grid-cols-2">
+                          <label className="block rounded-[16px] border border-[#edf1f6] bg-white px-4 py-3">
+                            <span className="text-[12px] font-semibold tracking-[0.04em] text-[#9aa2b2]">剧本大纲</span>
+                            <textarea
+                              value={item.desc}
+                              onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
+                              onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
+                              onBlur={(event) =>
+                                finishManualEditRecord({
+                                  key: `step2-outline-${index}-desc`,
+                                  value: event.target.value,
+                                  title: `手动修改了第 ${index + 1} 段大纲描述`,
+                                  step: 2,
+                                  target: "方案规划",
+                                })
+                              }
+                              placeholder="请输入这一段的大纲描述"
+                              rows={3}
+                              className="mt-2 min-h-[86px] w-full resize-none border-none bg-transparent text-[14px] leading-6 text-[#5f6778] outline-none placeholder:text-[#b0b8c8]"
+                            />
+                          </label>
+
+                          <label className="block rounded-[16px] border border-[#edf1f6] bg-white px-4 py-3">
+                            <span className="text-[12px] font-semibold tracking-[0.04em] text-[#9aa2b2]">口播脚本</span>
+                            <textarea
+                              value={item.subtitle || ""}
+                              onChange={(event) => updateOutlineField(index, "subtitle", event.target.value)}
+                              onFocus={() => beginManualEditRecord(`step2-outline-${index}-subtitle`, item.subtitle || "")}
+                              onBlur={(event) =>
+                                finishManualEditRecord({
+                                  key: `step2-outline-${index}-subtitle`,
+                                  value: event.target.value,
+                                  title: `手动修改了第 ${index + 1} 段口播脚本`,
+                                  step: 2,
+                                  target: "方案规划",
+                                })
+                              }
+                              placeholder="请输入这一段的口播脚本"
+                              rows={3}
+                              className="mt-2 min-h-[86px] w-full resize-none border-none bg-transparent text-[14px] leading-6 text-[#5f6778] outline-none placeholder:text-[#b0b8c8]"
+                            />
+                          </label>
                         </div>
                       </div>
                     </div>
@@ -24914,31 +24980,35 @@ export default function App() {
     setActivePage("generate");
   };
 
-  const handleUpdateDeepProgress = (jobId, progress) => {
+  const handleUpdateDeepProgress = useCallback((jobId, progress) => {
     setJobs((prev) =>
       prev.map((item) =>
         item.id === jobId
-          ? {
-              ...item,
-              agentProgress: progress,
-            }
+          ? JSON.stringify(item.agentProgress || {}) === JSON.stringify(progress || {})
+            ? item
+            : {
+                ...item,
+                agentProgress: progress,
+              }
           : item,
       ),
     );
-  };
+  }, []);
 
-  const handleUpdateDeepState = (jobId, nextState) => {
+  const handleUpdateDeepState = useCallback((jobId, nextState) => {
     setJobs((prev) =>
       prev.map((item) =>
         item.id === jobId
-          ? {
-              ...item,
-              agentState: nextState,
-            }
+          ? JSON.stringify(item.agentState || {}) === JSON.stringify(nextState || {})
+            ? item
+            : {
+                ...item,
+                agentState: nextState,
+              }
           : item,
       ),
     );
-  };
+  }, []);
 
   const handleStepFlowAction = (jobId, payload) => {
     const userMessage = getStepFlowUserMessage(payload);
