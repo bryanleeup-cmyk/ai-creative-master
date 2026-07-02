@@ -191,6 +191,15 @@ const assetFolders = [
   { id: "folder-618", name: "618 活动素材" },
 ];
 
+const ASSET_UNCATEGORIZED_FOLDER_ID = "uncategorized";
+
+const buildInitialAssetFolders = () =>
+  assetFolders.map((folder, index) => ({
+    ...folder,
+    kind: folder.id === "all" ? "system" : "custom",
+    pinned: index === 1,
+  }));
+
 const assetTypeMeta = {
   image: { label: "图片", tone: "bg-[#edf6ff] text-[#2276d2]", icon: ImageIcon },
   video: { label: "视频", tone: "bg-[#f0edff] text-[#6748e8]", icon: Film },
@@ -488,10 +497,10 @@ const STORYBOARD_VOICE_SCRIPT_MIN_SECONDS = 6;
 const STORYBOARD_VOICE_SCRIPT_MAX_SECONDS = 60;
 const STORYBOARD_VOICE_SCRIPT_CHARS_PER_SECOND = 4.2;
 const DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH = 1364;
-const DEEP_CHAT_RAIL_DEFAULT_WIDTH = 538;
+const DEEP_CHAT_RAIL_DEFAULT_WIDTH = 360;
 const DEEP_CHAT_RAIL_MIN_WIDTH = 236;
 const DEEP_CHAT_RAIL_COMFORT_MIN_WIDTH = 360;
-const DEEP_CHAT_RAIL_MAX_WIDTH = 538;
+const DEEP_CHAT_RAIL_MAX_WIDTH = 420;
 const DEEP_SPLIT_HANDLE_WIDTH = 1;
 const STORYBOARD_SETTINGS_PANEL_DEFAULT_WIDTH = 320;
 const STORYBOARD_SETTINGS_PANEL_MIN_WIDTH = 260;
@@ -3201,10 +3210,10 @@ function clampNumber(value, min, max) {
 
 function getDeepModeWorkspaceTargetWidth(containerWidth = DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) {
   const safeWidth = Number(containerWidth) || DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH;
-  if (safeWidth >= 1500) return 900;
-  if (safeWidth >= DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) return 825;
-  if (safeWidth >= 1180) return 700;
-  if (safeWidth >= 1000) return 620;
+  if (safeWidth >= 1500) return 1080;
+  if (safeWidth >= DEEP_CHAT_RAIL_FIGMA_SHELL_WIDTH) return 1003;
+  if (safeWidth >= 1180) return 820;
+  if (safeWidth >= 1000) return 640;
   if (safeWidth >= 880) return 560;
   if (safeWidth >= 760) return 500;
   return 440;
@@ -17988,12 +17997,14 @@ function DeepModeView({
           >
             <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-1">
-                  <div className="deep-plan-title-16 font-medium text-black">方案概述</div>
-                  <AlertCircle className="h-3.5 w-3.5 text-[#838995]" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="deep-plan-title-16 font-medium text-black">整体方案</div>
+                  <span className="inline-flex h-5 items-center rounded-full bg-[#f3f6fb] px-2 text-[11px] font-medium text-[#7a8291]">
+                    剧本大纲 + 口播脚本
+                  </span>
                 </div>
                 <div className="mt-1 text-[12px] leading-4 text-[#838995]">
-                  剧本大纲与口播脚本逐段对应。
+                  每段保留独立输入框，右侧角色条用于控制该段出镜角色。
                 </div>
               </div>
               {!outlineSyncState ? (
@@ -18006,7 +18017,7 @@ function DeepModeView({
                   }}
                   disabled={isComposerGenerating}
                   disabledReason={composerBusyTooltip}
-                  tooltip="生成新概述"
+                  tooltip="优化整体方案"
                   tooltipSide="top"
                   tooltipAlign="center"
                   buttonClassName={composerIconButtonClass}
@@ -18026,7 +18037,7 @@ function DeepModeView({
                   待同步
                 </span>
                 <span className="text-[12px] leading-5 text-[#8a6a3b]">
-                  角色已变更，剧本大纲仍保留上次同步版本。
+                  角色已变更，剧本大纲与口播脚本仍保留上次同步版本。
                 </span>
                 <DisabledTooltip
                   disabled={isComposerGenerating}
@@ -18048,7 +18059,7 @@ function DeepModeView({
               </div>
             ) : null}
 
-            <div className="space-y-5">
+            <div className="space-y-4">
               {outlines.map((item, index) => {
                 const activeAvatarCount = (item.avatars || []).filter((avatarIndex) => outlineCharacterOptions[avatarIndex]).length;
 
@@ -18059,7 +18070,7 @@ function DeepModeView({
                     }}
                     key={`outline-${index}`}
                     className={cn(
-                      "flex items-start gap-2 rounded-[10px] border border-transparent transition-colors",
+                      "grid grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-[12px] border border-transparent transition-colors",
                       outlineSyncState && "bg-[#fffdf8]",
                       recentOutlineChange?.type === "all" && "border-[#d9cbff] bg-[#fbf8ff]",
                       recentOutlineChange?.type === "single" &&
@@ -18069,79 +18080,36 @@ function DeepModeView({
                     )}
                   >
                     <div className="flex self-stretch flex-col items-center">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#d1dff2] bg-white text-[14px] leading-[20px] text-black">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#dbe5ff] bg-white text-[13px] font-medium leading-[20px] text-[#3a5bfd]">
                         {index + 1}
                       </div>
-                      <div className={cn("mt-3 w-px flex-1 bg-[#e0e8f5]", index === outlines.length - 1 && "opacity-0")} />
+                      <div className={cn("mt-2 w-px flex-1 bg-[#e6edf8]", index === outlines.length - 1 && "opacity-0")} />
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(event) => updateOutlineField(index, "title", event.target.value)}
-                        onFocus={() => beginManualEditRecord(`step2-outline-${index}-title`, item.title)}
-                        onBlur={(event) =>
-                          finishManualEditRecord({
-                            key: `step2-outline-${index}-title`,
-                            value: event.target.value,
-                            title: `手动修改了第 ${index + 1} 段标题`,
-                            step: 2,
-                            target: "方案规划",
-                          })
-                        }
-                        placeholder={`请输入第 ${index + 1} 段标题`}
-                        className="h-6 w-full border-none bg-transparent text-[14px] font-medium leading-5 text-black outline-none placeholder:text-[#838995]"
-                      />
+                    <div className="min-w-0 rounded-[10px] bg-[#f8f9fb] px-3 py-2.5">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={(event) => updateOutlineField(index, "title", event.target.value)}
+                          onFocus={() => beginManualEditRecord(`step2-outline-${index}-title`, item.title)}
+                          onBlur={(event) =>
+                            finishManualEditRecord({
+                              key: `step2-outline-${index}-title`,
+                              value: event.target.value,
+                              title: `手动修改了第 ${index + 1} 段标题`,
+                              step: 2,
+                              target: "方案规划",
+                            })
+                          }
+                          placeholder={`请输入第 ${index + 1} 段标题`}
+                          className="h-6 min-w-[160px] flex-1 border-none bg-transparent text-[14px] font-medium leading-5 text-black outline-none placeholder:text-[#838995]"
+                        />
 
-                      <div className="mt-2 grid gap-2 min-[1120px]:grid-cols-2">
-                        <label className="block rounded-[8px] bg-[#f6f7f9] px-3 py-2">
-                          <span className="text-[11px] font-medium leading-4 text-[#838995]">剧本大纲</span>
-                          <textarea
-                            value={item.desc}
-                            onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
-                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
-                            onBlur={(event) =>
-                              finishManualEditRecord({
-                                key: `step2-outline-${index}-desc`,
-                                value: event.target.value,
-                                title: `手动修改了第 ${index + 1} 段大纲描述`,
-                                step: 2,
-                                target: "方案规划",
-                              })
-                            }
-                            placeholder="请输入这一段的大纲描述"
-                            rows={2}
-                            className="mt-1 min-h-[54px] w-full resize-none border-none bg-transparent text-[12px] leading-[20px] text-black outline-none placeholder:text-[#838995]"
-                          />
-                        </label>
-                        <label className="block rounded-[8px] bg-[#f6f7f9] px-3 py-2">
-                          <span className="text-[11px] font-medium leading-4 text-[#838995]">口播脚本</span>
-                          <textarea
-                            value={item.subtitle || ""}
-                            onChange={(event) => updateOutlineField(index, "subtitle", event.target.value)}
-                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-subtitle`, item.subtitle || "")}
-                            onBlur={(event) =>
-                              finishManualEditRecord({
-                                key: `step2-outline-${index}-subtitle`,
-                                value: event.target.value,
-                                title: `手动修改了第 ${index + 1} 段口播脚本`,
-                                step: 2,
-                                target: "方案规划",
-                              })
-                            }
-                            placeholder="请输入这一段的口播脚本"
-                            rows={2}
-                            className="mt-1 min-h-[54px] w-full resize-none border-none bg-transparent text-[12px] leading-[20px] text-black outline-none placeholder:text-[#838995]"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3">
-                        <div className="shrink-0 text-[14px] font-medium leading-5 text-[#686e7a]">
-                          出镜角色{activeAvatarCount}/{Math.max(outlineCharacterOptions.length, 1)}
-                        </div>
-                        <div className="flex min-w-0 flex-wrap gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                          <span className="mr-1 shrink-0 text-[12px] font-medium leading-5 text-[#838995]">
+                            出镜角色{activeAvatarCount}/{Math.max(outlineCharacterOptions.length, 1)}
+                          </span>
                           {outlineCharacterOptions.map((character, avatarIndex) => {
                             const active = (item.avatars || []).includes(avatarIndex);
 
@@ -18159,10 +18127,10 @@ function DeepModeView({
                                   onClick={() => toggleOutlineCharacter(index, avatarIndex)}
                                   disabled={Boolean(outlineSyncState)}
                                   className={cn(
-                                    "flex h-8 min-w-[80px] items-center gap-1 overflow-hidden rounded-[4px] pr-2 text-left transition-colors disabled:cursor-not-allowed",
+                                    "flex h-6 max-w-[108px] items-center gap-1 overflow-hidden rounded-[4px] pr-1.5 text-left transition-colors disabled:cursor-not-allowed",
                                     active
                                       ? "border border-[#3a5bfd] bg-[#f2f7ff] text-[#3a5bfd]"
-                                      : "border border-transparent bg-[#f6f7f9] text-black hover:bg-[#eef2ff]",
+                                      : "border border-transparent bg-white text-[#686e7a] hover:bg-[#eef2ff] hover:text-[#3a5bfd]",
                                     outlineSyncState && "opacity-85",
                                   )}
                                   title={outlineSyncState ? undefined : character.name}
@@ -18170,7 +18138,7 @@ function DeepModeView({
                                   <img
                                     src={character.avatar}
                                     alt={character.name}
-                                    className="h-full w-8 shrink-0 rounded-[4px] object-cover"
+                                    className="h-full w-6 shrink-0 rounded-[4px] object-cover"
                                   />
                                   <span className="truncate text-[12px] font-medium leading-4">{character.name}</span>
                                 </button>
@@ -18178,6 +18146,49 @@ function DeepModeView({
                             );
                           })}
                         </div>
+                      </div>
+
+                      <div className="mt-2 grid gap-2 min-[1120px]:grid-cols-2">
+                        <label className="block rounded-[8px] border border-[#edf1f6] bg-white px-3 py-[7px] transition-colors focus-within:border-[#b9c8ff]">
+                          <span className="text-[11px] font-medium leading-4 text-[#9aa2b2]">剧本大纲</span>
+                          <textarea
+                            value={item.desc}
+                            onChange={(event) => updateOutlineField(index, "desc", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-desc`, item.desc)}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-desc`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段大纲描述`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder="请输入这一段的大纲描述"
+                            rows={2}
+                            className="mt-1 min-h-[48px] w-full resize-none border-none bg-transparent text-[12px] leading-[19px] text-black outline-none placeholder:text-[#838995]"
+                          />
+                        </label>
+                        <label className="block rounded-[8px] border border-[#edf1f6] bg-white px-3 py-[7px] transition-colors focus-within:border-[#b9c8ff]">
+                          <span className="text-[11px] font-medium leading-4 text-[#9aa2b2]">口播脚本</span>
+                          <textarea
+                            value={item.subtitle || ""}
+                            onChange={(event) => updateOutlineField(index, "subtitle", event.target.value)}
+                            onFocus={() => beginManualEditRecord(`step2-outline-${index}-subtitle`, item.subtitle || "")}
+                            onBlur={(event) =>
+                              finishManualEditRecord({
+                                key: `step2-outline-${index}-subtitle`,
+                                value: event.target.value,
+                                title: `手动修改了第 ${index + 1} 段口播脚本`,
+                                step: 2,
+                                target: "方案规划",
+                              })
+                            }
+                            placeholder="请输入这一段的口播脚本"
+                            rows={2}
+                            className="mt-1 min-h-[48px] w-full resize-none border-none bg-transparent text-[12px] leading-[19px] text-black outline-none placeholder:text-[#838995]"
+                          />
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -22414,6 +22425,23 @@ function getAssetFolderName(folderId, folders) {
   return folders.find((folder) => folder.id === folderId)?.name || "未分类";
 }
 
+function getCustomAssetFolders(folders) {
+  return folders
+    .filter((folder) => folder.kind === "custom")
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return a.name.localeCompare(b.name, "zh-Hans-CN");
+    });
+}
+
+function getFolderAssetCount(assets, folderId) {
+  return assets.filter((asset) => asset.folderId === folderId).length;
+}
+
+function getFolderPreviewAssets(assets, folderId) {
+  return assets.filter((asset) => asset.folderId === folderId && asset.thumbnail).slice(0, 4);
+}
+
 function AssetPrimaryButton({ children, onClick, icon: Icon }) {
   return (
     <button
@@ -22924,20 +22952,20 @@ function AssetModalShell({ open, title, children, footer, onClose }) {
   );
 }
 
-function UploadAssetModal({ open, folders, onClose, onConfirm }) {
+function UploadAssetModal({ open, folders, defaultFolderId = "folder-edu", onClose, onConfirm }) {
   const [files, setFiles] = useState([]);
   const [type, setType] = useState("image");
-  const [folderId, setFolderId] = useState("folder-edu");
+  const [folderId, setFolderId] = useState(defaultFolderId);
   const [tags, setTags] = useState("上传素材, 可复用");
 
   useEffect(() => {
     if (!open) {
       setFiles([]);
       setType("image");
-      setFolderId("folder-edu");
+      setFolderId(defaultFolderId || "folder-edu");
       setTags("上传素材, 可复用");
     }
-  }, [open]);
+  }, [defaultFolderId, open]);
 
   return (
     <AssetModalShell
@@ -23449,6 +23477,156 @@ function AssetFlowPreview({ asset, className = "", style }) {
   );
 }
 
+function AssetFolderCover({ assets }) {
+  if (!assets.length) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#edf7ff_0%,#f5f1ff_100%)] text-[#6f86ff]">
+        <FolderOpen className="h-10 w-10" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid h-full w-full grid-cols-2 gap-0.5 bg-[#edf1f7]">
+      {Array.from({ length: 4 }).map((_, index) => {
+        const asset = assets[index] || assets[0];
+        return (
+          <div key={`${asset.id}-${index}`} className="overflow-hidden bg-[#f5f7fb]">
+            <img src={asset.thumbnail} alt="" className="h-full w-full object-cover" />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AssetCreateFolderTile({ onCreateFolder }) {
+  return (
+    <button
+      type="button"
+      onClick={onCreateFolder}
+      className="group flex aspect-square min-h-[154px] flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c8d4ee] bg-white/58 text-[#5f6878] transition-all hover:border-[#91a7ff] hover:bg-white hover:text-[#3a5bfd] hover:shadow-[0_14px_30px_rgba(83,101,146,0.12)]"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#f1f5ff] transition-all group-hover:bg-[#edf3ff]">
+        <Plus className="h-5 w-5" />
+      </span>
+      <span className="mt-3 text-[14px] font-semibold">新建文件夹</span>
+    </button>
+  );
+}
+
+function AssetFolderTile({ folder, assets, onOpenFolder, onFolderAction }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const previewAssets = getFolderPreviewAssets(assets, folder.id);
+  const assetCount = getFolderAssetCount(assets, folder.id);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenFolder(folder)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpenFolder(folder);
+        }
+      }}
+      className="group relative min-w-0 cursor-pointer rounded-[14px] text-left transition-all hover:-translate-y-0.5"
+    >
+      <div className="relative aspect-square overflow-hidden rounded-[14px] bg-white/68 shadow-[0_10px_24px_rgba(83,101,146,0.08)] ring-1 ring-black/[0.04] transition-all group-hover:shadow-[0_16px_34px_rgba(71,91,143,0.16)]">
+        <AssetFolderCover assets={previewAssets} />
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-[linear-gradient(180deg,rgba(20,28,45,0)_0%,rgba(20,28,45,0.72)_100%)] px-3 pb-3 pt-8">
+          <div className="min-w-0">
+            <div className="truncate text-[14px] font-semibold text-white drop-shadow">{folder.name}</div>
+            <div className="mt-0.5 text-[11px] font-medium text-white/76">{assetCount} 个素材</div>
+          </div>
+          {folder.pinned ? (
+            <span className="shrink-0 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-[#3a5bfd]">
+              置顶
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setMenuOpen((prev) => !prev);
+          }}
+          className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/90 text-[#202634] opacity-0 shadow-[0_8px_18px_rgba(20,28,45,0.14)] transition-all hover:text-[#3a5bfd] group-hover:opacity-100"
+          aria-label="文件夹操作"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+      {menuOpen ? (
+        <div
+          className="absolute right-2 top-11 z-30 w-[144px] overflow-hidden rounded-[12px] bg-white/96 py-1 shadow-[0_16px_36px_rgba(20,28,45,0.2)]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {[
+            [folder.pinned ? "取消置顶" : "置顶", "pin", ArrowUp],
+            ["重命名", "rename", PencilLine],
+            ["下载文件夹", "download", Download],
+            ["删除", "delete", Trash2],
+          ].map(([label, action, Icon]) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onFolderAction(action, folder);
+              }}
+              className={cn(
+                "flex h-9 w-full items-center gap-2 px-3 text-left text-[12px] font-semibold hover:bg-[#f5f7fb]",
+                action === "delete" ? "text-[#d92f3d]" : "text-[#202634]",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-2 flex items-center gap-1.5 px-0.5">
+        <FolderOpen className="h-4 w-4 shrink-0 text-[#6f86ff]" />
+        <span className="min-w-0 truncate text-[13px] font-semibold text-[#202634]">{folder.name}</span>
+        <span className="shrink-0 text-[12px] font-medium text-[#9aa2b2]">{assetCount}</span>
+      </div>
+    </div>
+  );
+}
+
+function AssetFolderSection({ folders, assets, expanded, onToggleExpanded, onCreateFolder, onOpenFolder, onFolderAction }) {
+  const customFolders = getCustomAssetFolders(folders);
+
+  return (
+    <section className="mb-9">
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="mb-4 inline-flex h-8 items-center gap-2 rounded-[12px] px-1 text-[18px] font-semibold text-[#202634] hover:text-[#3a5bfd]"
+      >
+        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        文件夹 <span className="text-[14px] text-[#8a93a6]">({customFolders.length})</span>
+      </button>
+      {expanded ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-2.5 xl:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
+          <AssetCreateFolderTile onCreateFolder={onCreateFolder} />
+          {customFolders.map((folder) => (
+            <AssetFolderTile
+              key={folder.id}
+              folder={folder}
+              assets={assets}
+              onOpenFolder={onOpenFolder}
+              onFolderAction={onFolderAction}
+            />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function AssetLightButton({ children, icon: Icon, onClick, active = false, danger = false }) {
   return (
     <button
@@ -23555,6 +23733,9 @@ function AssetActiveFilterTags({ activeFilters, onRemove, onClear }) {
 function AssetFlowTopBar({
   activeTab,
   onTabChange,
+  folders,
+  activeFolder,
+  activeFolderCount,
   typeFilter,
   onTypeFilterChange,
   projectFilter,
@@ -23578,6 +23759,7 @@ function AssetFlowTopBar({
   onClearFilters,
   onRemoveFilter,
   onUpload,
+  onCreateFolder,
   onSync,
 }) {
   const activeTabDescription = assetTabOptions.find((tab) => tab.id === activeTab)?.description;
@@ -23644,6 +23826,7 @@ function AssetFlowTopBar({
               </div>
               <AssetLightButton icon={CheckSquare} onClick={onStartBatch}>批量操作</AssetLightButton>
               <AssetLightButton icon={RefreshCcw} onClick={onSync}>同步到项目</AssetLightButton>
+              <AssetLightButton icon={FolderPlus} onClick={onCreateFolder}>新建文件夹</AssetLightButton>
               <button
                 type="button"
                 onClick={onUpload}
@@ -23660,6 +23843,22 @@ function AssetFlowTopBar({
       <div className="mt-1 text-[12px] font-medium text-[#8a93a6]">{activeTabDescription}</div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {activeFolder ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onProjectFilterChange("all")}
+              className="h-8 rounded-full bg-white/70 px-3 text-[13px] font-semibold text-[#5f6878] hover:bg-white hover:text-[#3a5bfd]"
+            >
+              所有作品
+            </button>
+            <ChevronRight className="h-4 w-4 text-[#a1a9b8]" />
+            <span className="h-8 rounded-full bg-[#edf3ff] px-3 py-[7px] text-[13px] font-semibold leading-none text-[#3a5bfd]">
+              {activeFolder.name} ({activeFolderCount})
+            </span>
+            <span className="mx-1 h-4 w-px bg-[#d9e2f0]" />
+          </>
+        ) : null}
         {assetTypeFilters.map((item) => (
           <button
             key={item.id}
@@ -23698,7 +23897,7 @@ function AssetFlowTopBar({
           onChange={(event) => onProjectFilterChange(event.target.value)}
           className="ml-1 h-8 rounded-full border border-transparent bg-white/60 px-3 text-[13px] font-semibold text-[#5f6878] outline-none hover:bg-white"
         >
-          {assetFolders.map((folder) => (
+          {folders.map((folder) => (
             <option key={folder.id} value={folder.id}>{folder.name}</option>
           ))}
         </select>
@@ -24056,6 +24255,7 @@ function AssetFlowDetailDrawer({ asset, onClose, onAction }) {
 }
 
 function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
+  const [folders, setFolders] = useState(buildInitialAssetFolders);
   const [assets, setAssets] = useState(mockAssetSeedItems);
   const [activeTab, setActiveTab] = useState("history");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -24063,13 +24263,16 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [foldersExpanded, setFoldersExpanded] = useState(true);
   const [activeFilters, setActiveFilters] = useState({ action: [], source: [], spec: [], time: [], project: [] });
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [detailAssetId, setDetailAssetId] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
   const [moveState, setMoveState] = useState(null);
   const [deleteState, setDeleteState] = useState(null);
+  const [deleteFolderState, setDeleteFolderState] = useState(null);
 
   const notify = (payload) => onNotify?.(payload);
 
@@ -24110,6 +24313,8 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
 
   const groupedAssets = useMemo(() => groupAssetsByDate(visibleAssets), [visibleAssets]);
   const detailAsset = assets.find((asset) => asset.id === detailAssetId) || null;
+  const activeFolder = projectFilter === "all" ? null : folders.find((folder) => folder.id === projectFilter) || null;
+  const activeFolderCount = activeFolder ? getFolderAssetCount(assets, activeFolder.id) : 0;
   const selectionMode = bulkMode || selectedIds.length > 0;
 
   useEffect(() => {
@@ -24149,7 +24354,9 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
     const nextIds = ids?.length ? ids : selectedIds;
     if (!nextIds.length) return;
     const firstAsset = assets.find((asset) => asset.id === nextIds[0]);
-    setMoveState({ ids: nextIds, defaultFolderId: firstAsset?.folderId || "folder-edu" });
+    const customFolderIds = getCustomAssetFolders(folders).map((folder) => folder.id);
+    const defaultFolderId = customFolderIds.includes(firstAsset?.folderId) ? firstAsset.folderId : customFolderIds[0];
+    setMoveState({ ids: nextIds, defaultFolderId });
   };
 
   const requestDelete = (ids) => {
@@ -24215,7 +24422,7 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
   };
 
   const handleUpload = ({ files, type, folderId, tags }) => {
-    const folderName = assetFolders.find((folder) => folder.id === folderId)?.name || "全部项目";
+    const folderName = folders.find((folder) => folder.id === folderId)?.name || "未分类作品";
     const tagList = tags.split(/[,，]/u).map((tag) => tag.trim()).filter(Boolean);
     const nextItems = Array.from(files || []).map((file, index) => {
       const isVideo = type === "video" || file.type.startsWith("video/");
@@ -24251,9 +24458,59 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
     notify({ type: "success", title: "素材已上传", description: `已添加 ${nextItems.length} 个本地 Mock 素材。` });
   };
 
+  const handleCreateFolder = (name) => {
+    const nextName = name.trim().slice(0, 20);
+    if (!nextName) return;
+    const folder = {
+      id: `folder-custom-${Date.now()}`,
+      name: nextName,
+      kind: "custom",
+      pinned: false,
+    };
+    setFolders((prev) => [...prev, folder]);
+    setProjectFilter(folder.id);
+    setFolderOpen(false);
+    setSelectedIds([]);
+    setBulkMode(false);
+    notify({ type: "success", title: "文件夹已创建", description: `已进入「${nextName}」。` });
+  };
+
+  const handleFolderAction = (action, folder) => {
+    if (action === "pin") {
+      setFolders((prev) =>
+        prev.map((item) => (item.id === folder.id ? { ...item, pinned: !item.pinned } : item)),
+      );
+      notify({ type: "success", title: folder.pinned ? "已取消置顶" : "文件夹已置顶", description: folder.name });
+      return;
+    }
+    if (action === "rename") {
+      const nextName = window.prompt("重命名文件夹", folder.name)?.trim().slice(0, 20);
+      if (!nextName) return;
+      setFolders((prev) => prev.map((item) => (item.id === folder.id ? { ...item, name: nextName } : item)));
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.folderId === folder.id ? { ...asset, folderName: nextName, projectName: nextName } : asset,
+        ),
+      );
+      notify({ type: "success", title: "文件夹已重命名", description: nextName });
+      return;
+    }
+    if (action === "download") {
+      notify({
+        type: "success",
+        title: "下载文件夹已触发",
+        description: `已准备「${folder.name}」中的 ${getFolderAssetCount(assets, folder.id)} 个素材。`,
+      });
+      return;
+    }
+    if (action === "delete") {
+      setDeleteFolderState(folder);
+    }
+  };
+
   const handleMoveConfirm = (folderId) => {
     if (!moveState?.ids?.length) return;
-    const folderName = assetFolders.find((folder) => folder.id === folderId)?.name || "全部项目";
+    const folderName = folders.find((folder) => folder.id === folderId)?.name || "未分类作品";
     setAssets((prev) =>
       prev.map((asset) =>
         moveState.ids.includes(asset.id)
@@ -24276,13 +24533,41 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
     notify({ type: "success", title: "素材已移入回收站", description: "30 天内可恢复。" });
   };
 
-  const isFiltered = query.trim() || typeFilter !== "all" || projectFilter !== "all" || Object.values(activeFilters).some((items) => items.length);
+  const confirmDeleteFolder = () => {
+    if (!deleteFolderState) return;
+    const folderId = deleteFolderState.id;
+    setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
+    setAssets((prev) =>
+      prev.map((asset) =>
+        asset.folderId === folderId
+          ? {
+              ...asset,
+              folderId: ASSET_UNCATEGORIZED_FOLDER_ID,
+              folderName: "未分类作品",
+              projectName: "未分类作品",
+              updatedAt: "2026-06-09 10:00",
+            }
+          : asset,
+      ),
+    );
+    if (projectFilter === folderId) setProjectFilter("all");
+    setDeleteFolderState(null);
+    notify({ type: "success", title: "文件夹已删除", description: "其中素材已移动到未分类作品。" });
+  };
+
+  const hasContentFilters = query.trim() || typeFilter !== "all" || Object.values(activeFilters).some((items) => items.length);
+  const isFiltered = hasContentFilters || projectFilter !== "all";
   const [emptyTitle, emptyDescription] =
-    isFiltered && !visibleAssets.length
+    activeFolder && !hasContentFilters
+      ? [`${activeFolder.name} 还没有素材`, "上传素材，或从其它文件夹移动素材到这里。"]
+      : isFiltered && !visibleAssets.length
       ? query.trim()
         ? emptyCopy.noResult
         : emptyCopy.filterNoResult
       : emptyCopy[activeTab] || emptyCopy.history;
+  const emptyActionLabel = activeFolder && !hasContentFilters ? "上传素材" : isFiltered ? "清除筛选" : "上传素材";
+  const handleEmptyAction = activeFolder && !hasContentFilters ? () => setUploadOpen(true) : isFiltered ? clearFilters : () => setUploadOpen(true);
+  const showFolderSection = projectFilter === "all" && activeTab === "history";
 
   return (
     <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_12%_0%,rgba(214,238,255,0.72),transparent_30%),radial-gradient(circle_at_86%_2%,rgba(236,231,255,0.72),transparent_26%),linear-gradient(180deg,#f9fbff_0%,#fbfdff_100%)]">
@@ -24292,6 +24577,9 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
           setActiveTab(tabId);
           setSelectedIds([]);
         }}
+        folders={folders}
+        activeFolder={activeFolder}
+        activeFolderCount={activeFolderCount}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
         projectFilter={projectFilter}
@@ -24318,10 +24606,26 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
         onClearFilters={clearFilters}
         onRemoveFilter={removeFilter}
         onUpload={() => setUploadOpen(true)}
+        onCreateFolder={() => setFolderOpen(true)}
         onSync={() => notify({ type: "success", title: "已同步到项目", description: "Mock 同步完成。" })}
       />
 
       <div className="h-[calc(100%-152px)] overflow-y-auto px-8 pb-10 pt-7 scrollbar-hide">
+        {showFolderSection ? (
+          <AssetFolderSection
+            folders={folders}
+            assets={assets}
+            expanded={foldersExpanded}
+            onToggleExpanded={() => setFoldersExpanded((prev) => !prev)}
+            onCreateFolder={() => setFolderOpen(true)}
+            onOpenFolder={(folder) => {
+              setProjectFilter(folder.id);
+              setSelectedIds([]);
+              setBulkMode(false);
+            }}
+            onFolderAction={handleFolderAction}
+          />
+        ) : null}
         {groupedAssets.length ? (
           groupedAssets.map((group) => (
             <AssetDateSection
@@ -24338,8 +24642,8 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
           <AssetFlowEmptyState
             title={emptyTitle}
             description={emptyDescription}
-            actionLabel={isFiltered ? "清除筛选" : "上传素材"}
-            onAction={isFiltered ? clearFilters : () => setUploadOpen(true)}
+            actionLabel={emptyActionLabel}
+            onAction={handleEmptyAction}
           />
         )}
       </div>
@@ -24356,18 +24660,20 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
       </AnimatePresence>
       <UploadAssetModal
         open={uploadOpen}
-        folders={assetFolders.map((folder) => ({ ...folder, kind: folder.id === "all" ? "system" : "custom" }))}
+        folders={folders}
+        defaultFolderId={activeFolder?.id || getCustomAssetFolders(folders)[0]?.id || "folder-edu"}
         onClose={() => setUploadOpen(false)}
         onConfirm={handleUpload}
       />
       <MoveAssetModal
         open={Boolean(moveState)}
-        folders={assetFolders.map((folder) => ({ ...folder, kind: folder.id === "all" ? "system" : "custom" }))}
+        folders={folders}
         assetCount={moveState?.ids?.length || 0}
         defaultFolderId={moveState?.defaultFolderId}
         onClose={() => setMoveState(null)}
         onConfirm={handleMoveConfirm}
       />
+      <CreateFolderModal open={folderOpen} onClose={() => setFolderOpen(false)} onConfirm={handleCreateFolder} />
       <DeleteConfirmModal
         open={Boolean(deleteState)}
         title="确认删除素材"
@@ -24376,6 +24682,15 @@ function AssetLibraryFlowPage({ onNotify, onUseAsset }) {
         cancelLabel="取消"
         onClose={() => setDeleteState(null)}
         onConfirm={confirmDelete}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleteFolderState)}
+        title="确认删除文件夹"
+        description={deleteFolderState ? `确定删除文件夹「${deleteFolderState.name}」吗？文件夹中的素材会移动到未分类作品。` : ""}
+        confirmLabel="删除"
+        cancelLabel="取消"
+        onClose={() => setDeleteFolderState(null)}
+        onConfirm={confirmDeleteFolder}
       />
     </div>
   );
